@@ -1926,7 +1926,12 @@ function buildBlacksire(){
     [-25,-42,SY],[25,-42,SY],[-25,42,SY],[25,42,SY],
     [-12,-26,0],[12,-26,0],[-12,-10,0],[12,-10,0]
   ];
-  BOX_SPOTS=[[-31,18,SY],[31,18,SY],[-28,-24,0],[24,-11,0],[0,-27,0]];
+  // x, z, floor height, yaw. Each box faces the nearest room entrance instead
+  // of presenting its back or side to the player.
+  BOX_SPOTS=[
+    [-31,18,SY,-Math.PI/2],[31,18,SY,Math.PI/2],
+    [-28,-24,0,-Math.PI/2],[24,-11,0,Math.PI/2],[0,-27,0,Math.PI]
+  ];
   mannequins=[]; nukeSign=null; nukeClock=null;
 
   worldRoot.add(new THREE.HemisphereLight(0x536b83,0x090d12,.58));
@@ -2135,11 +2140,11 @@ function buildBlacksire(){
   addAmmoBuy('m4a1',-8.18,2.0,-16,-Math.PI/2,400);
 
   addPerkMachine('revive',-12,34,SY,0);
-  addPerkMachine('jugg',24,-28,0,0);
-  addPerkMachine('speed',-24,-28,0,0);
-  addPerkMachine('dtap',36,-18,SY,-Math.PI/2);
-  addPerkMachine('stamin',-36,-18,SY,Math.PI/2);
-  addPerkMachine('mule',18,-9,0,Math.PI);
+  addPerkMachine('jugg',24,-28,0,Math.PI);
+  addPerkMachine('speed',-24,-28,0,Math.PI);
+  addPerkMachine('dtap',36,-18,SY,Math.PI/2);
+  addPerkMachine('stamin',-36,-18,SY,-Math.PI/2);
+  addPerkMachine('mule',18,-9,0,0);
   addPackAPunch(0,-28,0,0);
 
   // Driving rain uses the existing particle updater with a BLACKSIRE speed.
@@ -3972,7 +3977,9 @@ function addPerkMachine(key,x,z,y0,rot){
     map:tex(128,72,(c,w,h)=>{c.clearRect(0,0,w,h);c.fillStyle='#0b0d12';c.fillRect(0,0,w,h);
       c.fillStyle='#f2ead6';c.font='bold 22px Arial';c.textAlign='center';c.textBaseline='middle';
       c.fillText(P.name.toUpperCase(),w/2,h/2);}),transparent:true}));
-  lbl.position.set(0,0.62,-0.54); g.add(lbl);
+  // The machine front is local -Z (the same side as its interaction point).
+  // PlaneGeometry faces +Z by default, so turn the label around to match it.
+  lbl.position.set(0,0.62,-0.54); lbl.rotation.y=Math.PI; g.add(lbl);
   const L=new THREE.PointLight(P.col,1.1,9,2); L.position.set(0,1.6,-1.0); g.add(L);
   g.position.set(x,y,z); g.rotation.y=R; worldRoot.add(g);
   addCollider(x-0.78,x+0.78,z-0.78,z+0.78,y+2.3,y-0.2);
@@ -4033,7 +4040,7 @@ function buildBox(){
     c.shadowColor='#ff9a1a'; c.shadowBlur=18; c.fillText('?',w/2,h/2+4);});
   const qMat=new THREE.MeshBasicMaterial({map:qTex,transparent:true});
   const q=new THREE.Mesh(new THREE.PlaneGeometry(0.9,0.9),qMat);
-  q.position.set(0,0.55,-0.59); g.add(q);
+  q.position.set(0,0.55,-0.59); q.rotation.y=Math.PI; g.add(q);
   const qTop=new THREE.Mesh(new THREE.PlaneGeometry(0.95,0.95),qMat.clone());
   qTop.rotation.x=-Math.PI/2; qTop.position.set(0,0.02,0.0); lid.add(qTop);   // rides the lid
   // beacon into the sky so the box is findable from anywhere
@@ -4115,12 +4122,15 @@ function finishSharedBox(weapon,owner){
 function moveBox(i){
   mbox.spot=i;
   const s=BOX_SPOTS[i];
-  const y=s[2]||0;
+  const y=s[2]||0,R=s[3]||0;
   mbox.g.position.set(s[0],y,s[1]);
-  if(!mbox.col){ addCollider(s[0]-0.9,s[0]+0.9,s[1]-0.65,s[1]+0.65,y+1.1,y); mbox.col=colliders[colliders.length-1]; }
+  mbox.g.rotation.y=R;
+  const ex=Math.abs(Math.cos(R))*.9+Math.abs(Math.sin(R))*.65;
+  const ez=Math.abs(Math.sin(R))*.9+Math.abs(Math.cos(R))*.65;
+  if(!mbox.col){ addCollider(s[0]-ex,s[0]+ex,s[1]-ez,s[1]+ez,y+1.1,y); mbox.col=colliders[colliders.length-1]; }
   else {
-    mbox.col.minX=s[0]-0.9; mbox.col.maxX=s[0]+0.9;
-    mbox.col.minZ=s[1]-0.65; mbox.col.maxZ=s[1]+0.65;
+    mbox.col.minX=s[0]-ex; mbox.col.maxX=s[0]+ex;
+    mbox.col.minZ=s[1]-ez; mbox.col.maxZ=s[1]+ez;
     mbox.col.bot=y;mbox.col.top=y+1.1;
   }
 }
@@ -4162,7 +4172,7 @@ function stepBox(dt){
       scene.add(mbox.preview);
     }
     if(mbox.preview){
-      mbox.preview.position.set(mbox.g.position.x,1.9+Math.sin(game.time*4)*0.06,mbox.g.position.z);
+      mbox.preview.position.set(mbox.g.position.x,mbox.g.position.y+1.9+Math.sin(game.time*4)*0.06,mbox.g.position.z);
       mbox.preview.rotation.y+=dt*5;
     }
     if(mbox.t>3.4){
@@ -4178,7 +4188,7 @@ function stepBox(dt){
   } else if(mbox.state==='present'){
     mbox.t+=dt;
     if(mbox.preview){
-      mbox.preview.position.set(mbox.g.position.x,1.9+Math.sin(game.time*3)*0.08,mbox.g.position.z);
+      mbox.preview.position.set(mbox.g.position.x,mbox.g.position.y+1.9+Math.sin(game.time*3)*0.08,mbox.g.position.z);
       mbox.preview.rotation.y+=dt*1.6;
     }
     if(mbox.t>9) closeBox();
@@ -4760,6 +4770,26 @@ function poseRemoteArm(upper,fore,shoulder,elbowHint,hand,smooth){
   const foreQ=new THREE.Quaternion().setFromUnitVectors(down,localDir);
   fore.quaternion.slerp(foreQ,smooth);
 }
+function makeRemoteNameTag(name,col){
+  const canvas=document.createElement('canvas'),w=512,h=96;
+  canvas.width=w;canvas.height=h;
+  const c=canvas.getContext('2d');
+  c.clearRect(0,0,w,h);
+  c.fillStyle='rgba(4,6,10,.76)';
+  c.beginPath();c.moveTo(28,10);c.lineTo(w-28,10);c.quadraticCurveTo(w-10,10,w-10,28);
+  c.lineTo(w-10,h-28);c.quadraticCurveTo(w-10,h-10,w-28,h-10);
+  c.lineTo(28,h-10);c.quadraticCurveTo(10,h-10,10,h-28);
+  c.lineTo(10,28);c.quadraticCurveTo(10,10,28,10);c.closePath();c.fill();
+  c.fillStyle='#'+col.getHexString();c.fillRect(24,h-15,w-48,5);
+  c.fillStyle='#f2ead6';c.font='700 34px Arial';c.textAlign='center';c.textBaseline='middle';
+  c.shadowColor='rgba(0,0,0,.95)';c.shadowBlur=7;
+  c.fillText(String(name||'Survivor').slice(0,18),w/2,h/2-3,w-42);
+  const map=new THREE.CanvasTexture(canvas);map.encoding=THREE.sRGBEncoding;
+  const material=new THREE.SpriteMaterial({map,transparent:true,depthTest:true,depthWrite:false});
+  const sprite=new THREE.Sprite(material);sprite.scale.set(2.8,.525,1);
+  sprite.renderOrder=5;
+  return sprite;
+}
 function makeRemotePlayer(p){
   if(!p||p.id===net.id||net.remotes.has(p.id)) return;
   const g=new THREE.Group(),rig=new THREE.Group(),col=netColor(p.id); g.add(rig);
@@ -4803,11 +4833,12 @@ function makeRemotePlayer(p){
   const flash=new THREE.Mesh(new THREE.SphereGeometry(.075,7,5),new THREE.MeshBasicMaterial({
     color:0xffcf7a,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}));
   const shotLight=new THREE.PointLight(0xffb45d,0,5,2);weaponHolder.add(flash,shotLight);
+  const nameTag=makeRemoteNameTag(p.name,col);nameTag.position.set(0,-20,0);nameTag.visible=false;scene.add(nameTag);
   g.position.set(0,-20,0); g.visible=game.running; scene.add(g);
   const remote={g,rig,target:new THREE.Vector3(),yaw:0,pitch:0,speed:0,sprint:false,ads:false,crouched:false,
     grounded:true,phase:rand(0,TAU),footStep:-1,recoil:0,meleeT:0,name:p.name||'Survivor',
     mats:[uniform,uniform2,vest,dark,skin,patch,flash.material],weapon:'',weaponMesh:null,
-    weaponHolder,meleeKnife,flash,shotLight,flashT:0,armL,armR,elbowL,elbowR,legL,legR,kneeL,kneeR,head};
+    weaponHolder,meleeKnife,flash,shotLight,nameTag,flashT:0,armL,armR,elbowL,elbowR,legL,legR,kneeL,kneeR,head};
   net.remotes.set(p.id,remote);
   setRemoteWeapon(remote,p.state&&p.state.weapon);
   if(p.state) updateRemoteState(p.id,p.state);
@@ -4852,6 +4883,8 @@ function remoteMelee(id,event){
 function removeRemotePlayer(id){
   const r=net.remotes.get(id); if(!r) return;
   if(r.weaponMesh) r.weaponHolder.remove(r.weaponMesh);
+  scene.remove(r.nameTag);
+  r.nameTag.material.map.dispose();r.nameTag.material.dispose();
   scene.remove(r.g);
   r.g.traverse(o=>{if(o.geometry)o.geometry.dispose();});
   r.mats.forEach(m=>m.dispose());
@@ -4990,6 +5023,8 @@ function netStep(dt){
     r.g.rotation.z=lerp(r.g.rotation.z,down?Math.PI/2:0,Math.min(1,dt*8));
     r.phase+=dt*(3.5+r.speed*1.7);
     const crouch=r.crouched&&!down,move=down?0:clamp(r.speed/4.5,0,1),run=r.sprint?1.22:1;
+    r.nameTag.position.set(r.g.position.x,r.g.position.y+(down?.95:(crouch?1.93:2.35)),r.g.position.z);
+    r.nameTag.visible=r.g.visible;
     const remoteStep=Math.floor((r.phase+Math.PI*.5)/Math.PI);
     if(!down&&r.grounded&&r.speed>.85&&remoteStep!==r.footStep){
       r.footStep=remoteStep;
