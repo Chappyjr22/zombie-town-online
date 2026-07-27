@@ -37,6 +37,11 @@ function cleanName(value) {
   return name || "Survivor";
 }
 
+function normalizeYaw(value) {
+  const yaw = Number(value);
+  return Number.isFinite(yaw) ? Math.atan2(Math.sin(yaw), Math.cos(yaw)) : 0;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -184,7 +189,7 @@ export class GameRoom extends DurableObject {
         x: number(source.x, -250, 250),
         y: number(source.y, -20, 80),
         z: number(source.z, -250, 250),
-        yaw: number(source.yaw, -Math.PI * 4, Math.PI * 4),
+        yaw: normalizeYaw(source.yaw),
         pitch: number(source.pitch, -Math.PI / 2, Math.PI / 2),
         hp: number(source.hp, 0, 500),
         downed: Boolean(source.downed),
@@ -209,7 +214,7 @@ export class GameRoom extends DurableObject {
           id: player.id,
           weapon: String(message.weapon || "").slice(0, 24),
           pack: Math.max(0, Math.min(2, Number(message.pack) || 0)),
-          yaw: Math.max(-Math.PI * 4, Math.min(Math.PI * 4, Number(message.yaw) || 0)),
+          yaw: normalizeYaw(message.yaw),
           pitch: Math.max(-Math.PI / 2, Math.min(Math.PI / 2, Number(message.pitch) || 0)),
         },
         ws,
@@ -222,7 +227,7 @@ export class GameRoom extends DurableObject {
         {
           type: "melee",
           id: player.id,
-          yaw: Math.max(-Math.PI * 4, Math.min(Math.PI * 4, Number(message.yaw) || 0)),
+          yaw: normalizeYaw(message.yaw),
           pitch: Math.max(-Math.PI / 2, Math.min(Math.PI / 2, Number(message.pitch) || 0)),
           hit: Boolean(message.hit),
         },
