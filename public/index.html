@@ -3300,7 +3300,7 @@ function shootOnce(){
   const d=g.def;
   g.ammo--;
   sfxShot(d.cls==='wonder'?'rifle':d.cls,packLv(g));
-  if(net.connected) netSend({type:'fire',weapon:d.id,pack:packLv(g)});
+  if(net.connected) netSend({type:'fire',weapon:d.id,pack:packLv(g),yaw:player.yaw,pitch:player.pitch});
   const fl=d.mesh.userData.flash;
   fl.material.opacity=1; fl.rotation.z=rand(0,TAU); fl.scale.setScalar(rand(.8,1.5));
   muzzleLight.intensity=d.cls==='shotgun'?7:5.5;
@@ -4238,6 +4238,17 @@ function remoteJoint(parent,x,y,z,len,radius,mat){
   mesh.position.y=-len*.5; joint.add(mesh);
   return joint;
 }
+function poseRemoteArm(upper,fore,shoulder,elbowHint,hand,smooth){
+  const down=new THREE.Vector3(0,-1,0);
+  const upperDir=elbowHint.clone().sub(shoulder).normalize();
+  const elbow=shoulder.clone().add(upperDir.clone().multiplyScalar(.34));
+  const upperQ=new THREE.Quaternion().setFromUnitVectors(down,upperDir);
+  upper.quaternion.slerp(upperQ,smooth);
+  const foreDir=hand.clone().sub(elbow).normalize();
+  const localDir=foreDir.applyQuaternion(upperQ.clone().invert());
+  const foreQ=new THREE.Quaternion().setFromUnitVectors(down,localDir);
+  fore.quaternion.slerp(foreQ,smooth);
+}
 function makeRemotePlayer(p){
   if(!p||p.id===net.id||net.remotes.has(p.id)) return;
   const g=new THREE.Group(),rig=new THREE.Group(),col=netColor(p.id); g.add(rig);
@@ -4306,6 +4317,10 @@ function setRemoteWeapon(r,id){
 function remoteFire(id,event){
   const r=net.remotes.get(id); if(!r||!r.g.visible) return;
   setRemoteWeapon(r,event.weapon);
+  if(Number.isFinite(+event.yaw)){
+    r.yaw=+event.yaw; r.g.rotation.y=r.yaw;
+  }
+  if(Number.isFinite(+event.pitch))r.pitch=clamp(+event.pitch,-1.2,1.2);
   r.flash.material.opacity=1; r.flash.scale.setScalar(rand(.8,1.5));
   r.shotLight.intensity=4; r.flashT=.09;r.recoil=1;
   const d=DEFS[r.weapon],dist=Math.hypot(r.g.position.x-player.pos.x,r.g.position.y-player.y,r.g.position.z-player.pos.z);
@@ -4326,10 +4341,16 @@ function removeRemotePlayer(id){
 function clearRemotePlayers(){
   for(const id of Array.from(net.remotes.keys())) removeRemotePlayer(id);
 }
+function rebuildRemotePlayers(){
+  if(!net.connected) return;
+  clearRemotePlayers();
+  for(const p of net.players.values())if(p.id!==net.id)makeRemotePlayer(p);
+}
 function updateRemoteState(id,s){
   const p=net.players.get(id); if(!p||id===net.id) return;
   if(!net.remotes.has(id)) makeRemotePlayer(p);
   const r=net.remotes.get(id); if(!r) return;
+  if(r.g.parent!==scene)scene.add(r.g);
   r.target.set(+s.x||0,+s.y||0,+s.z||0);
   r.yaw=+s.yaw||0; r.pitch=clamp(+s.pitch||0,-1.2,1.2);
   r.speed=clamp(+s.speed||0,0,12);r.sprint=!!s.sprint;r.ads=!!s.ads;r.grounded=s.grounded!==false;
@@ -4448,22 +4469,30 @@ function netStep(dt){
     r.phase+=dt*(3.5+r.speed*1.7);
     const move=down?0:clamp(r.speed/4.5,0,1),run=r.sprint?1.22:1;
     const stride=Math.sin(r.phase)*.82*move*run,air=!r.grounded&&!down;
-    const smooth=Math.min(1,dt*13),aim=!down&&(r.ads||r.flashT>0||r.speed<.35);
+    const smooth=Math.min(1,dt*13);
     r.legL.rotation.x=lerp(r.legL.rotation.x,air?.48:stride,smooth);
     r.legR.rotation.x=lerp(r.legR.rotation.x,air?.12:-stride,smooth);
     r.kneeL.rotation.x=lerp(r.kneeL.rotation.x,air?-.75:Math.max(0,-stride)*.65,smooth);
     r.kneeR.rotation.x=lerp(r.kneeR.rotation.x,air?-.45:Math.max(0,stride)*.65,smooth);
-    const armSwing=move*.52*run;
-    r.armL.rotation.x=lerp(r.armL.rotation.x,down?-.35:(aim?1.12:-stride*armSwing),smooth);
-    r.armR.rotation.x=lerp(r.armR.rotation.x,down?.55:(aim?1.24:stride*armSwing),smooth);
-    r.armL.rotation.z=lerp(r.armL.rotation.z,aim?-.20:.04,smooth);
-    r.armR.rotation.z=lerp(r.armR.rotation.z,aim?.25:-.04,smooth);
-    r.elbowL.rotation.x=lerp(r.elbowL.rotation.x,aim?.48:.08,smooth);
-    r.elbowR.rotation.x=lerp(r.elbowR.rotation.x,aim?.62:.08,smooth);
+    if(down){
+      r.armL.rotation.x=lerp(r.armL.rotation.x,-.35,smooth);
+      r.armR.rotation.x=lerp(r.armR.rotation.x,.55,smooth);
+      r.elbowL.rotation.x=lerp(r.elbowL.rotation.x,.12,smooth);
+      r.elbowR.rotation.x=lerp(r.elbowR.rotation.x,.12,smooth);
+    }else{
+      const lower=r.sprint?.10:0,lift=r.pitch*.18-lower,recoilZ=r.recoil*.045;
+      poseRemoteArm(r.armL,r.elbowL,new THREE.Vector3(-.255,1.49,0),
+        new THREE.Vector3(-.29,1.31+lift*.35,-.18),
+        new THREE.Vector3(-.07,1.28+lift,-.43+recoilZ),smooth);
+      poseRemoteArm(r.armR,r.elbowR,new THREE.Vector3(.255,1.49,0),
+        new THREE.Vector3(.31,1.30+lift*.35,-.16),
+        new THREE.Vector3(.13,1.25+lift,-.40+recoilZ),smooth);
+    }
     r.rig.position.y=lerp(r.rig.position.y,down?.10:Math.abs(Math.sin(r.phase))*move*.035,smooth);
     r.head.rotation.x=lerp(r.head.rotation.x,down?0:r.pitch*.28,smooth);
     r.recoil=lerp(r.recoil,0,Math.min(1,dt*18));
     r.weaponHolder.rotation.x=lerp(r.weaponHolder.rotation.x,r.pitch-r.recoil*.12,smooth);
+    r.weaponHolder.position.y=lerp(r.weaponHolder.position.y,1.30-(r.sprint?.10:0),smooth);
     r.weaponHolder.position.z=lerp(r.weaponHolder.position.z,-.25+r.recoil*.07,smooth);
     if(r.flashT>0){
       r.flashT=Math.max(0,r.flashT-dt);
@@ -4472,7 +4501,7 @@ function netStep(dt){
   }
   netHostWorld();
   if(!net.connected||!game.running||game.time<net.nextState) return;
-  net.nextState=game.time+.08;
+  net.nextState=game.time+.05;
   const g=curGun();
   netSend({type:'state',state:{x:player.pos.x,y:player.y,z:player.pos.z,yaw:player.yaw,
     pitch:player.pitch,hp:player.hp,downed:player.downed,weapon:g?g.def.id:'',map:currentMap,
@@ -4674,6 +4703,7 @@ function startGame(mapId){
   ui.downed.style.opacity=0; ui.vig.style.opacity=0;
   renderPerks(); updHUD();
   game.running=true; last=performance.now()/1000;
+  rebuildRemotePlayers();
   for(const p of net.players.values())if(p.id!==net.id&&p.state)updateRemoteState(p.id,p.state);
   if(!net.connected||net.host) startRound();
   else{game.round=0;game.toSpawn=0;game.roundTimer=ROUND_GAP;updRoundHUD();}

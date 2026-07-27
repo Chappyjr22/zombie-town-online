@@ -69,7 +69,12 @@ export default {
     }
 
     if (url.pathname.startsWith("/api/")) return json({ error: "Not found" }, 404);
-    return env.ASSETS.fetch(request);
+    const response = await env.ASSETS.fetch(request);
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("text/html")) return response;
+    const headers = new Headers(response.headers);
+    headers.set("cache-control", "no-store, max-age=0");
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
   },
 };
 
@@ -203,6 +208,8 @@ export class GameRoom extends DurableObject {
           id: player.id,
           weapon: String(message.weapon || "").slice(0, 24),
           pack: Math.max(0, Math.min(2, Number(message.pack) || 0)),
+          yaw: Math.max(-Math.PI * 4, Math.min(Math.PI * 4, Number(message.yaw) || 0)),
+          pitch: Math.max(-Math.PI / 2, Math.min(Math.PI / 2, Number(message.pitch) || 0)),
         },
         ws,
       );

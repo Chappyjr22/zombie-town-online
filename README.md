@@ -24,6 +24,7 @@ The shared multiplayer milestone is implemented:
 - Synchronized equipped weapon models, muzzle flashes, and gunshot audio
 - Host-controlled room-wide pause and resume
 - Articulated military survivor models with synchronized movement, aim, recoil, airborne, and downed animation
+- Two-handed weapon poses with fire-time yaw and pitch correction
 
 ## Current features
 
