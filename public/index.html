@@ -101,6 +101,7 @@
     background:rgba(232,163,61,.09);padding-left:26px;}
   .mitem small{display:block;font-size:9px;letter-spacing:.18em;opacity:.45;color:var(--bone);margin-top:2px;}
   .maps{display:flex;gap:16px;justify-content:center;margin:22px auto 8px;flex-wrap:wrap;}
+  #mapsel .card{max-width:920px;}
   .mapcard{pointer-events:auto;cursor:pointer;width:270px;text-align:left;border:1px solid rgba(230,224,210,.16);
     padding:0 0 14px;background:rgba(10,12,18,.4);transition:.12s;}
   .mapcard:hover,.mapcard.sel{border-color:var(--amber);background:rgba(232,163,61,.10);transform:translateY(-2px);}
@@ -121,6 +122,12 @@
   .mapart.nuke i:nth-child(2){right:12px;background:#5f9a94;box-shadow:0 -12px 0 -4px #4a4238;}
   .mapart.nuke b{position:absolute;left:50%;bottom:0;margin-left:-13px;width:26px;height:36px;background:#55565a;}
   .mapart.nuke u{position:absolute;left:50%;top:8px;margin-left:-3px;width:6px;height:36px;background:#8f96a0;}
+  .mapart.blacksire{background:linear-gradient(180deg,#111a25 0%,#253443 55%,#11161c 56%,#080b0f 100%);}
+  .mapart.blacksire i{position:absolute;bottom:13px;background:#27323b;border-top:2px solid #7e2630;}
+  .mapart.blacksire i:nth-child(1){left:14px;width:72px;height:36px;box-shadow:18px -16px 0 -12px #222d37;}
+  .mapart.blacksire i:nth-child(2){right:14px;width:66px;height:43px;box-shadow:-17px -20px 0 -15px #222d37;}
+  .mapart.blacksire b{position:absolute;left:50%;bottom:0;margin-left:-19px;width:38px;height:30px;background:#090c11;border:2px solid #653039;}
+  .mapart.blacksire u{position:absolute;left:50%;top:7px;margin-left:-2px;width:4px;height:43px;background:#8797a6;box-shadow:0 0 8px #bddef5;}
   .best{font-size:11px;letter-spacing:.22em;opacity:.5;text-transform:uppercase;margin-top:14px;}
   .best b{color:var(--amber);}
   h2.sec{font-size:22px;letter-spacing:.30em;text-transform:uppercase;margin-bottom:4px;}
@@ -332,7 +339,7 @@
 <div class="screen gone" id="mapsel">
   <div class="card">
     <h2 class="sec">Choose a map</h2>
-    <div class="sub">Two very different problems</div>
+    <div class="sub">Three very different problems</div>
     <div class="maps">
       <div class="mapcard" data-act="map:town">
         <div class="mapart town"><i></i><i></i><i></i><b></b></div>
@@ -343,6 +350,11 @@
         <div class="mapart nuke"><i></i><i></i><b></b><u></u></div>
         <h4>Nuketown <em>Daylight</em></h4>
         <p>Trinity Ave, in a bomb test range. Two two-storey houses either side, a school bus and a moving van parked in the middle of the road as cover, three ways up to each bedroom, alleys behind the garages, back yard gardens and a lot of mannequins.</p>
+      </div>
+      <div class="mapcard" data-act="map:blacksire">
+        <div class="mapart blacksire"><i></i><i></i><b></b><u></u></div>
+        <h4>Blacksire <em>Storm</em></h4>
+        <p>A classified military research compound split between a rain-lashed checkpoint and the containment lab below. Loop through barracks, garage, communications, generator rooms, test cells, and a lockdown zone that gets meaner every fourth round.</p>
       </div>
     </div>
     <div class="btn" data-act="back">Back</div>
@@ -676,11 +688,12 @@ function streetLamp(x,z,rot){
   g.position.set(x,0,z); g.rotation.y=rot||0; worldRoot.add(g);
   addCollider(x-0.28,x+0.28,z-0.28,z+0.28);
 }
-function fireBarrel(x,z){
-  const b=cyl(0.42,0.38,1.05,x,0.52,z,M.rust,true);
+function fireBarrel(x,z,y0){
+  const y=y0||0;
+  const b=cyl(0.42,0.38,1.05,x,y+0.52,z,M.rust,true);
   const f=new THREE.Mesh(new THREE.ConeGeometry(0.34,1.0,6),new THREE.MeshBasicMaterial({color:0xff8a2a,transparent:true,opacity:.8}));
-  f.position.set(x,1.5,z); worldRoot.add(f);
-  const L=new THREE.PointLight(0xff7a22,1.5,13,1.8); L.position.set(x,1.6,z); worldRoot.add(L);
+  f.position.set(x,y+1.5,z); worldRoot.add(f);
+  const L=new THREE.PointLight(0xff7a22,1.5,13,1.8); L.position.set(x,y+1.6,z); worldRoot.add(L);
   flames.push({f,L,base:1.5,i:1.5});
 }
 
@@ -742,8 +755,8 @@ function staircase(x1,x2,z1,z2,y0,y1,mat,rail,doors,room,flip){
     p.position.set(rail,yy,zz); worldRoot.add(p); blockers.push(p);
   }
   stairBases.push(flip
-    ? {x:cx,z:z2-0.6,tx:cx,tz:z1-0.9,ty:y1,doors:doors||null,room:room||null}
-    : {x:cx,z:z1+0.6,tx:cx,tz:z2+0.9,ty:y1,doors:doors||null,room:room||null});
+    ? {x:cx,z:z2-0.6,tx:cx,tz:z1-0.9,ty:y1,by:y0,doors:doors||null,room:room||null}
+    : {x:cx,z:z1+0.6,tx:cx,tz:z2+0.9,ty:y1,by:y0,doors:doors||null,room:room||null});
 }
 function signBoard(text,x,y,z,rot,w){
   const s=new THREE.Mesh(new THREE.PlaneGeometry(w||6,1.5),new THREE.MeshBasicMaterial({
@@ -792,15 +805,16 @@ function dumpster(x,z,rot){
   g.position.set(x,0,z); g.rotation.y=rot; worldRoot.add(g);
   addCollider(x-1.3,x+1.3,z-0.9,z+0.9,1.5);
 }
-function sandbags(x,z,rot,n){
+function sandbags(x,z,rot,n,y0){
   const g=new THREE.Group();
   for(let r=0;r<2;r++) for(let i=0;i<n;i++){
     const s=new THREE.Mesh(new THREE.BoxGeometry(0.72,0.32,0.44),phong({color:0x6b6144}));
     s.position.set((i-(n-1)/2)*0.74+(r?0.35:0),0.17+r*0.33,0); s.rotation.y=rand(-.06,.06); g.add(s); blockers.push(s);
   }
-  g.position.set(x,0,z); g.rotation.y=rot; worldRoot.add(g);
+  const y=y0||0;
+  g.position.set(x,y,z); g.rotation.y=rot; worldRoot.add(g);
   const c=Math.abs(Math.cos(rot)),s2=Math.abs(Math.sin(rot)),L=n*0.74;
-  addCollider(x-(L*c+0.5*s2)/2,x+(L*c+0.5*s2)/2,z-(L*s2+0.5*c)/2,z+(L*s2+0.5*c)/2,0.7);
+  addCollider(x-(L*c+0.5*s2)/2,x+(L*c+0.5*s2)/2,z-(L*s2+0.5*c)/2,z+(L*s2+0.5*c)/2,y+0.7,y);
 }
 function rubble(x,z,r){
   for(let i=0;i<9;i++){
@@ -820,7 +834,7 @@ function bench(x,z,rot){
   addCollider(x-1.1,x+1.1,z-0.5,z+0.5,0.65);
 }
 function trashcan(x,z){ cyl(0.4,0.34,1.0,x,0.5,z,M.metal,true); }
-function crate(x,z,s,rot){ const m=bx(s,s,s,x,s/2,z,M.plank,true); m.rotation.y=rot||rand(0,TAU); }
+function crate(x,z,s,rot,y0){ const y=y0||0,m=bx(s,s,s,x,y+s/2,z,M.plank,true); m.rotation.y=rot||rand(0,TAU); }
 function pole(x,z){
   cyl(0.16,0.2,8.5,x,4.25,z,M.wood,true);
   bx(2.4,0.16,0.16,x,7.6,z,M.wood,false);
@@ -1890,6 +1904,252 @@ function buildNuketown(){
   worldRoot.add(pts); window.__ash={pts,arr:p2,n};
 }
 
+/* ============ BLACKSIRE ============
+   A storm-battered military research compound above a buried containment lab.
+   The upper base sits five metres above the lab floor so the access ramp is a
+   true second level, not a painted doorway. */
+function buildBlacksire(){
+  const SY=5, steel=phong({color:0x263039,shininess:30,specular:0x637583});
+  const olive=phong({color:0x3f493b,shininess:8});
+  const lab=phong({color:0x9ba4aa,shininess:24,specular:0x66727d});
+  const labDark=phong({color:0x303941,shininess:18});
+  const hazard=phong({color:0xb58b2a,emissive:0x2c1b02,emissiveIntensity:.35});
+  const glass=new THREE.MeshPhongMaterial({color:0x7fc6cc,transparent:true,opacity:.22,shininess:90});
+  const redGlow=phong({color:0x4a1118,emissive:0xe22536,emissiveIntensity:1.2});
+  BND=46;
+  scene.background=new THREE.Color(0x111a25);
+  scene.fog=new THREE.Fog(0x111a25,24,112); mapFog={near:24,far:112};
+  torch.intensity=.82;
+  SPAWN_AT.set(0,SY,33); SPAWN_YAW=Math.PI;
+  SPAWNS=[
+    [-42,-34,SY],[42,-34,SY],[-42,34,SY],[42,34,SY],[-42,0,SY],[42,0,SY],
+    [-25,-42,SY],[25,-42,SY],[-25,42,SY],[25,42,SY],
+    [-25,-24,0],[25,-24,0],[-25,-9,0],[25,-9,0]
+  ];
+  BOX_SPOTS=[[-31,18,SY],[31,18,SY],[-28,-24,0],[24,-11,0],[0,-27,0]];
+  mannequins=[]; nukeSign=null; nukeClock=null;
+
+  worldRoot.add(new THREE.HemisphereLight(0x536b83,0x090d12,.58));
+  const stormFill=new THREE.DirectionalLight(0x9db8d2,.34);
+  stormFill.position.set(-30,45,20); worldRoot.add(stormFill);
+  const lightning=new THREE.DirectionalLight(0xd9edff,0);
+  lightning.position.set(20,55,-30); worldRoot.add(lightning);
+
+  // The lab floor is ground level. Four upper slabs leave a clean opening for
+  // the wide containment ramp while forming the lab ceiling everywhere else.
+  const lowGround=new THREE.Mesh(new THREE.PlaneGeometry(260,260),phong({map:T.concrete,color:0x586068}));
+  lowGround.rotation.x=-Math.PI/2; worldRoot.add(lowGround); blockers.push(lowGround);
+  floorSlab(-45,-45,-4,45,SY,M.concrete);
+  floorSlab(4,-45,45,45,SY,M.concrete);
+  floorSlab(-4,-45,4,-6,SY,M.concrete);
+  floorSlab(-4,10,4,45,SY,M.concrete);
+
+  function fenceAt(x1,z1,x2,z2){
+    const horiz=Math.abs(x2-x1)>Math.abs(z2-z1);
+    const len=Math.hypot(x2-x1,z2-z1),n=Math.max(1,Math.ceil(len/2.5));
+    for(let i=0;i<n;i++){
+      const t=(i+.5)/n,x=lerp(x1,x2,t),z=lerp(z1,z2,t);
+      const mesh=new THREE.Mesh(new THREE.BoxGeometry(horiz?2.35:.13,2.8,horiz?.13:2.35),M.fence);
+      mesh.position.set(x,SY+1.4,z);worldRoot.add(mesh);blockers.push(mesh);
+      if(i%4===0) bx(.2,3.3,.2,x,SY+1.65,z,M.dark,false);
+    }
+    addCollider(Math.min(x1,x2)-.25,Math.max(x1,x2)+.25,
+      Math.min(z1,z2)-.25,Math.max(z1,z2)+.25,SY+3.2,SY-.1);
+  }
+  fenceAt(-45,-45,-7,-45);fenceAt(7,-45,45,-45);
+  fenceAt(-45,45,-6,45);fenceAt(6,45,45,45);
+  fenceAt(-45,-45,-45,45);fenceAt(45,-45,45,45);
+
+  function floodlight(x,z,rot){
+    const g=new THREE.Group();
+    const pole=new THREE.Mesh(new THREE.CylinderGeometry(.09,.13,7,7),M.dark);pole.position.y=3.5;g.add(pole);
+    const head=new THREE.Mesh(new THREE.BoxGeometry(1.2,.34,.35),steel);head.position.set(0,6.8,-.2);g.add(head);
+    const L=new THREE.SpotLight(0xc9e5ff,1.9,32,.56,.7,1.2);L.position.set(0,6.6,-.25);
+    L.target.position.set(0,0,-12);g.add(L);g.add(L.target);
+    g.position.set(x,SY,z);g.rotation.y=rot||0;worldRoot.add(g);
+    addCollider(x-.25,x+.25,z-.25,z+.25,SY+7,SY);
+  }
+  floodlight(-40,39,2.4);floodlight(40,39,-2.4);
+  floodlight(-40,-38,.7);floodlight(40,-38,-.7);
+
+  function surfaceBuilding(name,x1,z1,x2,z2,doorSide,doorAt,mat){
+    const h=4.6,base=SY,door={c:doorAt,w:3.0};
+    wallRun(x1,z1,x2,z1,h,mat||olive,doorSide==='north'?[door]:[],base);
+    wallRun(x1,z2,x2,z2,h,mat||olive,doorSide==='south'?[door]:[],base);
+    wallRun(x1,z1,x1,z2,h,mat||olive,doorSide==='west'?[door]:[],base);
+    wallRun(x2,z1,x2,z2,h,mat||olive,doorSide==='east'?[door]:[],base);
+    bx(x2-x1+.7,.38,z2-z1+.7,(x1+x2)/2,base+h+.19,(z1+z2)/2,steel,false);
+    floorSlab(x1+.2,z1+.2,x2-.2,z2-.2,base+.04,M.concrete);
+    roomLight((x1+x2)/2,base+3.6,(z1+z2)/2,0xd9edff,.72,17);
+    const sx=doorSide==='west'?x1-.03:(doorSide==='east'?x2+.03:(x1+x2)/2);
+    const sz=doorSide==='north'?z1-.03:(doorSide==='south'?z2+.03:(z1+z2)/2);
+    const sr=doorSide==='west'?Math.PI/2:(doorSide==='east'?-Math.PI/2:(doorSide==='south'?Math.PI:0));
+    signBoard(name,sx,base+3.75,sz,sr,Math.min(7,x2-x1-1));
+  }
+
+  // Four readable landmarks make a complete loop around the central ramp.
+  surfaceBuilding('Barracks',-38,11,-19,29,'east',20,olive);
+  surfaceBuilding('Motor Pool',19,11,39,29,'west',20,steel);
+  surfaceBuilding('Comms',-38,-29,-19,-11,'east',-20,steel);
+  surfaceBuilding('Generator',19,-29,39,-11,'west',-20,olive);
+
+  // Barracks bunks and lockers.
+  for(const z of [14.5,20,25.5]){
+    bx(5.2,.45,1.7,-31,SY+.3,z,M.dark);
+    bx(5.2,.45,1.7,-31,SY+1.7,z,M.dark,false);
+    for(const x of [-33.4,-28.6])bx(.18,1.8,.18,x,SY+.9,z,M.metal,false);
+  }
+  for(let i=0;i<4;i++)bx(1.2,2.2,.7,-21,SY+1.1,14+i*3.2,steel);
+
+  // Motor pool work bays and a compact armored vehicle.
+  for(const z of [14,20,26])bx(.9,2.0,1.7,36,SY+1,z,steel);
+  (function armoredTruck(){
+    const g=new THREE.Group();
+    const body=new THREE.Mesh(new THREE.BoxGeometry(3,1.25,5.5),olive);body.position.y=.95;g.add(body);blockers.push(body);
+    const cab=new THREE.Mesh(new THREE.BoxGeometry(2.7,1.3,2.1),steel);cab.position.set(0,1.95,-1.25);g.add(cab);blockers.push(cab);
+    const turret=new THREE.Mesh(new THREE.CylinderGeometry(.65,.8,.5,10),steel);turret.position.set(0,2.7,.65);g.add(turret);
+    const barrel=new THREE.Mesh(new THREE.CylinderGeometry(.09,.12,2.5,8),M.dark);barrel.rotation.x=Math.PI/2;barrel.position.set(0,2.72,-.7);g.add(barrel);
+    for(const x of [-1.55,1.55])for(const z of [-1.9,0,1.9]){
+      const w=new THREE.Mesh(new THREE.CylinderGeometry(.52,.52,.35,10),M.dark);w.rotation.z=Math.PI/2;w.position.set(x,.55,z);g.add(w);
+    }
+    g.position.set(28,SY,21);g.rotation.y=.2;worldRoot.add(g);
+    addCollider(25.8,30.2,17.7,24.3,SY+3.1,SY);
+  })();
+
+  // Communications equipment and generator banks.
+  bx(8,1.5,2,-29,SY+.8,-16,labDark);
+  for(let i=0;i<4;i++){
+    const screen=bx(1.3,.9,.12,-32+i*2,SY+1.65,-14.94,
+      phong({color:0x12252b,emissive:0x2fbbc8,emissiveIntensity:.7}),false);
+    screen.rotation.x=-.08;
+  }
+  for(const z of [-25,-20,-15]){
+    bx(6,1.8,2.1,31,SY+.9,z,steel);
+    for(const x of [29.4,31,32.6])cyl(.28,.28,.22,x,SY+1.95,z,hazard,false);
+  }
+  for(let i=0;i<3;i++){
+    const dish=new THREE.Mesh(new THREE.CylinderGeometry(.08,1.1,.24,16),steel);
+    dish.rotation.x=Math.PI/2;dish.position.set(-24+i*2.7,SY+6,-20);worldRoot.add(dish);
+  }
+  bx(.25,10,.25,-21,SY+5,-20,M.dark,false);
+
+  // South checkpoint, road barriers, guard booths, and the BLACKSIRE sign.
+  bx(12,.18,9,0,SY+.09,36,M.asphalt||M.side,false);
+  for(const x of [-8,8]){
+    bx(4,3.2,3.8,x,SY+1.6,37,steel);
+    bx(3.3,1.0,.1,x,SY+2.15,35.06,glass,false);
+    roomLight(x,SY+2.6,37,0xffd9a0,.6,10);
+  }
+  for(const x of [-13,13])sandbags(x,32,0,6,SY);
+  bx(12,.18,.25,0,SY+1.0,30,hazard,false);
+  bx(.25,2,.25,-6,SY+1,30,M.dark,false);bx(.25,2,.25,6,SY+1,30,M.dark,false);
+  signBoard('BLACKSIRE // SECTOR 09',0,SY+4.3,43,Math.PI,12);
+
+  // The open blast ramp is the map's strongest orientation landmark.
+  staircase(-4,4,-6,10,0,SY,steel,4.15,
+    [[0,12],[0,-8]],[ -8,-8,8,12 ],false);
+  for(const z of [-4,2,8]){
+    bx(.28,1.0,.28,-3.55,lerp(.6,SY+.6,(z+6)/16),z,hazard,false);
+    bx(.28,1.0,.28,3.55,lerp(.6,SY+.6,(z+6)/16),z,hazard,false);
+  }
+  signBoard('Containment Access',0,SY+1.6,10.2,Math.PI,7);
+
+  // Surface cover keeps the courtyard useful instead of becoming a flat kill box.
+  for(const q of [[-12,5],[12,5],[-11,-6],[11,-6]])sandbags(q[0],q[1],q[0]<0?.35:-.35,5,SY);
+  for(const q of [[-13,34],[15,34],[-13,-34],[14,-34]])crate(q[0],q[1],1.5,rand(0,TAU),SY);
+  for(const q of [[-16,1],[16,1],[-15,-4],[15,-4]])fireBarrel(q[0],q[1],SY);
+
+  // Underground lab shell. Wide doors preserve zombie routing and make two
+  // separate loops around the central decontamination hall.
+  wallRun(-30,-30,30,-30,4.8,lab,[{c:0,w:4.5}]);
+  wallRun(-30,-7,30,-7,4.8,lab,[{c:0,w:8},{c:-22,w:3},{c:22,w:3}]);
+  wallRun(-30,-30,-30,-7,4.8,lab,[{c:-18,w:3}]);
+  wallRun(30,-30,30,-7,4.8,lab,[{c:-18,w:3}]);
+  wallRun(-8,-30,-8,-7,4.5,labDark,[{c:-23,w:3},{c:-12,w:3}]);
+  wallRun(8,-30,8,-7,4.5,labDark,[{c:-23,w:3},{c:-12,w:3}]);
+  wallRun(-30,-18,-8,-18,4.5,labDark,[{c:-20,w:3}]);
+  wallRun(8,-18,30,-18,4.5,labDark,[{c:20,w:3}]);
+  floorSlab(-29.7,-29.7,29.7,-7.3,.05,M.tile);
+
+  // Low overhead beams and illuminated lane strips sell the buried scale.
+  for(const z of [-28,-20,-12,-8]){
+    bx(60,.25,.35,0,4.55,z,steel,false);
+    for(const x of [-20,0,20])roomLight(x,4.2,z,0xc6e8ef,.55,12);
+  }
+  for(const x of [-6,6]){
+    const strip=new THREE.Mesh(new THREE.PlaneGeometry(.18,21),new THREE.MeshBasicMaterial({color:0xe2b635}));
+    strip.rotation.x=-Math.PI/2;strip.position.set(x,.08,-18.5);worldRoot.add(strip);
+  }
+
+  // Containment cells with specimen silhouettes.
+  for(const x of [-24,-17,17,24]){
+    bx(5.2,.2,5.5,x,.12,-25,steel,false);
+    const pane=bx(4.5,3.5,.12,x,1.9,-22.25,glass,false);
+    const specimen=new THREE.Group(),specimenMat=phong({color:0x39484a});
+    const body=new THREE.Mesh(new THREE.CylinderGeometry(.32,.42,1.35,8),specimenMat);
+    body.position.y=1.05;specimen.add(body);
+    const head=new THREE.Mesh(new THREE.SphereGeometry(.38,9,7),specimenMat);
+    head.position.y=1.9;specimen.add(head);
+    specimen.position.set(x,0,-25);specimen.rotation.z=rand(-.12,.12);worldRoot.add(specimen);
+    const eye=new THREE.PointLight(0xd42838,.35,4,2);eye.position.set(x,1.8,-24.6);worldRoot.add(eye);
+  }
+  signBoard('Specimen Storage',-19,3.75,-29.78,0,8);
+  signBoard('Specimen Storage',19,3.75,-29.78,0,8);
+
+  // Decontamination core, morgue tables, and test consoles.
+  for(const x of [-3.5,3.5]){
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(1.4,.12,8,20),hazard);
+    ring.rotation.y=Math.PI/2;ring.position.set(x,2,-15);worldRoot.add(ring);blockers.push(ring);
+    addCollider(x-.5,x+.5,-16.5,-13.5,3.5,.1);
+  }
+  for(const z of [-25,-20,-15,-10]){
+    bx(5,.65,1.55,-18,.42,z,labDark);
+    bx(5,.16,1.55,-18,1.05,z,lab,false);
+  }
+  for(const z of [-15,-11])bx(6,1.2,1.2,19,.6,z,labDark);
+  for(const x of [-3,0,3]){
+    const monitor=bx(1.9,1.1,.2,x,1.8,-27.6,
+      phong({color:0x12242a,emissive:0x48c6bb,emissiveIntensity:.65}),false);
+    monitor.rotation.x=-.08;
+  }
+
+  // Red emergency fixtures are animated during BLACKSIRE lockdown rounds.
+  const emergency=[];
+  for(const p of [[-27,-9],[27,-9],[-27,-28],[27,-28],[-6,-18],[6,-18]]){
+    const lamp=bx(.5,.28,.5,p[0],4.25,p[1],redGlow,false);
+    const L=new THREE.PointLight(0xe52336,.28,10,2);L.position.set(p[0],4,p[1]);worldRoot.add(L);
+    emergency.push({lamp,L});
+  }
+
+  // Gameplay distribution encourages both floors and both lab loops.
+  addWallBuy('m14',-37.78,SY+2.0,18,Math.PI/2);
+  addWallBuy('olympia',38.78,SY+2.0,17,-Math.PI/2);
+  addWallBuy('mp5',-20.78,SY+2.0,-20,-Math.PI/2);
+  addWallBuy('ak74u',20.78,SY+2.0,-20,Math.PI/2);
+  addWallBuy('galil',-29.78,2.0,-12,-Math.PI/2);
+  addWallBuy('rem870',29.78,2.0,-24,Math.PI/2);
+  addAmmoBuy('m4a1',0,2.0,-7.18,Math.PI,400);
+
+  addPerkMachine('revive',-12,34,SY,0);
+  addPerkMachine('jugg',24,-28,0,0);
+  addPerkMachine('speed',-24,-28,0,0);
+  addPerkMachine('dtap',36,-18,SY,-Math.PI/2);
+  addPerkMachine('stamin',-36,-18,SY,Math.PI/2);
+  addPerkMachine('mule',18,-9,0,Math.PI);
+  addPackAPunch(0,-28,0,0);
+
+  // Driving rain uses the existing particle updater with a BLACKSIRE speed.
+  const n=650,g=new THREE.BufferGeometry(),arr=new Float32Array(n*3);
+  for(let i=0;i<n;i++){
+    arr[i*3]=rand(-BND,BND);arr[i*3+1]=rand(SY,34);arr[i*3+2]=rand(-BND,BND);
+  }
+  g.setAttribute('position',new THREE.BufferAttribute(arr,3));
+  const rain=new THREE.Points(g,new THREE.PointsMaterial({color:0xb8d8ed,size:.085,transparent:true,opacity:.58}));
+  worldRoot.add(rain);
+  window.__ash={pts:rain,arr,n,speed:18,wind:2.8,min:SY,top:34};
+  window.__storm={lightning,base:0x111a25,next:game.time+rand(4,9),flash:0,emergency};
+}
+
 /* ---------- map registry ---------- */
 const MAPS={
   town:{name:'Town',time:'Night',
@@ -1897,7 +2157,10 @@ const MAPS={
     build:buildTown},
   nuketown:{name:'Nuketown',time:'Daylight',
     blurb:'Two suburban houses across a cul-de-sac in a bomb test range. Small, open, and full of mannequins. Nowhere to hide and nothing between you and them but a picket fence.',
-    build:buildNuketown}
+    build:buildNuketown},
+  blacksire:{name:'Blacksire',time:'Storm',
+    blurb:'A classified military research compound above a buried containment lab. Hold the checkpoint, loop through four surface buildings, descend to specimen storage, and survive containment lockdown.',
+    build:buildBlacksire}
 };
 let currentMap='town';
 function clearWorld(){
@@ -1921,6 +2184,7 @@ function clearWorld(){
   colliders.length=0; blockers.length=0; platforms.length=0; stairBases.length=0;
   flames.length=0; jumpPads.length=0; interactables.length=0;
   window.__ash=null;
+  window.__storm=null;
   if(typeof papGlow!=='undefined') papGlow=null;
   if(typeof mbox!=='undefined'){ mbox.g=null; mbox.col=null; mbox.preview=null; mbox.state='idle'; }
 }
@@ -3847,9 +4111,14 @@ function finishSharedBox(weapon,owner){
 function moveBox(i){
   mbox.spot=i;
   const s=BOX_SPOTS[i];
-  mbox.g.position.set(s[0],0,s[1]);
-  if(!mbox.col){ addCollider(s[0]-0.9,s[0]+0.9,s[1]-0.65,s[1]+0.65,1.1); mbox.col=colliders[colliders.length-1]; }
-  else { mbox.col.minX=s[0]-0.9; mbox.col.maxX=s[0]+0.9; mbox.col.minZ=s[1]-0.65; mbox.col.maxZ=s[1]+0.65; }
+  const y=s[2]||0;
+  mbox.g.position.set(s[0],y,s[1]);
+  if(!mbox.col){ addCollider(s[0]-0.9,s[0]+0.9,s[1]-0.65,s[1]+0.65,y+1.1,y); mbox.col=colliders[colliders.length-1]; }
+  else {
+    mbox.col.minX=s[0]-0.9; mbox.col.maxX=s[0]+0.9;
+    mbox.col.minZ=s[1]-0.65; mbox.col.maxZ=s[1]+0.65;
+    mbox.col.bot=y;mbox.col.top=y+1.1;
+  }
 }
 function closeBox(){
   mbox.state='idle'; mbox.owner=null; mbox.lid.rotation.x=0;
@@ -4093,7 +4362,7 @@ function updHUD(){
 
 /* ---------- rounds ---------- */
 const ROUND_GAP=150;
-const game={round:0,toSpawn:0,spawnTimer:0,roundTimer:0,running:false,time:0,kills:0,focus:null,wonderFound:false,boxDry:0};
+const game={round:0,toSpawn:0,spawnTimer:0,roundTimer:0,running:false,time:0,kills:0,focus:null,wonderFound:false,boxDry:0,lockdown:0};
 const roundCount=r=>10+(r-1)*2;                 // two more every round
 const roundMult=r=>1+(r-1)*0.15;                // and they are worth more
 
@@ -4101,10 +4370,13 @@ function startRound(){
   if(net.connected&&!net.host){netGameRequest({type:'round_call'});return;}
   game.round++;
   game.toSpawn=roundCount(game.round); game.spawnTimer=0; game.roundTimer=ROUND_GAP;
-  banner('ROUND '+String(game.round).padStart(2,'0'),game.toSpawn+' of them');
+  const lockdown=currentMap==='blacksire'&&game.round>1&&game.round%4===0;
+  game.lockdown=lockdown?20:0;
+  banner(lockdown?'CONTAINMENT LOCKDOWN':'ROUND '+String(game.round).padStart(2,'0'),
+    lockdown?'Emergency protocol  \u00b7  accelerated breach':game.toSpawn+' of them');
   if(typeof placeMannequins==='function') placeMannequins();
   sfxRound(); updHUD();
-  if(net.connected&&net.host) netHostBroadcast({type:'round_start',round:game.round,count:game.toSpawn});
+  if(net.connected&&net.host) netHostBroadcast({type:'round_start',round:game.round,count:game.toSpawn,lockdown});
 }
 function spawnOne(){
   if(!SPAWNS.length) return;
@@ -4116,7 +4388,8 @@ function spawnOne(){
   }
   const z=makeZombie(game.round);
   if(net.connected&&net.host) z.netId=netZombieId();
-  z.pos.set(best[0]+rand(-2.5,2.5),0,best[1]+rand(-2.5,2.5));
+  z.pos.set(best[0]+rand(-2.5,2.5),best[2]||0,best[1]+rand(-2.5,2.5));
+  z.y=best[2]||0;
   z.yaw=Math.atan2(player.pos.x-z.pos.x,player.pos.z-z.pos.z);
   z.nextGroan=game.time+rand(1,7);
   poseAlive(z,0,false);
@@ -4457,7 +4730,9 @@ function handleSharedGameEvent(e){
   } else if(e.type==='session_pause'){
     applySessionPause(!!e.paused);
   } else if(e.type==='round_start'){
-    banner('ROUND '+String(e.round|0).padStart(2,'0'),(e.count|0)+' of them'); sfxRound();
+    game.lockdown=e.lockdown?20:0;
+    banner(e.lockdown?'CONTAINMENT LOCKDOWN':'ROUND '+String(e.round|0).padStart(2,'0'),
+      e.lockdown?'Emergency protocol  \u00b7  accelerated breach':(e.count|0)+' of them'); sfxRound();
   }
 }
 function netColor(id){
@@ -4655,7 +4930,7 @@ function netHandle(msg){
     handleHostGameRequest(m.event,m.playerId);
   } else if(m.type==='game'){
     handleSharedGameEvent(m.event);
-  } else if(m.type==='start'&&(m.map==='town'||m.map==='nuketown')){
+  } else if(m.type==='start'&&(m.map==='town'||m.map==='nuketown'||m.map==='blacksire')){
     net.activeGame=true; net.pausedByHost=false; startGame(m.map); toast('Online room '+net.code);
   } else if(m.type==='error'){
     setNetStatus(m.message||'Room error'); sfxDeny();
@@ -4951,7 +5226,7 @@ function startGame(mapId){
   for(const p of parts) scene.remove(p.m); parts.length=0;
   for(const d of drops){scene.remove(d.m);scene.remove(d.L);} drops.length=0;
   for(const p of projectiles){scene.remove(p.m);scene.remove(p.L);} projectiles.length=0;
-  player.pos.copy(SPAWN_AT); player.vel.set(0,0,0); player.y=0; player.vy=0;
+  player.pos.copy(SPAWN_AT); player.vel.set(0,0,0); player.y=SPAWN_AT.y||0; player.vy=0;
   player.crouched=false;player.crouchMix=0;player.eye=1.68;player.nextMelee=0;player.meleeStart=-99;
   player.maxHp=100; player.hp=100; player.alive=true; player.downed=false; player.invuln=0;
   player.points=500; player.perks={}; player.yaw=SPAWN_YAW; player.pitch=0;
@@ -4959,7 +5234,7 @@ function startGame(mapId){
   player.guns=[{def:DEFS.m1911,ammo:8,res:96,pack:0},{def:DEFS.m4a1,ammo:30,res:270,pack:0}];
   player.slot=1;
   for(const k in buffs) buffs[k]=0;
-  game.round=0; game.kills=0; game.wonderFound=false; game.boxDry=0; game.time=performance.now()/1000;
+  game.round=0; game.kills=0; game.wonderFound=false; game.boxDry=0; game.lockdown=0; game.time=performance.now()/1000;
   net.nextState=0; net.nextWorld=0; net.pausedByHost=false;
   if(net.connected&&net.host) net.zombieSeq=1;
   if(mbox.state!=='idle') closeBox();
@@ -5226,11 +5501,15 @@ function updatePlayer(dt){
 }
 
 function updateRounds(dt){
+  game.lockdown=Math.max(0,(game.lockdown||0)-dt);
   if(net.connected&&!net.host){updRoundHUD();return;}
   if(game.toSpawn>0){
     game.spawnTimer-=dt;
     let live=0; for(const z of zombies) if(!z.dead) live++;
-    if(game.spawnTimer<=0&&live<30){ spawnOne(); game.toSpawn--; game.spawnTimer=rand(.7,1.6); }
+    if(game.spawnTimer<=0&&live<30){
+      spawnOne(); game.toSpawn--;
+      game.spawnTimer=game.lockdown>0?rand(.32,.72):rand(.7,1.6);
+    }
     else if(game.spawnTimer<=0) game.spawnTimer=1.5;
   }
   game.roundTimer-=dt;
@@ -5306,37 +5585,57 @@ function updateZombies(dt){
     if(z.y<=gz){z.y=gz; z.vy=0;}
 
     let tgx=px,tgz=pz;
-    // keep climbing until actually on the player's floor, otherwise they abandon
-    // the stairs two thirds of the way up and walk off the side
-    if(stairBases.length&&(targetY-z.y>0.8||(z.stair&&targetY-z.y>0.15))){
+    // Keep using a staircase until the zombie reaches the target floor. This
+    // handles both climbing and descending, which BLACKSIRE's two real levels need.
+    if(stairBases.length&&(Math.abs(targetY-z.y)>0.8||z.stair)){
+      const descending=z.stair?(z.stairDir===-1):(targetY<z.y);
       let bs=null,bd=1e9;
       for(const s of stairBases){
-        // whichever staircase actually leads to where the player is standing
-        const d=Math.hypot(s.tx-px,s.tz-pz)*2+Math.hypot(s.x-z.pos.x,s.z-z.pos.z)*0.4;
+        // Choose the stair whose exit is closest to the target and whose entrance
+        // is practical from the zombie's current floor.
+        const ex=descending?s.x:s.tx,ez=descending?s.z:s.tz;
+        const en=descending?s.tx:s.x,enz=descending?s.tz:s.z;
+        const d=Math.hypot(ex-px,ez-pz)*2+Math.hypot(en-z.pos.x,enz-z.pos.z)*.4;
         if(d<bd){bd=d;bs=s;}
       }
       if(bs){
-        // head for a doorway first, then the foot of the stairs, then latch onto the top
-        if(!z.stair){
-          const inside=!bs.room||(z.pos.x>bs.room[0]&&z.pos.x<bs.room[2]&&z.pos.z>bs.room[1]&&z.pos.z<bs.room[3]);
-          if(inside||!bs.doors){ tgx=bs.x; tgz=bs.z; }
-          else{
-            let dw=null,dd=1e9;
-            for(const d of bs.doors){
-              const q=Math.hypot(d[0]-z.pos.x,d[1]-z.pos.z);
-              if(q<dd){dd=q;dw=d;}
+        if(descending){
+          if(!z.stair){
+            tgx=bs.tx;tgz=bs.tz;
+            if(Math.hypot(z.pos.x-bs.tx,z.pos.z-bs.tz)<1.6||z.y<bs.ty-.2){
+              z.stair=true;z.stairDir=-1;z.stairT=0;
             }
-            tgx=dw[0]; tgz=dw[1];
           }
-          if(z.y>0.15){ z.stair=true; z.stairT=0; }   // only latch once actually standing on the treads
-        }
-        if(z.stair){
-          tgx=bs.tx; tgz=bs.tz;
-          if(z.y<0.15){ z.stairT+=dt; if(z.stairT>3){ z.stair=false; z.stairT=0; } }
-          else z.stairT=0;
+          if(z.stair){
+            tgx=bs.x;tgz=bs.z;
+            if(z.y<=(bs.by||0)+.2&&Math.hypot(z.pos.x-bs.x,z.pos.z-bs.z)<2){
+              z.stair=false;z.stairDir=0;
+            }
+          }
+        }else{
+          // Head for a doorway first, then the foot of the stairs, then latch
+          // onto the upper exit.
+          if(!z.stair){
+            const inside=!bs.room||(z.pos.x>bs.room[0]&&z.pos.x<bs.room[2]&&z.pos.z>bs.room[1]&&z.pos.z<bs.room[3]);
+            if(inside||!bs.doors){tgx=bs.x;tgz=bs.z;}
+            else{
+              let dw=null,dd=1e9;
+              for(const d of bs.doors){
+                const q=Math.hypot(d[0]-z.pos.x,d[1]-z.pos.z);
+                if(q<dd){dd=q;dw=d;}
+              }
+              tgx=dw[0];tgz=dw[1];
+            }
+            if(z.y>(bs.by||0)+.15){z.stair=true;z.stairDir=1;z.stairT=0;}
+          }
+          if(z.stair){
+            tgx=bs.tx;tgz=bs.tz;
+            if(z.y<(bs.by||0)+.15){z.stairT+=dt;if(z.stairT>3){z.stair=false;z.stairT=0;}}
+            else z.stairT=0;
+          }
         }
       }
-    } else { z.stair=false; z.stairT=0; }
+    } else {z.stair=false;z.stairDir=0;z.stairT=0;}
     const dx=tgx-z.pos.x,dz=tgz-z.pos.z;
     const dist=Math.hypot(px-z.pos.x,pz-z.pos.z);
     const desired=Math.atan2(dx,dz);
@@ -5456,12 +5755,30 @@ function updateEffects(dt){
   // ash drift
   const A=window.__ash;
   if(A){
+    const fall=A.speed||.6,wind=A.wind===undefined?.2:A.wind,min=A.min||0,top=A.top||26;
     for(let i=0;i<A.n;i++){
-      A.arr[i*3+1]-=dt*0.6;
-      A.arr[i*3]+=Math.sin(t*0.3+i)*dt*0.2;
-      if(A.arr[i*3+1]<0){A.arr[i*3+1]=26; A.arr[i*3]=rand(-BND,BND); A.arr[i*3+2]=rand(-BND,BND);}
+      A.arr[i*3+1]-=dt*fall;
+      A.arr[i*3]+=Math.sin(t*.3+i)*dt*wind;
+      if(A.arr[i*3+1]<min){A.arr[i*3+1]=top; A.arr[i*3]=rand(-BND,BND); A.arr[i*3+2]=rand(-BND,BND);}
     }
     A.pts.geometry.attributes.position.needsUpdate=true;
+  }
+  const S=window.__storm;
+  if(S){
+    if(game.running&&game.time>S.next){
+      S.flash=.16;S.next=game.time+rand(5,12);
+      if(AC)sfxTone(72,38,.65,.16,'sawtooth');
+    }
+    S.flash=Math.max(0,S.flash-dt);
+    const flash=S.flash>0?(S.flash>.09?2.8:.8):0;
+    S.lightning.intensity=flash;
+    scene.background.setHex(flash>1?0x51677b:S.base);
+    const lockdown=game.lockdown>0;
+    for(let i=0;i<S.emergency.length;i++){
+      const e=S.emergency[i],pulse=.5+.5*Math.sin(t*(lockdown?10:2.4)+i);
+      e.L.intensity=lockdown?1.25+pulse*.9:.18+pulse*.16;
+      e.lamp.material.emissiveIntensity=lockdown?1.3+pulse:0.35+pulse*.25;
+    }
   }
 }
 

@@ -189,7 +189,7 @@ export class GameRoom extends DurableObject {
         hp: number(source.hp, 0, 500),
         downed: Boolean(source.downed),
         weapon: String(source.weapon || "").slice(0, 24),
-        map: source.map === "nuketown" ? "nuketown" : "town",
+        map: ["town", "nuketown", "blacksire"].includes(source.map) ? source.map : "town",
         speed: number(source.speed, 0, 12),
         sprint: Boolean(source.sprint),
         ads: Boolean(source.ads),
@@ -293,7 +293,7 @@ export class GameRoom extends DurableObject {
         this.send(ws, { type: "error", message: "Only the host can start the match" });
         return;
       }
-      const map = message.map === "nuketown" ? "nuketown" : "town";
+      const map = ["town", "nuketown", "blacksire"].includes(message.map) ? message.map : "town";
       const room = { active: true, map, paused: false };
       await this.ctx.storage.put("room", room);
       this.broadcast({ type: "start", map });

@@ -30,7 +30,8 @@ The shared multiplayer milestone is implemented:
 
 ## Current features
 
-- Town and Nuketown maps
+- Town, Nuketown, and BLACKSIRE maps
+- Two-level BLACKSIRE military compound with a surface base, underground containment lab, storm lighting, rain, and accelerated lockdown rounds
 - Round-based zombie survival
 - Multiple weapon classes and wonder weapons
 - Ray Gun direct and area damage
