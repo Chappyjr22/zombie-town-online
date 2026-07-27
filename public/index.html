@@ -4764,12 +4764,21 @@ function remoteJoint(parent,x,y,z,len,radius,mat){
   return joint;
 }
 function poseRemoteArm(upper,fore,shoulder,elbowHint,hand,smooth){
-  const down=new THREE.Vector3(0,-1,0);
-  const upperDir=elbowHint.clone().sub(shoulder).normalize();
-  const elbow=shoulder.clone().add(upperDir.clone().multiplyScalar(.34));
+  const down=new THREE.Vector3(0,-1,0),upperLen=.34,foreLen=.31;
+  const reach=hand.clone().sub(shoulder),reachDir=reach.clone().normalize();
+  const dist=clamp(reach.length(),.001,upperLen+foreLen-.001);
+  const along=(upperLen*upperLen-foreLen*foreLen+dist*dist)/(2*dist);
+  const bendHeight=Math.sqrt(Math.max(0,upperLen*upperLen-along*along));
+  const bend=elbowHint.clone().sub(shoulder);
+  bend.addScaledVector(reachDir,-bend.dot(reachDir));
+  if(bend.lengthSq()<.0001)bend.set(1,0,0);
+  bend.normalize();
+  const elbow=shoulder.clone().addScaledVector(reachDir,along).addScaledVector(bend,bendHeight);
+  const upperDir=elbow.clone().sub(shoulder).normalize();
   const upperQ=new THREE.Quaternion().setFromUnitVectors(down,upperDir);
   upper.quaternion.slerp(upperQ,smooth);
-  const foreDir=hand.clone().sub(elbow).normalize();
+  const target=shoulder.clone().addScaledVector(reachDir,dist);
+  const foreDir=target.sub(elbow).normalize();
   const localDir=foreDir.applyQuaternion(upperQ.clone().invert());
   const foreQ=new THREE.Quaternion().setFromUnitVectors(down,localDir);
   fore.quaternion.slerp(foreQ,smooth);
@@ -5048,10 +5057,10 @@ function netStep(dt){
     r.upper.rotation.y=lerp(r.upper.rotation.y,down?0:(r.sprint?.08:0),smooth);
     r.upper.rotation.z=lerp(r.upper.rotation.z,down?0:(r.sprint?-.045:-.012),smooth);
     if(down){
-      r.armL.rotation.x=lerp(r.armL.rotation.x,-.35,smooth);
-      r.armR.rotation.x=lerp(r.armR.rotation.x,.55,smooth);
-      r.elbowL.rotation.x=lerp(r.elbowL.rotation.x,.12,smooth);
-      r.elbowR.rotation.x=lerp(r.elbowR.rotation.x,.12,smooth);
+      poseRemoteArm(r.armL,r.elbowL,new THREE.Vector3(-.255,1.49,0),
+        new THREE.Vector3(-.36,1.24,.04),new THREE.Vector3(-.23,1.08,-.08),smooth);
+      poseRemoteArm(r.armR,r.elbowR,new THREE.Vector3(.255,1.49,0),
+        new THREE.Vector3(.37,1.28,-.02),new THREE.Vector3(.26,1.10,-.18),smooth);
     }else if(r.meleeT>0){
       r.meleeT=Math.max(0,r.meleeT-dt);
       const mt=1-r.meleeT/.52,swing=Math.sin(clamp(mt,0,1)*Math.PI);
