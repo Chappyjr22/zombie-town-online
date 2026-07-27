@@ -192,6 +192,19 @@ export class GameRoom extends DurableObject {
       return;
     }
 
+    if (message.type === "fire") {
+      this.broadcast(
+        {
+          type: "fire",
+          id: player.id,
+          weapon: String(message.weapon || "").slice(0, 24),
+          pack: Math.max(0, Math.min(2, Number(message.pack) || 0)),
+        },
+        ws,
+      );
+      return;
+    }
+
     if (message.type === "game_event" && message.event) {
       const allowed = new Set([
         "zombie_damage",
@@ -200,6 +213,8 @@ export class GameRoom extends DurableObject {
         "box_roll",
         "box_take",
         "round_call",
+        "player_down",
+        "revive",
       ]);
       if (!allowed.has(message.event.type)) return;
       const hostSocket = this.sockets().find((socket) => this.attachment(socket).host);
@@ -222,6 +237,8 @@ export class GameRoom extends DurableObject {
         "box_roll",
         "box_take",
         "round_start",
+        "player_revived",
+        "team_wipe",
       ]);
       if (allowed.has(message.event.type)) {
         this.broadcast({ type: "game", event: message.event }, ws);

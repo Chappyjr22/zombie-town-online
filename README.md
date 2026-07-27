@@ -20,7 +20,9 @@ The shared multiplayer milestone is implemented:
 - Shared round state and automatic host migration
 - Synchronized power-up drops and mystery-box results
 - Per-player combat rewards and shared zombie kill counts
-- Online-safe pause and downed recovery behavior
+- Teammate-only revives and team-wipe game over
+- Synchronized equipped weapon models, muzzle flashes, and gunshot audio
+- Online-safe pause behavior
 
 ## Current features
 
@@ -81,23 +83,22 @@ The recommended first multiplayer release is private 2 to 4-player cooperative Z
 ### Current synchronization
 
 - Player position, rotation, animation, and downed state
-- Health, downed state, combat rewards, and points
+- Health, downed state, teammate revives, combat rewards, and points
+- Equipped weapons, gunfire visuals, and distance-aware gunshot audio
 - Zombie spawning, movement, damage, death, and ragdoll triggers
 - Rounds, power-ups, and mystery-box results
 - Room codes and host migration
 
 ### Remaining multiplayer work
 
-- Teammate revive interactions
 - Reconnect into an existing survivor slot
 - Additional server-side validation for public matchmaking
 
 ### Suggested implementation phases
 
-1. Add teammate revives and shared interactions.
-2. Add reconnect support.
-3. Improve latency compensation and state compression.
-4. Move sensitive validation server-side if public matchmaking is introduced.
+1. Add reconnect support.
+2. Improve latency compensation and state compression.
+3. Move sensitive validation server-side if public matchmaking is introduced.
 
 ## Project structure
 

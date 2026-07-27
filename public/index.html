@@ -1977,8 +1977,9 @@ function initAudio(){
   for(let i=0;i<n;i++) d[i]=Math.random()*2-1;
 }
 const nz=()=>{const s=AC.createBufferSource();s.buffer=noiseBuf;s.loop=true;return s;};
-function sfxShot(kind,pack){
+function sfxShot(kind,pack,volume){
   if(!AC) return;
+  const V=volume===undefined?1:clamp(volume,0,1);
   // both pack levels share one report: anything packed sounds the same
   const t=AC.currentTime, P=(pack||0)?1:0;
   const cfg={pistol:[2400,.28,.55],rifle:[3400,.20,.45],smg:[3000,.16,.38],lmg:[3200,.24,.5],
@@ -1988,18 +1989,18 @@ function sfxShot(kind,pack){
   const lp=AC.createBiquadFilter(); lp.type='lowpass';
   lp.frequency.setValueAtTime(cfg[0]*(P?0.78:1),t);
   lp.frequency.exponentialRampToValueAtTime(P?150:220,t+dur);
-  const g=AC.createGain(); g.gain.setValueAtTime(cfg[2],t); g.gain.exponentialRampToValueAtTime(.0008,t+dur+.05);
+  const g=AC.createGain(); g.gain.setValueAtTime(Math.max(.0008,cfg[2]*V),t); g.gain.exponentialRampToValueAtTime(.0008,t+dur+.05);
   s.connect(lp); lp.connect(g); g.connect(master); s.start(t); s.stop(t+dur+.1);
   const o=AC.createOscillator(); o.type='sine';
   o.frequency.setValueAtTime(kind==='shotgun'?95:140,t); o.frequency.exponentialRampToValueAtTime(40,t+.14);
-  const g2=AC.createGain(); g2.gain.setValueAtTime(.45,t); g2.gain.exponentialRampToValueAtTime(.0008,t+.17);
+  const g2=AC.createGain(); g2.gain.setValueAtTime(Math.max(.0008,.45*V),t); g2.gain.exponentialRampToValueAtTime(.0008,t+.17);
   o.connect(g2); g2.connect(master); o.start(t); o.stop(t+.19);
   if(P){
     // sub thump underneath
     const ob=AC.createOscillator(); ob.type='sine';
     ob.frequency.setValueAtTime(82,t);
     ob.frequency.exponentialRampToValueAtTime(26,t+.24);
-    const gb=AC.createGain(); gb.gain.setValueAtTime(.42+P*.13,t);
+    const gb=AC.createGain(); gb.gain.setValueAtTime(Math.max(.0008,(.42+P*.13)*V),t);
     gb.gain.exponentialRampToValueAtTime(.0008,t+.28);
     ob.connect(gb); gb.connect(master); ob.start(t); ob.stop(t+.30);
     // electric ring on top
@@ -2007,38 +2008,41 @@ function sfxShot(kind,pack){
     oe.frequency.setValueAtTime(1150,t+.008);
     oe.frequency.exponentialRampToValueAtTime(230,t+.17);
     const bp=AC.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=950; bp.Q.value=5;
-    const ge=AC.createGain(); ge.gain.setValueAtTime(.09+P*.05,t+.008);
+    const ge=AC.createGain(); ge.gain.setValueAtTime(Math.max(.0008,(.09+P*.05)*V),t+.008);
     ge.gain.exponentialRampToValueAtTime(.0008,t+.21);
     oe.connect(bp); bp.connect(ge); ge.connect(master); oe.start(t); oe.stop(t+.23);
   }
 }
-function sfxRay(){
+function sfxRay(volume){
   if(!AC) return;
+  const V=volume===undefined?1:clamp(volume,0,1);
   const t=AC.currentTime,o=AC.createOscillator(); o.type='sawtooth';
   o.frequency.setValueAtTime(880,t); o.frequency.exponentialRampToValueAtTime(120,t+.28);
   const bp=AC.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=700; bp.Q.value=6;
-  const g=AC.createGain(); g.gain.setValueAtTime(.35,t); g.gain.exponentialRampToValueAtTime(.0008,t+.3);
+  const g=AC.createGain(); g.gain.setValueAtTime(Math.max(.0008,.35*V),t); g.gain.exponentialRampToValueAtTime(.0008,t+.3);
   o.connect(bp); bp.connect(g); g.connect(master); o.start(t); o.stop(t+.32);
 }
-function sfxThunder(){
+function sfxThunder(volume){
   if(!AC) return;
+  const V=volume===undefined?1:clamp(volume,0,1);
   const t=AC.currentTime,s=nz();
   const lp=AC.createBiquadFilter(); lp.type='lowpass';
   lp.frequency.setValueAtTime(180,t); lp.frequency.exponentialRampToValueAtTime(1800,t+.12);
   lp.frequency.exponentialRampToValueAtTime(120,t+.7);
-  const g=AC.createGain(); g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.9,t+.06);
+  const g=AC.createGain(); g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(Math.max(.0008,.9*V),t+.06);
   g.gain.exponentialRampToValueAtTime(.0008,t+.8);
   s.connect(lp); lp.connect(g); g.connect(master); s.start(t); s.stop(t+.85);
 }
-function sfxZap(){
+function sfxZap(volume){
   if(!AC) return;
+  const V=volume===undefined?1:clamp(volume,0,1);
   const t=AC.currentTime,s=nz();
   const hp=AC.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=1400;
-  const g=AC.createGain(); g.gain.setValueAtTime(.5,t); g.gain.exponentialRampToValueAtTime(.0008,t+.35);
+  const g=AC.createGain(); g.gain.setValueAtTime(Math.max(.0008,.5*V),t); g.gain.exponentialRampToValueAtTime(.0008,t+.35);
   s.connect(hp); hp.connect(g); g.connect(master); s.start(t); s.stop(t+.4);
   const o=AC.createOscillator(); o.type='square';
   o.frequency.setValueAtTime(2400,t); o.frequency.exponentialRampToValueAtTime(300,t+.3);
-  const g2=AC.createGain(); g2.gain.setValueAtTime(.16,t); g2.gain.exponentialRampToValueAtTime(.0008,t+.32);
+  const g2=AC.createGain(); g2.gain.setValueAtTime(Math.max(.0008,.16*V),t); g2.gain.exponentialRampToValueAtTime(.0008,t+.32);
   o.connect(g2); g2.connect(master); o.start(t); o.stop(t+.34);
 }
 function sfxBoom(){
@@ -3245,14 +3249,27 @@ function hurtPlayer(amount){
 }
 function goDown(){
   const quick=has('revive');
-  if(net.connected||quick){
-    if(quick){player.perks.revive=false; delete player.perks.revive;}
-    player.downed=true; player.downEnd=game.time+(quick?4.0:12.0);
+  if(net.connected){
+    player.downed=true; player.downEnd=Infinity;
     ui.downed.style.opacity=1;
-    toast(net.connected?'Survivor downed  \u00b7  recovering':'Quick Revive used');
+    toast('Survivor downed  \u00b7  wait for a teammate');
+    netGameRequest({type:'player_down'});
+    sfxTone(180,90,.8,.3,'sawtooth');
+  } else if(quick){
+    player.perks.revive=false; delete player.perks.revive;
+    player.downed=true; player.downEnd=game.time+4.0;
+    ui.downed.style.opacity=1;
+    toast('Quick Revive used');
     sfxTone(180,90,.8,.3,'sawtooth');
     renderPerks();
   } else gameOver();
+}
+function reviveLocal(){
+  if(!player.downed) return;
+  player.downed=false; player.hp=player.maxHp*.5; player.invuln=5;
+  player.downEnd=0; ui.downed.style.opacity=0; ui.vig.style.opacity=0;
+  toast('Revived  \u00b7  five seconds of grace');
+  sfxTone(300,900,.5,.22,'sine'); updHUD();
 }
 
 /* ---------- shooting ---------- */
@@ -3283,6 +3300,7 @@ function shootOnce(){
   const d=g.def;
   g.ammo--;
   sfxShot(d.cls==='wonder'?'rifle':d.cls,packLv(g));
+  if(net.connected) netSend({type:'fire',weapon:d.id,pack:packLv(g)});
   const fl=d.mesh.userData.flash;
   fl.material.opacity=1; fl.rotation.z=rand(0,TAU); fl.scale.setScalar(rand(.8,1.5));
   muzzleLight.intensity=d.cls==='shotgun'?7:5.5;
@@ -3979,6 +3997,19 @@ if(isTouch){
 /* ---------- interaction ---------- */
 function updateInteract(){
   let best=null,bd=1e9;
+  if(net.connected&&!player.downed){
+    for(const p of net.players.values()){
+      if(p.id===net.id||!p.state||!p.state.downed||p.state.map!==currentMap) continue;
+      const r=net.remotes.get(p.id); if(!r||!r.g.visible) continue;
+      const dx=r.g.position.x-player.pos.x,dy=r.g.position.y-(player.y+1),dz=r.g.position.z-player.pos.z;
+      const d=Math.sqrt(dx*dx+dy*dy*.7+dz*dz);
+      if(d<2.8&&d<bd){
+        bd=d;
+        best={kind:'revive',target:p.id,cost:()=>0,label:()=>('Revive '+p.name),
+          buy(){netGameRequest({type:'revive',target:p.id});}};
+      }
+    }
+  }
   for(const it of interactables){
     if(it.can&&!it.can()) continue;
     const dx=it.x-player.pos.x,dy=it.y-(player.y+1.0),dz=it.z-player.pos.z;
@@ -3997,7 +4028,7 @@ function doBuy(){
   const it=game.focus; if(!it) return;
   const c=it.cost();
   if(player.points<c){ sfxDeny(); toast('Not enough points'); return; }
-  if(net.connected&&it.kind==='box'){it.buy();return;}
+  if(net.connected&&(it.kind==='box'||it.kind==='revive')){it.buy();return;}
   player.points-=c; it.buy(); sfxBuy(); updHUD();
 }
 
@@ -4100,6 +4131,28 @@ function applySharedWorld(e){
   }
   updRoundHUD(); updHUD();
 }
+function netPlayerState(id){
+  if(id===net.id) return {x:player.pos.x,y:player.y,z:player.pos.z,hp:player.hp,
+    downed:player.downed,map:currentMap};
+  const p=net.players.get(id); return p&&p.state;
+}
+function hostCheckTeamWipe(){
+  if(!net.host||!game.running||!net.players.size) return;
+  for(const p of net.players.values()){
+    const s=netPlayerState(p.id);
+    if(!s||s.map!==currentMap||!s.downed) return;
+  }
+  const event={type:'team_wipe'};
+  netHostBroadcast(event); handleSharedGameEvent(event);
+}
+function hostRevive(reviverId,targetId){
+  if(!net.host||reviverId===targetId) return;
+  const a=netPlayerState(reviverId),b=netPlayerState(targetId);
+  if(!a||!b||a.map!==currentMap||b.map!==currentMap||a.downed||!b.downed) return;
+  if(Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z)>3.4) return;
+  const event={type:'player_revived',target:targetId,reviver:reviverId};
+  netHostBroadcast(event); handleSharedGameEvent(event);
+}
 function handleHostGameRequest(e,playerId){
   if(!net.host||!e) return;
   if(e.type==='zombie_damage'){
@@ -4127,6 +4180,14 @@ function handleHostGameRequest(e,playerId){
     hostTakeSharedBox(playerId);
   } else if(e.type==='round_call'&&game.toSpawn===0){
     startRound();
+  } else if(e.type==='player_down'){
+    if(playerId!==net.id){
+      const p=net.players.get(playerId);
+      if(p){p.state=p.state||{};p.state.downed=true;p.state.hp=0;p.state.map=currentMap;}
+    }
+    hostCheckTeamWipe();
+  } else if(e.type==='revive'){
+    hostRevive(playerId,String(e.target||''));
   }
 }
 function handleSharedGameEvent(e){
@@ -4150,6 +4211,16 @@ function handleSharedGameEvent(e){
     showHit(!!e.killed); updHUD();
   } else if(e.type==='player_damage'){
     hurtPlayer(clamp(+e.amount||0,0,100));
+  } else if(e.type==='player_revived'){
+    const id=String(e.target||''),p=net.players.get(id);
+    if(p&&p.state){p.state.downed=false;p.state.hp=Math.max(50,+p.state.hp||0);}
+    if(id===net.id) reviveLocal();
+    else if(p) updateRemoteState(id,p.state||{});
+    const reviver=net.players.get(String(e.reviver||''));
+    if(id!==net.id) toast((reviver?reviver.name:'A teammate')+' revived '+(p?p.name:'a survivor'));
+  } else if(e.type==='team_wipe'){
+    toast('All survivors are down');
+    gameOver();
   } else if(e.type==='round_start'){
     banner('ROUND '+String(e.round|0).padStart(2,'0'),(e.count|0)+' of them'); sfxRound();
   }
@@ -4171,14 +4242,44 @@ function makeRemotePlayer(p){
   a1.position.set(-.31,1.17,0); a2.position.set(.31,1.17,0); g.add(a1,a2);
   const l1=new THREE.Mesh(legG,dark),l2=new THREE.Mesh(legG,dark);
   l1.position.set(-.13,.52,0); l2.position.set(.13,.52,0); g.add(l1,l2);
-  const gun=new THREE.Mesh(new THREE.BoxGeometry(.10,.12,.58),dark);
-  gun.position.set(.18,1.27,-.31); gun.rotation.x=-.10; g.add(gun);
+  const flash=new THREE.Mesh(new THREE.SphereGeometry(.075,7,5),new THREE.MeshBasicMaterial({
+    color:0xffcf7a,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}));
+  const shotLight=new THREE.PointLight(0xffb45d,0,5,2); g.add(flash,shotLight);
   g.position.set(0,-20,0); g.visible=game.running; scene.add(g);
-  net.remotes.set(p.id,{g,target:new THREE.Vector3(),yaw:0,name:p.name||'Survivor',mats:[suit,dark,skin]});
+  const remote={g,target:new THREE.Vector3(),yaw:0,pitch:0,name:p.name||'Survivor',
+    mats:[suit,dark,skin,flash.material],weapon:'',weaponMesh:null,flash,shotLight,flashT:0};
+  net.remotes.set(p.id,remote);
+  setRemoteWeapon(remote,p.state&&p.state.weapon);
   if(p.state) updateRemoteState(p.id,p.state);
+}
+function setRemoteWeapon(r,id){
+  id=DEFS[id]?id:'m1911';
+  if(r.weapon===id&&r.weaponMesh) return;
+  if(r.weaponMesh) r.g.remove(r.weaponMesh);
+  const d=DEFS[id],m=d.mesh.clone(true);
+  m.visible=true;
+  if(m.children[1])m.children[1].visible=false;
+  m.traverse(o=>{if(o.userData&&o.userData.arm)o.visible=false;});
+  m.position.set(.18,1.27,-.26); m.rotation.set(-.10,0,0); m.scale.setScalar(.82);
+  r.g.add(m); r.weapon=id; r.weaponMesh=m;
+  r.flash.position.set(.18+d.muzzle[0]*.82,1.27+d.muzzle[1]*.82,-.26+d.muzzle[2]*.82);
+  r.shotLight.position.copy(r.flash.position);
+}
+function remoteFire(id,event){
+  const r=net.remotes.get(id); if(!r||!r.g.visible) return;
+  setRemoteWeapon(r,event.weapon);
+  r.flash.material.opacity=1; r.flash.scale.setScalar(rand(.8,1.5));
+  r.shotLight.intensity=4; r.flashT=.09;
+  const d=DEFS[r.weapon],dist=Math.hypot(r.g.position.x-player.pos.x,r.g.position.y-player.y,r.g.position.z-player.pos.z);
+  const v=clamp(1-dist/55,.06,.72);
+  sfxShot(d.cls==='wonder'?'rifle':d.cls,clamp(event.pack|0,0,2),v);
+  if(d.id==='raygun'||d.id==='raygun2')sfxRay(v);
+  else if(d.id==='thunder')sfxThunder(v);
+  else if(d.id==='waffe')sfxZap(v);
 }
 function removeRemotePlayer(id){
   const r=net.remotes.get(id); if(!r) return;
+  if(r.weaponMesh) r.g.remove(r.weaponMesh);
   scene.remove(r.g);
   r.g.traverse(o=>{if(o.geometry)o.geometry.dispose();});
   r.mats.forEach(m=>m.dispose());
@@ -4192,9 +4293,10 @@ function updateRemoteState(id,s){
   if(!net.remotes.has(id)) makeRemotePlayer(p);
   const r=net.remotes.get(id); if(!r) return;
   r.target.set(+s.x||0,+s.y||0,+s.z||0);
-  r.yaw=+s.yaw||0;
+  r.yaw=+s.yaw||0; r.pitch=clamp(+s.pitch||0,-1.2,1.2);
   r.g.visible=game.running&&s.map===currentMap;
   r.g.userData.downed=!!s.downed;
+  setRemoteWeapon(r,s.weapon);
 }
 function renderRoster(){
   const box=el('roomRoster'); if(!box) return;
@@ -4226,6 +4328,7 @@ function netHandle(msg){
   } else if(m.type==='player_left'){
     const p=net.players.get(m.id); net.players.delete(m.id); removeRemotePlayer(m.id); renderRoster();
     if(p) toast(p.name+' left');
+    if(net.host) hostCheckTeamWipe();
   } else if(m.type==='role'){
     for(const p of net.players.values()) p.host=false;
     const p=net.players.get(m.id); if(p)p.host=!!m.host;
@@ -4234,11 +4337,15 @@ function netHandle(msg){
       net.nextWorld=0;
       for(const z of zombies) if(!z.dead&&!z.netId) z.netId=netZombieId();
       toast('You are now the room host');
+      hostCheckTeamWipe();
     }
     renderRoster();
   } else if(m.type==='state'){
     const p=net.players.get(m.id); if(p)p.state=m.state;
     updateRemoteState(m.id,m.state||{});
+    if(net.host&&m.state&&m.state.downed) hostCheckTeamWipe();
+  } else if(m.type==='fire'){
+    remoteFire(String(m.id||''),m);
   } else if(m.type==='game_request'){
     handleHostGameRequest(m.event,m.playerId);
   } else if(m.type==='game'){
@@ -4297,6 +4404,11 @@ function netStep(dt){
     r.g.rotation.y+=d*Math.min(1,dt*12);
     const down=r.g.userData.downed;
     r.g.rotation.z=lerp(r.g.rotation.z,down?Math.PI/2:0,Math.min(1,dt*8));
+    if(r.weaponMesh) r.weaponMesh.rotation.x=lerp(r.weaponMesh.rotation.x,-.10-r.pitch*.45,Math.min(1,dt*12));
+    if(r.flashT>0){
+      r.flashT=Math.max(0,r.flashT-dt);
+      r.flash.material.opacity=clamp(r.flashT*12,0,1); r.shotLight.intensity=clamp(r.flashT*45,0,4);
+    }else{r.flash.material.opacity=0;r.shotLight.intensity=0;}
   }
   netHostWorld();
   if(!net.connected||!game.running||game.time<net.nextState) return;
