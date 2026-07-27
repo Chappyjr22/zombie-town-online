@@ -899,7 +899,9 @@ function buildTown(){
 /* --- BAR (west), two floors, balcony over the street --- */
 (function bar(){
   const x1=-30,x2=-14,z1=-22,z2=-6,h=8.6,f2=4.0;
-  wallRun(x1,z1,x2,z1,h,M.brick,[{c:-22,w:3.0,sill:0.9}]);
+  // The south stair door lines up with the full staircase width, giving both
+  // players and zombies a real approach from the street instead of a wall.
+  wallRun(x1,z1,x2,z1,h,M.brick,[{c:-27.7,w:4.6},{c:-22,w:3.0,sill:0.9}]);
   wallRun(x1,z2,x2,z2,h,M.brick,[{c:-20,w:3.4}]);
   wallRun(x1,z1,x1,z2,h,M.brick,[{c:-14,w:2.6,sill:1.0}]);
   wallRun(x2,z1,x2,z2,h,M.brick,[{c:-16,w:3.4},{c:-10.5,w:3.2,sill:4.0,head:6.4,boards:false}]);
@@ -907,11 +909,11 @@ function buildTown(){
   floorSlab(x1+0.2,z1+0.2,x2-0.2,z2-0.2,0.04,M.plank);
   // second floor covers the north half, staircase on the west wall
   floorSlab(x1+0.2,-15.7,x2-0.2,z2-0.2,f2,M.plank);
-  const sx1=x1+0.3,sx2=x1+4.3,sz1=-21.4,sz2=-15.7;
+  const sx1=x1+0.3,sx2=x1+4.3,sz1=z1+0.35,sz2=-15.7;
   const stairSpan=sz2-sz1,stairRise=f2-0.1,steps=14;
   addRamp(sx1,sx2,sz1,sz2,0.1,f2,'z',false);
   stairBases.push({x:(sx1+sx2)/2,z:sz1+0.5,tx:(sx1+sx2)/2,tz:sz2+0.8,ty:f2,
-    doors:[[-15.4,-16],[-20,-7.4]],room:[-30,-22,-14,-6]});
+    doors:[[-27.7,z1-0.5],[-15.4,-16],[-20,-7.4]],room:[-30,-22,-14,-6]});
   // Even risers, a continuous handrail, and a collision edge keep the stairs
   // visually aligned with the walkable ramp from the street to the landing.
   for(let i=0;i<steps;i++){
@@ -1123,7 +1125,7 @@ jumpPad(-11.2,-11.4); jumpPad(-12.6,-8.8);
 
   // buyables
   addWallBuy('m14',13.7,2.3,-12.5,-Math.PI/2);
-  addWallBuy('olympia',-26,2.2,-21.7,0);
+  addWallBuy('olympia',-26,2.2,-6.2,Math.PI);
   addWallBuy('mp5',-16.7,2.2,10.5,Math.PI/2);
   addWallBuy('ak74u',5.5,2.4,19.7,Math.PI);
   addWallBuy('galil',16.7,2.2,10.5,-Math.PI/2);
