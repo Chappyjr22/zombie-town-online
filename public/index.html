@@ -2045,13 +2045,26 @@ function sfxZap(volume){
   const g2=AC.createGain(); g2.gain.setValueAtTime(Math.max(.0008,.16*V),t); g2.gain.exponentialRampToValueAtTime(.0008,t+.32);
   o.connect(g2); g2.connect(master); o.start(t); o.stop(t+.34);
 }
-function sfxBoom(){
+function sfxBoom(volume){
   if(!AC) return;
-  const t=AC.currentTime,s=nz();
+  const V=volume===undefined?1:clamp(volume,0,1),t=AC.currentTime,s=nz();
   const lp=AC.createBiquadFilter(); lp.type='lowpass';
-  lp.frequency.setValueAtTime(900,t); lp.frequency.exponentialRampToValueAtTime(60,t+.6);
-  const g=AC.createGain(); g.gain.setValueAtTime(.85,t); g.gain.exponentialRampToValueAtTime(.0008,t+.7);
-  s.connect(lp); lp.connect(g); g.connect(master); s.start(t); s.stop(t+.75);
+  lp.frequency.setValueAtTime(2100,t); lp.frequency.exponentialRampToValueAtTime(55,t+.72);
+  const g=AC.createGain(); g.gain.setValueAtTime(Math.max(.0008,.92*V),t);
+  g.gain.exponentialRampToValueAtTime(.0008,t+.78);
+  s.connect(lp); lp.connect(g); g.connect(master); s.start(t); s.stop(t+.82);
+  // Heavy pressure wave.
+  const sub=AC.createOscillator(); sub.type='sine';
+  sub.frequency.setValueAtTime(105,t); sub.frequency.exponentialRampToValueAtTime(28,t+.52);
+  const sg=AC.createGain(); sg.gain.setValueAtTime(Math.max(.0008,.78*V),t);
+  sg.gain.exponentialRampToValueAtTime(.0008,t+.58);
+  sub.connect(sg); sg.connect(master); sub.start(t); sub.stop(t+.62);
+  // Short metallic debris burst after the initial blast.
+  const debris=nz(),bp=AC.createBiquadFilter(); bp.type='bandpass';bp.frequency.value=2450;bp.Q.value=1.2;
+  const dg=AC.createGain();dg.gain.setValueAtTime(.0008,t);
+  dg.gain.linearRampToValueAtTime(Math.max(.0008,.22*V),t+.035);
+  dg.gain.exponentialRampToValueAtTime(.0008,t+.34);
+  debris.connect(bp);bp.connect(dg);dg.connect(master);debris.start(t+.025);debris.stop(t+.38);
 }
 function sfxClick(f,d,v){
   if(!AC) return;
@@ -2067,18 +2080,42 @@ function sfxTone(f1,f2,dur,vol,type){
   const g=AC.createGain(); g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(.0008,t+dur);
   o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+.02);
 }
-function sfxGroan(dist){
+function sfxGroan(dist,variant){
   if(!AC) return;
-  const t=AC.currentTime,o=AC.createOscillator(),o2=AC.createOscillator();
-  o.type='sawtooth'; o2.type='square';
-  const f=rand(54,98);
-  o.frequency.setValueAtTime(f,t); o.frequency.linearRampToValueAtTime(f*rand(.6,1.45),t+.9);
-  o2.frequency.setValueAtTime(f*1.5,t); o2.frequency.linearRampToValueAtTime(f*.8,t+.9);
-  const lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=540;
-  const g=AC.createGain(); const v=clamp(.15*(1-dist/48),.008,.15);
-  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(v,t+.18); g.gain.exponentialRampToValueAtTime(.0008,t+1);
-  o.connect(lp); o2.connect(lp); lp.connect(g); g.connect(master);
-  o.start(t); o2.start(t); o.stop(t+1.05); o2.stop(t+1.05);
+  const t=AC.currentTime,o=AC.createOscillator(),o2=AC.createOscillator(),breath=nz();
+  o.type='sawtooth'; o2.type='triangle';
+  const attack=variant==='attack',death=variant==='death';
+  const dur=death?1.25:(attack?.48:rand(.85,1.25)),f=death?rand(58,76):(attack?rand(72,105):rand(48,82));
+  o.frequency.setValueAtTime(f,t);
+  o.frequency.linearRampToValueAtTime(f*(death?.42:(attack?1.32:rand(.62,1.28))),t+dur);
+  o2.frequency.setValueAtTime(f*2.03,t);
+  o2.frequency.linearRampToValueAtTime(f*(death?.65:(attack?1.55:.9)),t+dur);
+  const lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=death?620:(attack?880:520);
+  const g=AC.createGain(); const v=clamp((death?.20:(attack?.18:.15))*(1-dist/52),.006,.2);
+  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(v,t+(attack?.035:.13));
+  if(!attack) g.gain.linearRampToValueAtTime(v*.72,t+dur*.58);
+  g.gain.exponentialRampToValueAtTime(.0008,t+dur);
+  const bh=AC.createBiquadFilter();bh.type='bandpass';bh.frequency.value=attack?1250:820;bh.Q.value=.8;
+  const bg=AC.createGain();bg.gain.setValueAtTime(.0008,t);
+  bg.gain.linearRampToValueAtTime(Math.max(.0008,v*.7),t+(attack?.025:.1));
+  bg.gain.exponentialRampToValueAtTime(.0008,t+dur*.82);
+  o.connect(lp);o2.connect(lp);lp.connect(g);g.connect(master);
+  breath.connect(bh);bh.connect(bg);bg.connect(master);
+  o.start(t);o2.start(t);breath.start(t);o.stop(t+dur+.02);o2.stop(t+dur+.02);breath.stop(t+dur);
+}
+function sfxFootstep(volume,sprint,side){
+  if(!AC) return;
+  const V=clamp(volume===undefined ? .32 : volume,0,1),t=AC.currentTime;
+  const thud=nz(),lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=sprint?520:390;
+  const g=AC.createGain();g.gain.setValueAtTime(Math.max(.0008,V*(sprint?.72:.52)),t);
+  g.gain.exponentialRampToValueAtTime(.0008,t+(sprint?.105:.14));
+  thud.connect(lp);lp.connect(g);g.connect(master);thud.start(t);thud.stop(t+.17);
+  const sole=AC.createOscillator();sole.type='sine';
+  sole.frequency.setValueAtTime((side?82:76)*(sprint?1.1:1),t);
+  sole.frequency.exponentialRampToValueAtTime(38,t+.105);
+  const sg=AC.createGain();sg.gain.setValueAtTime(Math.max(.0008,V*.45),t);
+  sg.gain.exponentialRampToValueAtTime(.0008,t+.12);
+  sole.connect(sg);sg.connect(master);sole.start(t);sole.stop(t+.14);
 }
 function sfxHurt(){ sfxTone(240,70,.3,.32,'triangle'); }
 function sfxRound(){
@@ -2747,7 +2784,7 @@ const player={
   pos:new THREE.Vector3(0,0,14), vel:new THREE.Vector3(),
   yaw:Math.PI, pitch:0, y:0, vy:0, grounded:true,
   hp:100, maxHp:100, lastHit:-99, radius:0.42, eye:1.68,
-  bob:0, sprint:false, ads:false,
+  bob:0, footStep:-1, sprint:false, ads:false,
   guns:[], slot:0, firing:false, semiHeld:false,
   nextShot:0, reloadEnd:0, reloading:false, shellsLeft:0,
   burstLeft:0, burstNext:0,
@@ -3150,7 +3187,9 @@ function explode(pos,dmg,radius,kind,exclude){
   const L=new THREE.PointLight(col,7,radius*5,2); L.position.copy(pos); scene.add(L);
   booms.push({m,L,t:0,r:radius});
   spray(pos.x,pos.y,pos.z,0,1,0,16,kind==='nade'?emberMat:plasmaMat,2.2);
-  if(kind==='nade') sfxBoom(); else sfxRay();
+  const blastDist=Math.hypot(player.pos.x-pos.x,player.y+player.eye-pos.y,player.pos.z-pos.z);
+  if(kind==='nade') sfxBoom(clamp(1-blastDist/72,.08,1));
+  else sfxRay(clamp(1-blastDist/62,.06,1));
   for(let i=zombies.length-1;i>=0;i--){
     const z=zombies[i]; if(z.dead||z===exclude) continue;
     const c=z.pts[CHEST];
@@ -3232,6 +3271,8 @@ function killZombie(z,dir,part,impulse,noReward,silentNet){
   if(!noReward) addPoints((part==='head'?90:50)*roundMult(z.round));
   const h=z.pts[HEAD];
   spray(h.x,h.y,h.z,dir.x,.4,dir.z,12,bloodMat,1.4);
+  const deathDist=Math.hypot(h.x-player.pos.x,h.y-(player.y+player.eye),h.z-player.pos.z);
+  if(deathDist<48) sfxGroan(deathDist,'death');
   if(z.eyeMat) z.eyeMat.color.setHex(0x2a2a26);
   if(z.mats.eyeGlow) z.mats.eyeGlow.color.setHex(0x000000);
   if(!net.connected||net.host) game.kills++;
@@ -4293,7 +4334,7 @@ function makeRemotePlayer(p){
   const shotLight=new THREE.PointLight(0xffb45d,0,5,2);weaponHolder.add(flash,shotLight);
   g.position.set(0,-20,0); g.visible=game.running; scene.add(g);
   const remote={g,rig,target:new THREE.Vector3(),yaw:0,pitch:0,speed:0,sprint:false,ads:false,
-    grounded:true,phase:rand(0,TAU),recoil:0,name:p.name||'Survivor',
+    grounded:true,phase:rand(0,TAU),footStep:-1,recoil:0,name:p.name||'Survivor',
     mats:[uniform,uniform2,vest,dark,skin,patch,flash.material],weapon:'',weaponMesh:null,
     weaponHolder,flash,shotLight,flashT:0,armL,armR,elbowL,elbowR,legL,legR,kneeL,kneeR,head};
   net.remotes.set(p.id,remote);
@@ -4468,6 +4509,12 @@ function netStep(dt){
     r.g.rotation.z=lerp(r.g.rotation.z,down?Math.PI/2:0,Math.min(1,dt*8));
     r.phase+=dt*(3.5+r.speed*1.7);
     const move=down?0:clamp(r.speed/4.5,0,1),run=r.sprint?1.22:1;
+    const remoteStep=Math.floor((r.phase+Math.PI*.5)/Math.PI);
+    if(!down&&r.grounded&&r.speed>.85&&remoteStep!==r.footStep){
+      r.footStep=remoteStep;
+      const dist=Math.hypot(r.g.position.x-player.pos.x,r.g.position.y-player.y,r.g.position.z-player.pos.z);
+      if(dist<34) sfxFootstep(clamp((1-dist/34)*.28,.025,.28),r.sprint,remoteStep&1);
+    }
     const stride=Math.sin(r.phase)*.82*move*run,air=!r.grounded&&!down;
     const smooth=Math.min(1,dt*13);
     r.legL.rotation.x=lerp(r.legL.rotation.x,air?.48:stride,smooth);
@@ -4905,6 +4952,11 @@ function updatePlayer(dt){
 
   const sp=Math.hypot(player.vel.x,player.vel.z);
   player.bob+=dt*sp*(player.sprint?0.78:1.0);
+  const localStep=Math.floor((player.bob*2.1+Math.PI*.5)/Math.PI);
+  if(player.grounded&&sp>.85&&localStep!==player.footStep){
+    player.footStep=localStep;
+    sfxFootstep(player.sprint?.38:.27,player.sprint,localStep&1);
+  }
   const bobY=Math.sin(player.bob*2.1)*(player.sprint?0.055:0.035)*Math.min(sp/4,1)-(player.landDip||0)*0.16;
   const bobX=Math.cos(player.bob*1.05)*0.025*Math.min(sp/4,1);
 
@@ -4986,6 +5038,10 @@ function updateReplicaZombies(dt){
       z.y=lerp(z.y,t.y,Math.min(1,dt*14));
       let da=t.yaw-z.yaw; while(da>Math.PI)da-=TAU;while(da<-Math.PI)da+=TAU;
       z.yaw+=da*Math.min(1,dt*14); z.hp=t.hp;
+    }
+    const replicaDist=Math.hypot(z.pos.x-player.pos.x,z.pos.z-player.pos.z);
+    if(game.time>z.nextGroan&&replicaDist<46){
+      z.nextGroan=game.time+rand(4,11); sfxGroan(replicaDist);
     }
     poseAlive(z,game.time,true); drawZombie(z);
   }
@@ -5072,6 +5128,8 @@ function updateZombies(dt){
     } else if(game.time>z.nextSwing&&!targetDown){
       z.nextSwing=game.time+1.05;
       const amount=13+z.round*0.7;
+      const listenerDist=Math.hypot(z.pos.x-player.pos.x,z.pos.z-player.pos.z);
+      if(listenerDist<28) sfxGroan(listenerDist,'attack');
       if(!net.connected||targetId===net.id) hurtPlayer(amount);
       else netHostDirect(targetId,{type:'player_damage',amount});
     }
