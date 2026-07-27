@@ -422,10 +422,10 @@
 <div class="screen gone" id="pause">
   <div class="card">
     <h1 style="font-size:34px">PAUSED</h1>
-    <div class="sub">They are still out there</div>
+    <div class="sub" id="pauseSub">They are still out there</div>
     <div id="pauseStats" class="best"></div>
     <div style="margin-top:12px">
-      <div class="btn" data-act="resume">Resume</div>
+      <div class="btn" id="resumeBtn" data-act="resume">Resume</div>
       <div class="btn" data-act="options">Options</div>
       <div class="btn" data-act="restart">Restart</div>
       <div class="btn" data-act="menu">Main menu</div>
@@ -4038,7 +4038,8 @@ function doBuy(){
    validates combat requests, and broadcasts shared world state to the room. */
 const net={
   ws:null,code:'',id:'',host:false,connected:false,manualClose:false,
-  players:new Map(),remotes:new Map(),nextState:0,nextWorld:0,zombieSeq:1,activeGame:false
+  players:new Map(),remotes:new Map(),nextState:0,nextWorld:0,zombieSeq:1,activeGame:false,
+  pausedByHost:false
 };
 function safeNetName(v){
   return String(v||'Survivor').replace(/[^\w .'-]/g,'').trim().slice(0,18)||'Survivor';
@@ -4221,6 +4222,8 @@ function handleSharedGameEvent(e){
   } else if(e.type==='team_wipe'){
     toast('All survivors are down');
     gameOver();
+  } else if(e.type==='session_pause'){
+    applySessionPause(!!e.paused);
   } else if(e.type==='round_start'){
     banner('ROUND '+String(e.round|0).padStart(2,'0'),(e.count|0)+' of them'); sfxRound();
   }
@@ -4229,25 +4232,59 @@ function netColor(id){
   let h=0; for(let i=0;i<id.length;i++) h=(h*31+id.charCodeAt(i))>>>0;
   return new THREE.Color().setHSL((h%360)/360,.62,.52);
 }
+function remoteJoint(parent,x,y,z,len,radius,mat){
+  const joint=new THREE.Group(); joint.position.set(x,y,z); parent.add(joint);
+  const mesh=new THREE.Mesh(new THREE.CylinderGeometry(radius*.86,radius,len,8),mat);
+  mesh.position.y=-len*.5; joint.add(mesh);
+  return joint;
+}
 function makeRemotePlayer(p){
   if(!p||p.id===net.id||net.remotes.has(p.id)) return;
-  const g=new THREE.Group(),col=netColor(p.id);
-  const suit=new THREE.MeshPhongMaterial({color:col,shininess:12});
-  const dark=new THREE.MeshPhongMaterial({color:0x171a20,shininess:18});
-  const skin=new THREE.MeshPhongMaterial({color:0xb98968,shininess:8});
-  const body=new THREE.Mesh(new THREE.BoxGeometry(.46,.62,.27),suit); body.position.y=1.20; g.add(body);
-  const head=new THREE.Mesh(new THREE.SphereGeometry(.17,10,8),skin); head.position.y=1.68; g.add(head);
-  const armG=new THREE.BoxGeometry(.13,.54,.14),legG=new THREE.BoxGeometry(.16,.66,.18);
-  const a1=new THREE.Mesh(armG,suit),a2=new THREE.Mesh(armG,suit);
-  a1.position.set(-.31,1.17,0); a2.position.set(.31,1.17,0); g.add(a1,a2);
-  const l1=new THREE.Mesh(legG,dark),l2=new THREE.Mesh(legG,dark);
-  l1.position.set(-.13,.52,0); l2.position.set(.13,.52,0); g.add(l1,l2);
+  const g=new THREE.Group(),rig=new THREE.Group(),col=netColor(p.id); g.add(rig);
+  const uniform=new THREE.MeshPhongMaterial({color:0x4e5938,shininess:5});
+  const uniform2=new THREE.MeshPhongMaterial({color:0x303a28,shininess:4});
+  const vest=new THREE.MeshPhongMaterial({color:0x273025,shininess:7});
+  const dark=new THREE.MeshPhongMaterial({color:0x151812,shininess:12});
+  const skin=new THREE.MeshPhongMaterial({color:0xb98263,shininess:7});
+  const patch=new THREE.MeshPhongMaterial({color:col,emissive:col.clone().multiplyScalar(.12),shininess:20});
+  const add=(geo,mat,x,y,z,parent)=>{
+    const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);(parent||rig).add(m);return m;
+  };
+  add(new THREE.CylinderGeometry(.19,.16,.54,9),uniform,0,1.29,0);
+  add(new THREE.BoxGeometry(.43,.45,.25),vest,0,1.31,-.015);
+  add(new THREE.BoxGeometry(.15,.13,.08),uniform2,-.12,1.20,-.16);
+  add(new THREE.BoxGeometry(.15,.13,.08),uniform2,.12,1.20,-.16);
+  add(new THREE.BoxGeometry(.10,.10,.04),patch,-.22,1.42,-.03);
+  add(new THREE.BoxGeometry(.34,.25,.16),uniform2,0,1.01,.02);
+  add(new THREE.BoxGeometry(.34,.43,.16),vest,0,1.34,.19);
+  add(new THREE.CylinderGeometry(.055,.06,.12,8),skin,0,1.61,0);
+  const head=add(new THREE.SphereGeometry(.155,12,9),skin,0,1.75,-.01);
+  head.scale.set(1,.98,.94);
+  add(new THREE.BoxGeometry(.045,.055,.045),skin,0,1.72,-.15);
+  const helmet=add(new THREE.SphereGeometry(.18,12,8,0,TAU,0,Math.PI*.62),uniform2,0,1.84,0);
+  helmet.scale.y=.72;
+  add(new THREE.CylinderGeometry(.19,.19,.035,12),uniform2,0,1.80,-.005);
+  const armL=remoteJoint(rig,-.255,1.49,0,.34,.072,uniform);
+  const armR=remoteJoint(rig,.255,1.49,0,.34,.072,uniform);
+  const elbowL=remoteJoint(armL,0,-.34,0,.31,.058,skin);
+  const elbowR=remoteJoint(armR,0,-.34,0,.31,.058,skin);
+  add(new THREE.SphereGeometry(.062,8,6),dark,0,-.32,0,elbowL);
+  add(new THREE.SphereGeometry(.062,8,6),dark,0,-.32,0,elbowR);
+  const legL=remoteJoint(rig,-.13,1.00,0,.43,.087,uniform2);
+  const legR=remoteJoint(rig,.13,1.00,0,.43,.087,uniform2);
+  const kneeL=remoteJoint(legL,0,-.42,0,.39,.068,uniform);
+  const kneeR=remoteJoint(legR,0,-.42,0,.39,.068,uniform);
+  add(new THREE.BoxGeometry(.15,.11,.27),dark,0,-.40,-.06,kneeL);
+  add(new THREE.BoxGeometry(.15,.11,.27),dark,0,-.40,-.06,kneeR);
+  const weaponHolder=new THREE.Group();weaponHolder.position.set(.08,1.30,-.25);rig.add(weaponHolder);
   const flash=new THREE.Mesh(new THREE.SphereGeometry(.075,7,5),new THREE.MeshBasicMaterial({
     color:0xffcf7a,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}));
-  const shotLight=new THREE.PointLight(0xffb45d,0,5,2); g.add(flash,shotLight);
+  const shotLight=new THREE.PointLight(0xffb45d,0,5,2);weaponHolder.add(flash,shotLight);
   g.position.set(0,-20,0); g.visible=game.running; scene.add(g);
-  const remote={g,target:new THREE.Vector3(),yaw:0,pitch:0,name:p.name||'Survivor',
-    mats:[suit,dark,skin,flash.material],weapon:'',weaponMesh:null,flash,shotLight,flashT:0};
+  const remote={g,rig,target:new THREE.Vector3(),yaw:0,pitch:0,speed:0,sprint:false,ads:false,
+    grounded:true,phase:rand(0,TAU),recoil:0,name:p.name||'Survivor',
+    mats:[uniform,uniform2,vest,dark,skin,patch,flash.material],weapon:'',weaponMesh:null,
+    weaponHolder,flash,shotLight,flashT:0,armL,armR,elbowL,elbowR,legL,legR,kneeL,kneeR,head};
   net.remotes.set(p.id,remote);
   setRemoteWeapon(remote,p.state&&p.state.weapon);
   if(p.state) updateRemoteState(p.id,p.state);
@@ -4255,21 +4292,22 @@ function makeRemotePlayer(p){
 function setRemoteWeapon(r,id){
   id=DEFS[id]?id:'m1911';
   if(r.weapon===id&&r.weaponMesh) return;
-  if(r.weaponMesh) r.g.remove(r.weaponMesh);
+  if(r.weaponMesh) r.weaponHolder.remove(r.weaponMesh);
   const d=DEFS[id],m=d.mesh.clone(true);
   m.visible=true;
   if(m.children[1])m.children[1].visible=false;
   m.traverse(o=>{if(o.userData&&o.userData.arm)o.visible=false;});
-  m.position.set(.18,1.27,-.26); m.rotation.set(-.10,0,0); m.scale.setScalar(.82);
-  r.g.add(m); r.weapon=id; r.weaponMesh=m;
-  r.flash.position.set(.18+d.muzzle[0]*.82,1.27+d.muzzle[1]*.82,-.26+d.muzzle[2]*.82);
+  const scale=(d.cls==='pistol'||d.cls==='knife'||d.id==='raygun'||d.id==='raygun2')?.72:.82;
+  m.position.set(0,0,0);m.rotation.set(0,0,0);m.scale.setScalar(scale);
+  r.weaponHolder.add(m);r.weapon=id;r.weaponMesh=m;
+  r.flash.position.set(d.muzzle[0]*scale,d.muzzle[1]*scale,d.muzzle[2]*scale);
   r.shotLight.position.copy(r.flash.position);
 }
 function remoteFire(id,event){
   const r=net.remotes.get(id); if(!r||!r.g.visible) return;
   setRemoteWeapon(r,event.weapon);
   r.flash.material.opacity=1; r.flash.scale.setScalar(rand(.8,1.5));
-  r.shotLight.intensity=4; r.flashT=.09;
+  r.shotLight.intensity=4; r.flashT=.09;r.recoil=1;
   const d=DEFS[r.weapon],dist=Math.hypot(r.g.position.x-player.pos.x,r.g.position.y-player.y,r.g.position.z-player.pos.z);
   const v=clamp(1-dist/55,.06,.72);
   sfxShot(d.cls==='wonder'?'rifle':d.cls,clamp(event.pack|0,0,2),v);
@@ -4279,7 +4317,7 @@ function remoteFire(id,event){
 }
 function removeRemotePlayer(id){
   const r=net.remotes.get(id); if(!r) return;
-  if(r.weaponMesh) r.g.remove(r.weaponMesh);
+  if(r.weaponMesh) r.weaponHolder.remove(r.weaponMesh);
   scene.remove(r.g);
   r.g.traverse(o=>{if(o.geometry)o.geometry.dispose();});
   r.mats.forEach(m=>m.dispose());
@@ -4294,6 +4332,7 @@ function updateRemoteState(id,s){
   const r=net.remotes.get(id); if(!r) return;
   r.target.set(+s.x||0,+s.y||0,+s.z||0);
   r.yaw=+s.yaw||0; r.pitch=clamp(+s.pitch||0,-1.2,1.2);
+  r.speed=clamp(+s.speed||0,0,12);r.sprint=!!s.sprint;r.ads=!!s.ads;r.grounded=s.grounded!==false;
   r.g.visible=game.running&&s.map===currentMap;
   r.g.userData.downed=!!s.downed;
   setRemoteWeapon(r,s.weapon);
@@ -4321,6 +4360,7 @@ function netHandle(msg){
     showScreen('lobby'); renderRoster();
     if(m.room&&m.room.active&&m.room.map){
       net.activeGame=true; startGame(m.room.map); toast('Joined room '+net.code);
+      if(m.room.paused) applySessionPause(true);
     }
   } else if(m.type==='player_joined'){
     net.players.set(m.player.id,m.player); makeRemotePlayer(m.player); renderRoster();
@@ -4337,6 +4377,7 @@ function netHandle(msg){
       net.nextWorld=0;
       for(const z of zombies) if(!z.dead&&!z.netId) z.netId=netZombieId();
       toast('You are now the room host');
+      if(net.pausedByHost){el('pauseSub').textContent='Room paused for every survivor';el('resumeBtn').textContent='Resume for everyone';}
       hostCheckTeamWipe();
     }
     renderRoster();
@@ -4351,7 +4392,7 @@ function netHandle(msg){
   } else if(m.type==='game'){
     handleSharedGameEvent(m.event);
   } else if(m.type==='start'&&(m.map==='town'||m.map==='nuketown')){
-    net.activeGame=true; startGame(m.map); toast('Online room '+net.code);
+    net.activeGame=true; net.pausedByHost=false; startGame(m.map); toast('Online room '+net.code);
   } else if(m.type==='error'){
     setNetStatus(m.message||'Room error'); sfxDeny();
   }
@@ -4392,7 +4433,7 @@ function netDisconnect(showMenu){
   net.manualClose=true;
   if(net.ws) try{net.ws.close(1000,'Left room');}catch(e){}
   net.ws=null; net.connected=false; net.activeGame=false; net.host=false; net.id=''; net.code='';
-  net.nextState=0; net.nextWorld=0; net.zombieSeq=1;
+  net.nextState=0; net.nextWorld=0; net.zombieSeq=1; net.pausedByHost=false;
   net.players.clear(); clearRemotePlayers();
   el('netbadge').style.opacity=0;
   if(showMenu) showScreen('menu');
@@ -4404,7 +4445,26 @@ function netStep(dt){
     r.g.rotation.y+=d*Math.min(1,dt*12);
     const down=r.g.userData.downed;
     r.g.rotation.z=lerp(r.g.rotation.z,down?Math.PI/2:0,Math.min(1,dt*8));
-    if(r.weaponMesh) r.weaponMesh.rotation.x=lerp(r.weaponMesh.rotation.x,-.10-r.pitch*.45,Math.min(1,dt*12));
+    r.phase+=dt*(3.5+r.speed*1.7);
+    const move=down?0:clamp(r.speed/4.5,0,1),run=r.sprint?1.22:1;
+    const stride=Math.sin(r.phase)*.82*move*run,air=!r.grounded&&!down;
+    const smooth=Math.min(1,dt*13),aim=!down&&(r.ads||r.flashT>0||r.speed<.35);
+    r.legL.rotation.x=lerp(r.legL.rotation.x,air?.48:stride,smooth);
+    r.legR.rotation.x=lerp(r.legR.rotation.x,air?.12:-stride,smooth);
+    r.kneeL.rotation.x=lerp(r.kneeL.rotation.x,air?-.75:Math.max(0,-stride)*.65,smooth);
+    r.kneeR.rotation.x=lerp(r.kneeR.rotation.x,air?-.45:Math.max(0,stride)*.65,smooth);
+    const armSwing=move*.52*run;
+    r.armL.rotation.x=lerp(r.armL.rotation.x,down?-.35:(aim?1.12:-stride*armSwing),smooth);
+    r.armR.rotation.x=lerp(r.armR.rotation.x,down?.55:(aim?1.24:stride*armSwing),smooth);
+    r.armL.rotation.z=lerp(r.armL.rotation.z,aim?-.20:.04,smooth);
+    r.armR.rotation.z=lerp(r.armR.rotation.z,aim?.25:-.04,smooth);
+    r.elbowL.rotation.x=lerp(r.elbowL.rotation.x,aim?.48:.08,smooth);
+    r.elbowR.rotation.x=lerp(r.elbowR.rotation.x,aim?.62:.08,smooth);
+    r.rig.position.y=lerp(r.rig.position.y,down?.10:Math.abs(Math.sin(r.phase))*move*.035,smooth);
+    r.head.rotation.x=lerp(r.head.rotation.x,down?0:r.pitch*.28,smooth);
+    r.recoil=lerp(r.recoil,0,Math.min(1,dt*18));
+    r.weaponHolder.rotation.x=lerp(r.weaponHolder.rotation.x,r.pitch-r.recoil*.12,smooth);
+    r.weaponHolder.position.z=lerp(r.weaponHolder.position.z,-.25+r.recoil*.07,smooth);
     if(r.flashT>0){
       r.flashT=Math.max(0,r.flashT-dt);
       r.flash.material.opacity=clamp(r.flashT*12,0,1); r.shotLight.intensity=clamp(r.flashT*45,0,4);
@@ -4415,7 +4475,8 @@ function netStep(dt){
   net.nextState=game.time+.08;
   const g=curGun();
   netSend({type:'state',state:{x:player.pos.x,y:player.y,z:player.pos.z,yaw:player.yaw,
-    pitch:player.pitch,hp:player.hp,downed:player.downed,weapon:g?g.def.id:'',map:currentMap}});
+    pitch:player.pitch,hp:player.hp,downed:player.downed,weapon:g?g.def.id:'',map:currentMap,
+    speed:Math.hypot(player.vel.x,player.vel.z),sprint:player.sprint,ads:player.ads,grounded:player.grounded}});
   el('netbadge').textContent='ONLINE  \u00b7  '+net.code+'  \u00b7  '+net.players.size+'/4';
   el('netbadge').style.opacity=.78;
 }
@@ -4606,26 +4667,61 @@ function startGame(mapId){
   player.slot=1;
   for(const k in buffs) buffs[k]=0;
   game.round=0; game.kills=0; game.wonderFound=false; game.boxDry=0; game.time=performance.now()/1000;
-  net.nextState=0; net.nextWorld=0;
+  net.nextState=0; net.nextWorld=0; net.pausedByHost=false;
   if(net.connected&&net.host) net.zombieSeq=1;
   if(mbox.state!=='idle') closeBox();
   hideScreens();
   ui.downed.style.opacity=0; ui.vig.style.opacity=0;
   renderPerks(); updHUD();
   game.running=true; last=performance.now()/1000;
+  for(const p of net.players.values())if(p.id!==net.id&&p.state)updateRemoteState(p.id,p.state);
   if(!net.connected||net.host) startRound();
   else{game.round=0;game.toSpawn=0;game.roundTimer=ROUND_GAP;updRoundHUD();}
   if(!isTouch) canvas.requestPointerLock();
 }
+function applySessionPause(paused){
+  net.pausedByHost=paused;
+  if(paused){
+    game.running=false; player.firing=false; player.vel.x=0; player.vel.z=0;
+    el('pauseSub').textContent=net.host?'Room paused for every survivor':'The host paused the room';
+    el('resumeBtn').textContent=net.host?'Resume for everyone':'Waiting for host';
+    el('pauseStats').innerHTML='Round <b>'+game.round+'</b> &nbsp;&middot;&nbsp; <b>'+game.kills+
+      '</b> kills &nbsp;&middot;&nbsp; <b>'+player.points.toLocaleString()+'</b> points';
+    document.exitPointerLock&&document.exitPointerLock();
+    showScreen('pause');
+  }else{
+    el('pauseSub').textContent='They are still out there'; el('resumeBtn').textContent='Resume';
+    hideScreens(); game.running=true; last=performance.now()/1000;
+    if(!isTouch){
+      if(net.connected&&!net.host){
+        toast('Host resumed  \u00b7  click to capture the mouse');
+        canvas.addEventListener('click',()=>canvas.requestPointerLock(),{once:true});
+      }else canvas.requestPointerLock();
+    }
+  }
+}
 function pause(){
   if(!game.running) return;
+  if(net.connected&&net.host){
+    const event={type:'session_pause',paused:true};
+    netHostBroadcast(event); handleSharedGameEvent(event); return;
+  }
   if(!net.connected) game.running=false;
   player.firing=false; player.vel.x=0; player.vel.z=0;
+  el('pauseSub').textContent=net.connected?'Local menu  \u00b7  the host game continues':'They are still out there';
+  el('resumeBtn').textContent='Resume';
   el('pauseStats').innerHTML='Round <b>'+game.round+'</b> &nbsp;&middot;&nbsp; <b>'+game.kills+
     '</b> kills &nbsp;&middot;&nbsp; <b>'+player.points.toLocaleString()+'</b> points';
   showScreen('pause');
 }
-function resume(){ hideScreens(); game.running=true; last=performance.now()/1000; if(!isTouch) canvas.requestPointerLock(); }
+function resume(){
+  if(net.connected&&net.pausedByHost){
+    if(!net.host){toast('Waiting for the host to resume');sfxDeny();return;}
+    const event={type:'session_pause',paused:false};
+    netHostBroadcast(event); handleSharedGameEvent(event); return;
+  }
+  hideScreens(); game.running=true; last=performance.now()/1000; if(!isTouch) canvas.requestPointerLock();
+}
 function gameOver(){
   player.alive=false; game.running=false;
   document.exitPointerLock&&document.exitPointerLock();

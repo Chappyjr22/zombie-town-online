@@ -22,7 +22,8 @@ The shared multiplayer milestone is implemented:
 - Per-player combat rewards and shared zombie kill counts
 - Teammate-only revives and team-wipe game over
 - Synchronized equipped weapon models, muzzle flashes, and gunshot audio
-- Online-safe pause behavior
+- Host-controlled room-wide pause and resume
+- Articulated military survivor models with synchronized movement, aim, recoil, airborne, and downed animation
 
 ## Current features
 
@@ -85,6 +86,8 @@ The recommended first multiplayer release is private 2 to 4-player cooperative Z
 - Player position, rotation, animation, and downed state
 - Health, downed state, teammate revives, combat rewards, and points
 - Equipped weapons, gunfire visuals, and distance-aware gunshot audio
+- Host pause state, including late joins and host migration
+- Survivor movement speed, sprinting, aiming, grounded state, and animation pose
 - Zombie spawning, movement, damage, death, and ragdoll triggers
 - Rounds, power-ups, and mystery-box results
 - Room codes and host migration

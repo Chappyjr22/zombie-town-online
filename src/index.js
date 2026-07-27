@@ -115,7 +115,7 @@ export class GameRoom extends DurableObject {
       if (exists) return json({ error: "Room already exists" }, 409);
       await this.ctx.storage.put({
         created: true,
-        room: { active: false, map: null },
+        room: { active: false, map: null, paused: false },
       });
       return json({ ok: true }, 201);
     }
@@ -127,7 +127,7 @@ export class GameRoom extends DurableObject {
       return json({
         exists: true,
         players: this.sockets().length,
-        room: (await this.ctx.storage.get("room")) || { active: false, map: null },
+        room: (await this.ctx.storage.get("room")) || { active: false, map: null, paused: false },
       });
     }
 
@@ -149,7 +149,7 @@ export class GameRoom extends DurableObject {
     server.serializeAttachment(player);
 
     const players = existing.map((ws) => this.attachment(ws));
-    const room = (await this.ctx.storage.get("room")) || { active: false, map: null };
+    const room = (await this.ctx.storage.get("room")) || { active: false, map: null, paused: false };
     this.send(server, { type: "welcome", id, name, host, players, room });
     this.broadcast({ type: "player_joined", player: { id, name, host } }, server);
 
@@ -185,6 +185,10 @@ export class GameRoom extends DurableObject {
         downed: Boolean(source.downed),
         weapon: String(source.weapon || "").slice(0, 24),
         map: source.map === "nuketown" ? "nuketown" : "town",
+        speed: number(source.speed, 0, 12),
+        sprint: Boolean(source.sprint),
+        ads: Boolean(source.ads),
+        grounded: source.grounded !== false,
       };
       player.state = state;
       ws.serializeAttachment(player);
@@ -239,8 +243,14 @@ export class GameRoom extends DurableObject {
         "round_start",
         "player_revived",
         "team_wipe",
+        "session_pause",
       ]);
       if (allowed.has(message.event.type)) {
+        if (message.event.type === "session_pause") {
+          const room = (await this.ctx.storage.get("room")) || { active: true, map: "town" };
+          room.paused = Boolean(message.event.paused);
+          await this.ctx.storage.put("room", room);
+        }
         this.broadcast({ type: "game", event: message.event }, ws);
       }
       return;
@@ -262,7 +272,7 @@ export class GameRoom extends DurableObject {
         return;
       }
       const map = message.map === "nuketown" ? "nuketown" : "town";
-      const room = { active: true, map };
+      const room = { active: true, map, paused: false };
       await this.ctx.storage.put("room", room);
       this.broadcast({ type: "start", map });
     }
@@ -287,7 +297,7 @@ export class GameRoom extends DurableObject {
         next.serializeAttachment(replacement);
         this.broadcast({ type: "role", id: replacement.id, host: true });
       } else {
-        await this.ctx.storage.put("room", { active: false, map: null });
+        await this.ctx.storage.put("room", { active: false, map: null, paused: false });
       }
     }
   }
