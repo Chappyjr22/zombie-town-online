@@ -647,6 +647,10 @@ M.metal=phong({color:0x3c3f47,shininess:40});
 M.rust=phong({color:0x5c3a26});
 M.green=phong({color:0x2f4030});
 M.glassBroken=new THREE.MeshPhongMaterial({color:0x121a1e,transparent:true,opacity:0.45,shininess:90});
+M.chrome=phong({color:0x969da5,shininess:105,specular:0xffffff});
+M.headlight=phong({color:0xffe6a8,emissive:0xffc45a,emissiveIntensity:.65,shininess:95,specular:0xffffff});
+M.taillight=phong({color:0x8d0d0a,emissive:0xff2418,emissiveIntensity:.62,shininess:85,specular:0xff5a42});
+M.plate=phong({color:0xc9c6b8,shininess:32,specular:0x777777});
 
 /* ---------- geometry merging (core three only, no examples build) ---------- */
 const _mm=new THREE.Matrix4(),_mq=new THREE.Quaternion(),_me=new THREE.Euler();
@@ -890,24 +894,88 @@ function roomLight(x,y,z,color,inten,dist){
 }
 
 /* ---------- shared props usable by any map ---------- */
+const CAR_BOX=new THREE.BoxGeometry(1,1,1);
+const CAR_BODY_SPHERE=new THREE.SphereGeometry(1,24,14);
+const CAR_CAB_SPHERE=new THREE.SphereGeometry(1,24,12,0,TAU,0,Math.PI/2);
+const CAR_ROOF_SPHERE=new THREE.SphereGeometry(1.01,24,10,0,TAU,0,.58);
+const CAR_LAMP_SPHERE=new THREE.SphereGeometry(1,16,10);
+const CAR_MIRROR_SPHERE=new THREE.SphereGeometry(1,14,8);
+const CAR_TIRE_TORUS=new THREE.TorusGeometry(.36,.105,10,22);
+const CAR_RIM_CYL=new THREE.CylinderGeometry(.22,.22,.12,18);
+const CAR_HUB_CYL=new THREE.CylinderGeometry(.07,.07,.145,14);
+const CAR_EXHAUST_CYL=new THREE.CylinderGeometry(.055,.065,.34,10);
+const CAR_BODY_GEO=mergeGeos([
+  pc(CAR_BODY_SPHERE,0,0,.87,0,0,0,0,1.04,.57,2.08),
+  pc(CAR_BOX,0,0,.43,0,0,0,0,1.92,.30,4.02),
+  pc(CAR_ROOF_SPHERE,0,0,1.26,-.18,0,0,0,.93,.83,1.16),
+  pc(CAR_BODY_SPHERE,0,0,1.15,-1.48,-.04,0,0,.89,.22,.70),
+  pc(CAR_BODY_SPHERE,0,0,1.13,1.68,.04,0,0,.88,.20,.50),
+  pc(CAR_BOX,0,-1.025,.89,-.55,0,0,0,.035,.61,.98),
+  pc(CAR_BOX,0,1.025,.89,-.55,0,0,0,.035,.61,.98),
+  pc(CAR_BOX,0,-1.025,.89,.59,0,0,0,.035,.61,1.02),
+  pc(CAR_BOX,0,1.025,.89,.59,0,0,0,.035,.61,1.02)
+]);
+const CAR_GLASS_GEO=mergeGeos([
+  pc(CAR_CAB_SPHERE,0,0,1.26,-.18,0,0,0,.905,.80,1.13)
+]);
+const CAR_DETAIL_GEO=mergeGeos([
+  // bumpers, rocker trim, grille, and brightwork
+  pc(CAR_BOX,1,0,.53,-2.16,0,0,0,2.10,.17,.15),
+  pc(CAR_BOX,1,0,.53,2.16,0,0,0,2.10,.17,.15),
+  pc(CAR_BOX,0,0,.68,-2.095,0,0,0,1.04,.25,.055),
+  pc(CAR_BOX,1,-.38,.68,-2.13,0,0,0,.035,.22,.035),
+  pc(CAR_BOX,1,-.13,.68,-2.13,0,0,0,.035,.22,.035),
+  pc(CAR_BOX,1,.13,.68,-2.13,0,0,0,.035,.22,.035),
+  pc(CAR_BOX,1,.38,.68,-2.13,0,0,0,.035,.22,.035),
+  pc(CAR_BOX,1,-1.035,.48,0,0,0,0,.035,.09,3.30),
+  pc(CAR_BOX,1,1.035,.48,0,0,0,0,.035,.09,3.30),
+  // headlights, taillights, and license plates
+  pc(CAR_LAMP_SPHERE,2,-.62,.82,-2.08,0,0,0,.27,.13,.075),
+  pc(CAR_LAMP_SPHERE,2,.62,.82,-2.08,0,0,0,.27,.13,.075),
+  pc(CAR_LAMP_SPHERE,3,-.68,.79,2.08,0,0,0,.25,.12,.07),
+  pc(CAR_LAMP_SPHERE,3,.68,.79,2.08,0,0,0,.25,.12,.07),
+  pc(CAR_BOX,4,0,.48,-2.245,0,0,0,.58,.20,.025),
+  pc(CAR_BOX,4,0,.48,2.245,0,0,0,.58,.20,.025),
+  // window pillars and trim define the cabin without opaque square windows
+  pc(CAR_BOX,0,-.925,1.52,-.19,0,0,0,.045,.54,.075),
+  pc(CAR_BOX,0,.925,1.52,-.19,0,0,0,.045,.54,.075),
+  pc(CAR_BOX,0,-.91,1.32,-.19,0,0,0,.045,.035,1.64),
+  pc(CAR_BOX,0,.91,1.32,-.19,0,0,0,.045,.035,1.64),
+  // door seams and handles
+  pc(CAR_BOX,0,-1.05,.89,-1.06,0,0,0,.018,.64,.025),
+  pc(CAR_BOX,0,1.05,.89,-1.06,0,0,0,.018,.64,.025),
+  pc(CAR_BOX,0,-1.05,.89,.02,0,0,0,.018,.64,.025),
+  pc(CAR_BOX,0,1.05,.89,.02,0,0,0,.018,.64,.025),
+  pc(CAR_BOX,0,-1.05,.89,1.13,0,0,0,.018,.64,.025),
+  pc(CAR_BOX,0,1.05,.89,1.13,0,0,0,.018,.64,.025),
+  pc(CAR_BOX,1,-1.065,1.08,-.48,0,0,0,.026,.045,.19),
+  pc(CAR_BOX,1,1.065,1.08,-.48,0,0,0,.026,.045,.19),
+  pc(CAR_BOX,1,-1.065,1.08,.68,0,0,0,.026,.045,.19),
+  pc(CAR_BOX,1,1.065,1.08,.68,0,0,0,.026,.045,.19),
+  // mirrors and exhaust
+  pc(CAR_MIRROR_SPHERE,0,-1.10,1.38,-.68,0,0,0,.16,.10,.20),
+  pc(CAR_MIRROR_SPHERE,0,1.10,1.38,-.68,0,0,0,.16,.10,.20),
+  pc(CAR_EXHAUST_CYL,1,.67,.30,2.22,Math.PI/2,0,0,1,1,1)
+]);
+const CAR_WHEEL_GEO=mergeGeos((()=>{
+  const items=[];
+  for(const wx of [-1.035,1.035]) for(const wz of [-1.48,1.48]){
+    items.push(pc(CAR_TIRE_TORUS,0,wx,.46,wz,0,Math.PI/2,0,1,1,1));
+    items.push(pc(CAR_RIM_CYL,1,wx,.46,wz,0,0,Math.PI/2,1,1,1));
+    items.push(pc(CAR_HUB_CYL,0,wx,.46,wz,0,0,Math.PI/2,1,1,1));
+  }
+  return items;
+})());
 function car(x,z,rot,col){
   const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.BoxGeometry(2.0,0.85,4.5),phong({color:col,shininess:45}));
-  body.position.y=0.86; g.add(body); blockers.push(body);
-  const cab=new THREE.Mesh(new THREE.SphereGeometry(1,20,12,0,TAU,0,Math.PI/2),M.glassBroken);
-  cab.position.set(0,1.28,-0.25);cab.scale.set(.93,.84,1.14);g.add(cab);blockers.push(cab);
-  const roof=new THREE.Mesh(new THREE.SphereGeometry(1.01,20,8,0,TAU,0,.62),phong({color:col,shininess:45}));
-  roof.position.copy(cab.position);roof.scale.copy(cab.scale);g.add(roof);blockers.push(roof);
-  for(const zz of [-2.22,2.22]){
-    const bumper=new THREE.Mesh(new THREE.BoxGeometry(2.08,.18,.16),M.metal);
-    bumper.position.set(0,.56,zz);g.add(bumper);
-  }
-  for(const [wx,wz] of [[1,1.55],[-1,1.55],[1,-1.55],[-1,-1.55]]){
-    const w=new THREE.Mesh(new THREE.CylinderGeometry(0.44,0.44,0.3,18),M.dark);
-    w.rotation.z=Math.PI/2; w.position.set(wx,0.44,wz); g.add(w);
-  }
+  const paint=phong({color:col,shininess:72,specular:0x8a929b});
+  const body=new THREE.Mesh(CAR_BODY_GEO,paint); g.add(body); blockers.push(body);
+  const glass=new THREE.Mesh(CAR_GLASS_GEO,M.glassBroken); g.add(glass); blockers.push(glass);
+  const details=new THREE.Mesh(CAR_DETAIL_GEO,[M.dark,M.chrome,M.headlight,M.taillight,M.plate]);
+  g.add(details); blockers.push(details);
+  const wheels=new THREE.Mesh(CAR_WHEEL_GEO,[M.dark,M.chrome]); g.add(wheels); blockers.push(wheels);
   g.position.set(x,0,z); g.rotation.y=rot; worldRoot.add(g);
-  addYawCollider(x,z,2.25,4.5,rot,2.1,0,0.05);
+  addYawCollider(x,z,2.30,4.48,rot,2.15,0,0.025);
 }
 function dumpster(x,z,rot){
   const g=new THREE.Group();
