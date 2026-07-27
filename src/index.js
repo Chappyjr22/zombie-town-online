@@ -193,6 +193,7 @@ export class GameRoom extends DurableObject {
         speed: number(source.speed, 0, 12),
         sprint: Boolean(source.sprint),
         ads: Boolean(source.ads),
+        crouched: Boolean(source.crouched),
         grounded: source.grounded !== false,
       };
       player.state = state;
@@ -210,6 +211,20 @@ export class GameRoom extends DurableObject {
           pack: Math.max(0, Math.min(2, Number(message.pack) || 0)),
           yaw: Math.max(-Math.PI * 4, Math.min(Math.PI * 4, Number(message.yaw) || 0)),
           pitch: Math.max(-Math.PI / 2, Math.min(Math.PI / 2, Number(message.pitch) || 0)),
+        },
+        ws,
+      );
+      return;
+    }
+
+    if (message.type === "melee") {
+      this.broadcast(
+        {
+          type: "melee",
+          id: player.id,
+          yaw: Math.max(-Math.PI * 4, Math.min(Math.PI * 4, Number(message.yaw) || 0)),
+          pitch: Math.max(-Math.PI / 2, Math.min(Math.PI / 2, Number(message.pitch) || 0)),
+          hit: Boolean(message.hit),
         },
         ws,
       );

@@ -25,6 +25,7 @@ The shared multiplayer milestone is implemented:
 - Host-controlled room-wide pause and resume
 - Articulated military survivor models with synchronized movement, aim, recoil, airborne, and downed animation
 - Two-handed weapon poses with fire-time yaw and pitch correction
+- Quick-knife melee and crouching with synchronized first-person and survivor animations
 - Layered footsteps, recorded zombie vocals, attack snarls, hurt reactions, death sounds, and War Machine impact audio
 
 ## Current features
@@ -127,7 +128,11 @@ wrangler.jsonc     Cloudflare Workers configuration
 - `1`, `2`, `3`: Select weapon
 - `Shift`: Sprint
 - `Space`: Jump
+- `V` or middle mouse: Knife melee
+- `C` or Left Ctrl: Crouch
 - `Esc`: Pause
+
+Controller: click the right stick for melee and press `B` to crouch.
 
 ## Audio credits
 
