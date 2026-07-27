@@ -1975,6 +1975,7 @@ function blockedAt(x,z,r,y){
 let AC=null,master=null,noiseBuf=null;
 const zombieSamples={};
 let zombieSamplesLoading=false;
+let lastZombieDeathSound=-99;
 function initAudio(){
   if(AC) return;
   AC=new (window.AudioContext||window.webkitAudioContext)();
@@ -3416,7 +3417,9 @@ function killZombie(z,dir,part,impulse,noReward,silentNet){
   const h=z.pts[HEAD];
   spray(h.x,h.y,h.z,dir.x,.4,dir.z,12,bloodMat,1.4);
   const deathDist=Math.hypot(h.x-player.pos.x,h.y-(player.y+player.eye),h.z-player.pos.z);
-  if(deathDist<48) sfxGroan(deathDist,'death');
+  if(deathDist<48&&Math.random()<.05&&game.time-lastZombieDeathSound>.42){
+    lastZombieDeathSound=game.time;sfxGroan(deathDist,'death');
+  }
   if(z.eyeMat) z.eyeMat.color.setHex(0x2a2a26);
   if(z.mats.eyeGlow) z.mats.eyeGlow.color.setHex(0x000000);
   if(!net.connected||net.host) game.kills++;
