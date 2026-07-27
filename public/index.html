@@ -651,6 +651,11 @@ M.chrome=phong({color:0x969da5,shininess:105,specular:0xffffff});
 M.headlight=phong({color:0xffe6a8,emissive:0xffc45a,emissiveIntensity:.65,shininess:95,specular:0xffffff});
 M.taillight=phong({color:0x8d0d0a,emissive:0xff2418,emissiveIntensity:.62,shininess:85,specular:0xff5a42});
 M.plate=phong({color:0xc9c6b8,shininess:32,specular:0x777777});
+M.boxWood=phong({map:T.plank,color:0x8a5428,shininess:16,specular:0x3b2412});
+M.boxMetal=phong({color:0x292b31,shininess:48,specular:0x777b82});
+M.boxInside=phong({color:0x170f0a,emissive:0x6f3508,emissiveIntensity:.55});
+M.busStripe=phong({color:0xe0d29a,shininess:28,specular:0x6f684d});
+M.busMarker=phong({color:0xe28a19,emissive:0xff9a1f,emissiveIntensity:.65,shininess:70});
 
 /* ---------- geometry merging (core three only, no examples build) ---------- */
 const _mm=new THREE.Matrix4(),_mq=new THREE.Quaternion(),_me=new THREE.Euler();
@@ -1251,18 +1256,107 @@ function buildTown(){
 /* --- wrecked bus --- */
 (function bus(){
   const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.BoxGeometry(2.9,3.0,11.5),phong({color:0x9a7a2c,shininess:30}));
-  body.position.y=1.9; g.add(body); blockers.push(body);
-  const win=new THREE.Mesh(new THREE.BoxGeometry(2.96,0.95,9.4),M.glassBroken);
-  win.position.y=2.6; g.add(win); blockers.push(win);
-  const stripe=new THREE.Mesh(new THREE.BoxGeometry(2.94,0.3,11.4),phong({color:0x1b1c22}));
-  stripe.position.y=0.95; g.add(stripe);
-  for(const wz of [-4.2,3.6]) for(const wx of [-1.35,1.35]){
-    const wl=new THREE.Mesh(new THREE.CylinderGeometry(0.62,0.62,0.42,20),M.dark);
-    wl.rotation.z=Math.PI/2; wl.position.set(wx,0.6,wz); g.add(wl);
+  const box=new THREE.BoxGeometry(1,1,1);
+  const shell=new THREE.SphereGeometry(1,24,14);
+  const roofCap=new THREE.SphereGeometry(1,24,10,0,TAU,0,.54);
+  const lamp=new THREE.SphereGeometry(1,16,10);
+  const mirror=new THREE.SphereGeometry(1,14,8);
+  const tire=new THREE.TorusGeometry(.53,.145,11,24);
+  const rim=new THREE.CylinderGeometry(.31,.31,.16,20);
+  const hub=new THREE.CylinderGeometry(.09,.09,.19,14);
+  const bodyGeo=mergeGeos([
+    pc(box,0,0,1.02,0,0,0,0,2.84,1.55,10.65),
+    pc(box,0,0,2.25,0,0,0,0,2.73,1.42,10.15),
+    pc(roofCap,0,0,3.07,0,0,0,0,1.42,.58,5.25),
+    pc(shell,0,0,1.84,-5.15,0,0,0,1.43,1.30,.48),
+    pc(shell,0,0,1.84,5.15,0,0,0,1.43,1.30,.48),
+    pc(box,0,0,1.08,-5.48,-.05,0,0,2.55,.82,.72)
+  ]);
+  const paint=phong({color:0x9a7a2c,shininess:48,specular:0x807451});
+  const body=new THREE.Mesh(bodyGeo,paint);g.add(body);blockers.push(body);
+
+  const glassItems=[];
+  for(const sx of [-1,1]) for(const wz of [-3.55,-2.35,-1.15,.05,1.25,2.45,3.65,4.55])
+    glassItems.push(pc(box,0,sx*1.405,2.46,wz,0,0,0,.035,.76,.91));
+  for(const wx of [-.66,.66]){
+    glassItems.push(pc(box,0,wx,2.43,-5.57,0,0,0,1.08,.79,.035));
+    glassItems.push(pc(box,0,wx,2.43,5.57,0,0,0,1.08,.72,.035));
   }
+  // two tall panes make the folding passenger door readable from the street
+  glassItems.push(pc(box,0,1.435,1.92,-4.35,0,0,0,.035,1.63,.42));
+  glassItems.push(pc(box,0,1.435,1.92,-3.87,0,0,0,.035,1.63,.42));
+  const windows=new THREE.Mesh(mergeGeos(glassItems),M.glassBroken);g.add(windows);blockers.push(windows);
+
+  const details=[
+    // belt stripe, window frames, bumpers, and grille
+    pc(box,2,-1.43,1.37,0,0,0,0,.035,.20,10.42),
+    pc(box,2,1.43,1.37,0,0,0,0,.035,.20,10.42),
+    pc(box,0,-1.435,2.02,0,0,0,0,.035,.055,10.24),
+    pc(box,0,1.435,2.02,0,0,0,0,.035,.055,10.24),
+    pc(box,0,-1.435,2.87,0,0,0,0,.035,.055,10.24),
+    pc(box,0,1.435,2.87,0,0,0,0,.035,.055,10.24),
+    pc(box,1,0,.55,-5.65,0,0,0,3.00,.20,.17),
+    pc(box,1,0,.55,5.65,0,0,0,3.00,.20,.17),
+    pc(box,0,0,.91,-5.535,0,0,0,1.42,.39,.05),
+    pc(box,1,-.48,.91,-5.57,0,0,0,.035,.34,.035),
+    pc(box,1,-.16,.91,-5.57,0,0,0,.035,.34,.035),
+    pc(box,1,.16,.91,-5.57,0,0,0,.035,.34,.035),
+    pc(box,1,.48,.91,-5.57,0,0,0,.035,.34,.035),
+    // window dividers
+    ...[-4.10,-2.95,-1.75,-.55,.65,1.85,3.05,4.10,5.02].flatMap(wz=>[
+      pc(box,0,-1.445,2.46,wz,0,0,0,.045,.88,.055),
+      pc(box,0,1.445,2.46,wz,0,0,0,.045,.88,.055)
+    ]),
+    // headlights, taillights, marker lights, and plates
+    pc(lamp,3,-.77,1.03,-5.53,0,0,0,.30,.18,.08),
+    pc(lamp,3,.77,1.03,-5.53,0,0,0,.30,.18,.08),
+    pc(lamp,4,-.92,1.10,5.53,0,0,0,.20,.22,.075),
+    pc(lamp,4,.92,1.10,5.53,0,0,0,.20,.22,.075),
+    pc(lamp,5,-1.00,3.00,-5.42,0,0,0,.10,.08,.045),
+    pc(lamp,5,0,3.00,-5.42,0,0,0,.10,.08,.045),
+    pc(lamp,5,1.00,3.00,-5.42,0,0,0,.10,.08,.045),
+    pc(box,6,0,.50,-5.75,0,0,0,.66,.22,.025),
+    pc(box,6,0,.50,5.75,0,0,0,.66,.22,.025),
+    // passenger-door frame, center seam, step, and handle
+    pc(box,0,1.465,1.92,-4.60,0,0,0,.05,1.82,.055),
+    pc(box,0,1.465,1.92,-4.11,0,0,0,.05,1.82,.045),
+    pc(box,0,1.465,1.92,-3.62,0,0,0,.05,1.82,.055),
+    pc(box,0,1.465,2.78,-4.11,0,0,0,.05,.055,1.04),
+    pc(box,1,1.485,.44,-4.12,0,0,0,.16,.16,1.16),
+    pc(box,1,1.49,1.65,-4.07,0,0,0,.05,.28,.045),
+    // rear emergency-door outline and handle
+    pc(box,0,-.94,1.85,5.59,0,0,0,.055,1.62,.04),
+    pc(box,0,.94,1.85,5.59,0,0,0,.055,1.62,.04),
+    pc(box,0,0,1.08,5.59,0,0,0,1.92,.055,.04),
+    pc(box,1,.54,1.45,5.62,0,0,0,.25,.055,.04),
+    // mirrors and roof vents
+    pc(box,0,-1.72,2.61,-4.77,0,0,.18,.58,.055,.055),
+    pc(box,0,1.72,2.61,-4.77,0,0,-.18,.58,.055,.055),
+    pc(mirror,0,-1.99,2.62,-4.82,0,0,0,.24,.31,.10),
+    pc(mirror,0,1.99,2.62,-4.82,0,0,0,.24,.31,.10),
+    pc(box,0,0,3.67,-1.30,0,0,0,.72,.14,1.05),
+    pc(box,0,0,3.67,1.55,0,0,0,.72,.14,1.05)
+  ];
+  const trim=new THREE.Mesh(mergeGeos(details),[M.dark,M.chrome,M.busStripe,M.headlight,M.taillight,M.busMarker,M.plate]);
+  g.add(trim);blockers.push(trim);
+
+  const wheelItems=[];
+  for(const wx of [-1.45,1.45]) for(const wz of [-3.75,3.65]){
+    wheelItems.push(pc(tire,0,wx,.66,wz,0,Math.PI/2,0,1,1,1));
+    wheelItems.push(pc(rim,1,wx,.66,wz,0,0,Math.PI/2,1,1,1));
+    wheelItems.push(pc(hub,0,wx,.66,wz,0,0,Math.PI/2,1,1,1));
+  }
+  const wheels=new THREE.Mesh(mergeGeos(wheelItems),[M.dark,M.chrome]);g.add(wheels);blockers.push(wheels);
+
+  const routeTex=tex(256,64,(c,w,h)=>{
+    c.fillStyle='#151718';c.fillRect(0,0,w,h);c.strokeStyle='#bea647';c.lineWidth=4;c.strokeRect(3,3,w-6,h-6);
+    c.fillStyle='#efd675';c.font='bold 29px Arial';c.textAlign='center';c.textBaseline='middle';c.fillText('TOWN TRANSIT',w/2,h/2+1);
+  });
+  const route=new THREE.Mesh(new THREE.PlaneGeometry(1.72,.43),new THREE.MeshBasicMaterial({map:routeTex}));
+  route.position.set(0,3.07,-5.49);route.rotation.y=Math.PI;g.add(route);
+
   g.position.set(-2,0,-31); g.rotation.y=0.16; worldRoot.add(g);
-  addYawCollider(-2,-31,2.9,11.5,0.16,3.4,0,0.06);
+  addYawCollider(-2,-31,2.96,11.35,0.16,3.75,0,0.035);
   roomLight(-2,2.4,-31,0x88a0cc,0.35,12);
 })();
 
@@ -4280,22 +4374,81 @@ function rollBox(){
 /* --- mystery box --- */
 const mbox={g:null,state:'idle',t:0,gun:null,result:null,pool:null,preview:null,uses:0,spot:0,owner:null,lid:null,light:null,
   beam:null,core:null,halo:null,qFloat:null,beamMat:null,coreMat:null};
+const BOX_UNIT=new THREE.BoxGeometry(1,1,1);
+const BOX_HANDLE=new THREE.TorusGeometry(.30,.035,7,16,Math.PI);
+const BOX_RIVET=new THREE.SphereGeometry(.045,8,6);
+const BOX_PREVIEW_Y=1.92;
+const BOX_BASE_GEO=mergeGeos([
+  // heavy plank shell, inset front/side panels, and feet
+  pc(BOX_UNIT,0,0,.53,0,0,0,0,2.08,.90,1.22),
+  pc(BOX_UNIT,0,0,.53,-.625,0,0,0,1.78,.62,.035),
+  pc(BOX_UNIT,0,-1.055,.53,0,0,0,0,.035,.62,.94),
+  pc(BOX_UNIT,0,1.055,.53,0,0,0,0,.035,.62,.94),
+  pc(BOX_UNIT,0,-.76,.10,-.46,0,0,0,.35,.20,.30),
+  pc(BOX_UNIT,0,.76,.10,-.46,0,0,0,.35,.20,.30),
+  pc(BOX_UNIT,0,-.76,.10,.46,0,0,0,.35,.20,.30),
+  pc(BOX_UNIT,0,.76,.10,.46,0,0,0,.35,.20,.30),
+  // dark, glowing interior under the weapon
+  pc(BOX_UNIT,2,0,.995,0,0,0,0,1.76,.055,.88),
+  // reinforced base rails, corner posts, straps, and front latch
+  pc(BOX_UNIT,1,0,.17,-.64,0,0,0,2.18,.16,.11),
+  pc(BOX_UNIT,1,0,.17,.64,0,0,0,2.18,.16,.11),
+  pc(BOX_UNIT,1,-1.09,.55,-.49,0,0,0,.12,.91,.12),
+  pc(BOX_UNIT,1,1.09,.55,-.49,0,0,0,.12,.91,.12),
+  pc(BOX_UNIT,1,-1.09,.55,.49,0,0,0,.12,.91,.12),
+  pc(BOX_UNIT,1,1.09,.55,.49,0,0,0,.12,.91,.12),
+  pc(BOX_UNIT,1,-.66,.59,-.64,0,0,0,.13,.74,.09),
+  pc(BOX_UNIT,1,.66,.59,-.64,0,0,0,.13,.74,.09),
+  pc(BOX_UNIT,1,-.66,.59,.64,0,0,0,.13,.74,.09),
+  pc(BOX_UNIT,1,.66,.59,.64,0,0,0,.13,.74,.09),
+  pc(BOX_UNIT,1,0,.67,-.69,0,0,0,.34,.38,.08),
+  pc(BOX_UNIT,1,0,.69,-.745,0,0,0,.11,.18,.07),
+  // rope side handles and their anchors
+  pc(BOX_HANDLE,3,-1.115,.53,0,0,-Math.PI/2,0,1,1,1),
+  pc(BOX_HANDLE,3,1.115,.53,0,0,Math.PI/2,0,1,1,1),
+  pc(BOX_UNIT,1,-1.12,.53,-.31,0,0,0,.08,.13,.10),
+  pc(BOX_UNIT,1,-1.12,.53,.31,0,0,0,.08,.13,.10),
+  pc(BOX_UNIT,1,1.12,.53,-.31,0,0,0,.08,.13,.10),
+  pc(BOX_UNIT,1,1.12,.53,.31,0,0,0,.08,.13,.10),
+  // visible rivets around the front braces
+  ...[-.66,.66].flatMap(rx=>[.30,.88].map(ry=>pc(BOX_RIVET,1,rx,ry,-.695,0,0,0,1,1,1)))
+]);
+const BOX_LID_GEO=mergeGeos([
+  // Lid geometry is offset toward local -Z so the pivot sits on the rear hinge.
+  pc(BOX_UNIT,0,0,.10,-.65,0,0,0,2.18,.20,1.30),
+  pc(BOX_UNIT,1,0,.13,-1.31,0,0,0,2.26,.22,.10),
+  pc(BOX_UNIT,1,0,.13,.01,0,0,0,2.26,.22,.10),
+  pc(BOX_UNIT,1,-1.12,.13,-.65,0,0,0,.10,.22,1.38),
+  pc(BOX_UNIT,1,1.12,.13,-.65,0,0,0,.10,.22,1.38),
+  pc(BOX_UNIT,1,-.66,.15,-.65,0,0,0,.13,.25,1.34),
+  pc(BOX_UNIT,1,.66,.15,-.65,0,0,0,.13,.25,1.34),
+  pc(BOX_UNIT,2,0,-.015,-.65,0,0,0,1.82,.035,.94)
+]);
 function buildBox(){
   const g=new THREE.Group();
-  const b=new THREE.Mesh(new THREE.BoxGeometry(1.7,1.05,1.15),M.plank);
-  b.position.y=.52; g.add(b); blockers.push(b);
+  const b=new THREE.Mesh(BOX_BASE_GEO,[M.boxWood,M.boxMetal,M.boxInside,M.wood]);
+  g.add(b); blockers.push(b);
   mbox.col=null;
-  const lid=new THREE.Mesh(new THREE.BoxGeometry(1.8,0.16,1.25),M.wood);
-  lid.geometry.translate(0,0,0.62);
-  lid.position.set(0,1.06,-0.62); g.add(lid);
+  const lid=new THREE.Group();
+  lid.position.set(0,1.03,.65);
+  const lidShell=new THREE.Mesh(BOX_LID_GEO,[M.boxWood,M.boxMetal,M.boxInside]);
+  lid.add(lidShell);g.add(lid);blockers.push(lidShell);
   const qTex=tex(96,96,(c,w,h)=>{c.clearRect(0,0,w,h);
-    c.fillStyle='#ffcf6a'; c.font='bold 86px Arial'; c.textAlign='center'; c.textBaseline='middle';
-    c.shadowColor='#ff9a1a'; c.shadowBlur=18; c.fillText('?',w/2,h/2+4);});
-  const qMat=new THREE.MeshBasicMaterial({map:qTex,transparent:true});
-  const q=new THREE.Mesh(new THREE.PlaneGeometry(0.9,0.9),qMat);
-  q.position.set(0,0.55,-0.59); q.rotation.y=Math.PI; g.add(q);
-  const qTop=new THREE.Mesh(new THREE.PlaneGeometry(0.95,0.95),qMat.clone());
-  qTop.rotation.x=-Math.PI/2; qTop.position.set(0,0.02,0.0); lid.add(qTop);   // rides the lid
+    c.fillStyle='#ffdb78'; c.font='bold 86px Georgia'; c.textAlign='center'; c.textBaseline='middle';
+    c.strokeStyle='#5d2d08';c.lineWidth=4;c.shadowColor='#ff9a1a';c.shadowBlur=18;
+    c.strokeText('?',w/2,h/2+4);c.fillText('?',w/2,h/2+4);});
+  const qMat=new THREE.MeshBasicMaterial({map:qTex,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false});
+  const qFront=new THREE.Mesh(new THREE.PlaneGeometry(.78,.78),qMat);
+  qFront.position.set(0,.59,-.706);qFront.rotation.y=Math.PI;g.add(qFront);
+  const qLeft=new THREE.Mesh(new THREE.PlaneGeometry(.66,.66),qMat.clone());
+  qLeft.position.set(-1.116,.58,0);qLeft.rotation.y=-Math.PI/2;g.add(qLeft);
+  const qRight=new THREE.Mesh(new THREE.PlaneGeometry(.66,.66),qMat.clone());
+  qRight.position.set(1.116,.58,0);qRight.rotation.y=Math.PI/2;g.add(qRight);
+  const qTop=new THREE.Mesh(new THREE.PlaneGeometry(1.02,1.02),qMat.clone());
+  qTop.rotation.x=-Math.PI/2;qTop.position.set(0,.215,-.65);lid.add(qTop);
+  const hinge=new THREE.Mesh(new THREE.CylinderGeometry(.08,.08,1.82,12),M.boxMetal);
+  hinge.rotation.z=Math.PI/2;hinge.position.set(0,1.07,.67);g.add(hinge);
+  const innerGlow=new THREE.PointLight(0xff9e2f,1.0,6,2);innerGlow.position.set(0,1.10,0);g.add(innerGlow);
   // beacon into the sky so the box is findable from anywhere
   const beamMat=new THREE.MeshBasicMaterial({color:0xffbe45,transparent:true,opacity:.13,
     blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide});
@@ -4378,13 +4531,10 @@ function moveBox(i){
   const y=s[2]||0,R=s[3]||0;
   mbox.g.position.set(s[0],y,s[1]);
   mbox.g.rotation.y=R;
-  const ex=Math.abs(Math.cos(R))*.9+Math.abs(Math.sin(R))*.65;
-  const ez=Math.abs(Math.sin(R))*.9+Math.abs(Math.cos(R))*.65;
-  if(!mbox.col){ addCollider(s[0]-ex,s[0]+ex,s[1]-ez,s[1]+ez,y+1.1,y); mbox.col=colliders[colliders.length-1]; }
+  if(!mbox.col){ addYawCollider(s[0],s[1],2.18,1.34,R,y+1.18,y,0.025); mbox.col=colliders[colliders.length-1]; }
   else {
-    mbox.col.minX=s[0]-ex; mbox.col.maxX=s[0]+ex;
-    mbox.col.minZ=s[1]-ez; mbox.col.maxZ=s[1]+ez;
-    mbox.col.bot=y;mbox.col.top=y+1.1;
+    mbox.col.x=s[0];mbox.col.z=s[1];mbox.col.halfW=1.115;mbox.col.halfD=.695;
+    mbox.col.rot=R;mbox.col.oriented=true;mbox.col.bot=y;mbox.col.top=y+1.18;
   }
 }
 function closeBox(){
@@ -4413,7 +4563,7 @@ function stepBox(dt){
   mbox.halo.scale.setScalar(1+pulse*0.14);
   if(mbox.state==='roll'){
     mbox.t+=dt;
-    mbox.lid.rotation.x=lerp(0,-1.5,clamp(mbox.t/0.5,0,1));
+    mbox.lid.rotation.x=lerp(0,1.34,clamp(mbox.t/0.5,0,1));
     if(!mbox.preview||mbox.t%0.14<dt){
       if(mbox.preview) scene.remove(mbox.preview);
       const cand=(mbox.pool&&mbox.pool.length)?mbox.pool:boxPool();
@@ -4425,7 +4575,7 @@ function stepBox(dt){
       scene.add(mbox.preview);
     }
     if(mbox.preview){
-      mbox.preview.position.set(mbox.g.position.x,mbox.g.position.y+1.9+Math.sin(game.time*4)*0.06,mbox.g.position.z);
+      mbox.preview.position.set(mbox.g.position.x,mbox.g.position.y+BOX_PREVIEW_Y+Math.sin(game.time*4)*0.06,mbox.g.position.z);
       mbox.preview.rotation.y+=dt*5;
     }
     if(mbox.t>3.4){
@@ -4441,7 +4591,7 @@ function stepBox(dt){
   } else if(mbox.state==='present'){
     mbox.t+=dt;
     if(mbox.preview){
-      mbox.preview.position.set(mbox.g.position.x,mbox.g.position.y+1.9+Math.sin(game.time*3)*0.08,mbox.g.position.z);
+      mbox.preview.position.set(mbox.g.position.x,mbox.g.position.y+BOX_PREVIEW_Y+Math.sin(game.time*3)*0.08,mbox.g.position.z);
       mbox.preview.rotation.y+=dt*1.6;
     }
     if(mbox.t>9) closeBox();
