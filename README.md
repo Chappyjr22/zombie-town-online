@@ -4,6 +4,21 @@ A browser-based, round-driven zombie survival FPS built with Three.js.
 
 The current version is fully playable as a single-player game and is being prepared for 2 to 4-player online cooperative multiplayer.
 
+## Online milestone status
+
+The first multiplayer foundation is implemented:
+
+- Create and join private rooms with six-character invite codes
+- Four-player room capacity
+- Durable Object room coordination
+- Hibernating WebSocket connections
+- Host selection and automatic host migration
+- Shared map start events
+- Synchronized survivor position, direction, health, weapon, and downed state
+- Interpolated remote survivor models
+
+Zombie, combat, points, purchases, and round synchronization are the next milestone.
+
 ## Current features
 
 - Town and Nuketown maps
@@ -83,6 +98,8 @@ The recommended first multiplayer release is private 2 to 4-player cooperative Z
 ```text
 public/
   index.html       Complete game client
+src/
+  index.js         Worker API and Durable Object game rooms
 package.json       Development and deployment commands
 wrangler.jsonc     Cloudflare Workers configuration
 ```
@@ -99,4 +116,3 @@ wrangler.jsonc     Cloudflare Workers configuration
 - `Shift`: Sprint
 - `Space`: Jump
 - `Esc`: Pause
-

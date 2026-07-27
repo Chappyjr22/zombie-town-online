@@ -137,6 +137,23 @@
     border:1px solid rgba(232,163,61,.45);padding:5px 8px;max-width:150px;}
   .otog:hover{background:rgba(232,163,61,.15);}
   .ohint{font-size:10px;letter-spacing:.16em;opacity:.4;margin-top:16px;text-transform:uppercase;}
+  .netform{max-width:440px;margin:22px auto;text-align:left;}
+  .netfield{margin:12px 0;}
+  .netfield label{display:block;font-size:10px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--amber);margin-bottom:6px;}
+  .netfield input{pointer-events:auto;width:100%;padding:12px 14px;border:1px solid rgba(230,224,210,.24);
+    background:rgba(4,6,10,.72);color:var(--bone);font:14px "Arial Narrow","Helvetica Neue",Arial,sans-serif;
+    letter-spacing:.12em;outline:none;}
+  .netfield input:focus{border-color:var(--amber);box-shadow:0 0 12px rgba(232,163,61,.14);}
+  .netstatus{min-height:18px;margin:10px 0;color:var(--amber);font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;text-align:center;}
+  .roomcode{font-size:38px;letter-spacing:.30em;color:var(--amber);margin:14px 0 8px;text-indent:.30em;}
+  .roster{max-width:420px;margin:16px auto;text-align:left;border-top:1px solid rgba(230,224,210,.15);}
+  .roster div{padding:10px 12px;border-bottom:1px solid rgba(230,224,210,.10);
+    font-size:12px;letter-spacing:.16em;text-transform:uppercase;}
+  .roster b{color:var(--amber);float:right;font-size:9px;line-height:16px;}
+  #netbadge{position:absolute;left:50%;top:50px;transform:translateX(-50%);font-size:9px;
+    letter-spacing:.16em;text-transform:uppercase;color:#75d7ff;opacity:0;text-shadow:0 1px 5px #000;}
   #fps{position:absolute;left:50%;top:2px;transform:translateX(-50%);font-size:10px;letter-spacing:.14em;
     color:var(--amber);opacity:0;text-shadow:0 1px 4px #000;}
   #overStats{font-size:15px;letter-spacing:.16em;margin:14px 0 6px;}
@@ -240,6 +257,7 @@
   </div>
 
   <div id="prompt"></div>
+  <div id="netbadge"></div>
   <div id="fps">60 fps</div>
   <div id="banner"></div>
   <div id="toast"></div>
@@ -262,12 +280,48 @@
     <div class="sub">Zombie Survival &nbsp;/&nbsp; Prototype 1.1</div>
     <div class="mlist">
       <div class="mitem" data-act="new">New game<small>Round one, five hundred points, a pistol and a rifle</small></div>
+      <div class="mitem" data-act="online">Online co-op<small>Create or join a four-player Cloudflare game room</small></div>
       <div class="mitem" data-act="options">Options<small>Sensitivity, field of view, audio, quality</small></div>
       <div class="mitem" data-act="controls">Controls<small>Keyboard, controller and touch</small></div>
       <div class="mitem" data-act="howto">How to play<small>Points, walls, perks and the box</small></div>
       <div class="mitem" data-act="exit">Exit game</div>
     </div>
     <div class="best" id="bestLine"></div>
+  </div>
+</div>
+
+<div class="screen gone" id="online">
+  <div class="card">
+    <h2 class="sec">Online co-op</h2>
+    <div class="sub">Cloudflare game rooms &nbsp;/&nbsp; up to four survivors</div>
+    <div class="netform">
+      <div class="netfield">
+        <label for="netName">Survivor name</label>
+        <input id="netName" maxlength="18" value="Survivor" autocomplete="nickname">
+      </div>
+      <div class="netfield">
+        <label for="netCode">Room code</label>
+        <input id="netCode" maxlength="6" placeholder="ABC123" autocomplete="off"
+          style="text-transform:uppercase">
+      </div>
+    </div>
+    <div class="netstatus" id="netStatus">Create a room or enter an invite code</div>
+    <div class="btn" data-act="net-create">Create room</div>
+    <div class="btn" data-act="net-join">Join room</div>
+    <div class="btn" data-act="back">Back</div>
+  </div>
+</div>
+
+<div class="screen gone" id="lobby">
+  <div class="card">
+    <h2 class="sec">Survivor lobby</h2>
+    <div class="sub">Invite teammates with this room code</div>
+    <div class="roomcode" id="roomCode">------</div>
+    <div class="roster" id="roomRoster"></div>
+    <div class="netstatus" id="lobbyStatus">Connecting</div>
+    <div class="btn" id="startOnline" data-act="net-map">Choose map</div>
+    <div class="btn" data-act="net-copy">Copy invite</div>
+    <div class="btn" data-act="net-leave">Leave room</div>
   </div>
 </div>
 
@@ -3868,11 +3922,171 @@ function doBuy(){
 }
 
 
+/* ---------- online co-op foundation ----------
+   Cloudflare Durable Objects own rooms and relay survivor transforms. Zombie,
+   combat and round authority are added in the next multiplayer milestone. */
+const net={
+  ws:null,code:'',id:'',host:false,connected:false,manualClose:false,
+  players:new Map(),remotes:new Map(),nextState:0,activeGame:false
+};
+function safeNetName(v){
+  return String(v||'Survivor').replace(/[^\w .'-]/g,'').trim().slice(0,18)||'Survivor';
+}
+function setNetStatus(t){
+  if(el('netStatus')) el('netStatus').textContent=t;
+  if(el('lobbyStatus')) el('lobbyStatus').textContent=t;
+}
+function netSend(o){
+  if(net.ws&&net.ws.readyState===WebSocket.OPEN) net.ws.send(JSON.stringify(o));
+}
+function netColor(id){
+  let h=0; for(let i=0;i<id.length;i++) h=(h*31+id.charCodeAt(i))>>>0;
+  return new THREE.Color().setHSL((h%360)/360,.62,.52);
+}
+function makeRemotePlayer(p){
+  if(!p||p.id===net.id||net.remotes.has(p.id)) return;
+  const g=new THREE.Group(),col=netColor(p.id);
+  const suit=new THREE.MeshPhongMaterial({color:col,shininess:12});
+  const dark=new THREE.MeshPhongMaterial({color:0x171a20,shininess:18});
+  const skin=new THREE.MeshPhongMaterial({color:0xb98968,shininess:8});
+  const body=new THREE.Mesh(new THREE.BoxGeometry(.46,.62,.27),suit); body.position.y=1.20; g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.17,10,8),skin); head.position.y=1.68; g.add(head);
+  const armG=new THREE.BoxGeometry(.13,.54,.14),legG=new THREE.BoxGeometry(.16,.66,.18);
+  const a1=new THREE.Mesh(armG,suit),a2=new THREE.Mesh(armG,suit);
+  a1.position.set(-.31,1.17,0); a2.position.set(.31,1.17,0); g.add(a1,a2);
+  const l1=new THREE.Mesh(legG,dark),l2=new THREE.Mesh(legG,dark);
+  l1.position.set(-.13,.52,0); l2.position.set(.13,.52,0); g.add(l1,l2);
+  const gun=new THREE.Mesh(new THREE.BoxGeometry(.10,.12,.58),dark);
+  gun.position.set(.18,1.27,-.31); gun.rotation.x=-.10; g.add(gun);
+  g.position.set(0,-20,0); g.visible=game.running; scene.add(g);
+  net.remotes.set(p.id,{g,target:new THREE.Vector3(),yaw:0,name:p.name||'Survivor',mats:[suit,dark,skin]});
+  if(p.state) updateRemoteState(p.id,p.state);
+}
+function removeRemotePlayer(id){
+  const r=net.remotes.get(id); if(!r) return;
+  scene.remove(r.g);
+  r.g.traverse(o=>{if(o.geometry)o.geometry.dispose();});
+  r.mats.forEach(m=>m.dispose());
+  net.remotes.delete(id);
+}
+function clearRemotePlayers(){
+  for(const id of Array.from(net.remotes.keys())) removeRemotePlayer(id);
+}
+function updateRemoteState(id,s){
+  const p=net.players.get(id); if(!p||id===net.id) return;
+  if(!net.remotes.has(id)) makeRemotePlayer(p);
+  const r=net.remotes.get(id); if(!r) return;
+  r.target.set(+s.x||0,+s.y||0,+s.z||0);
+  r.yaw=+s.yaw||0;
+  r.g.visible=game.running&&s.map===currentMap;
+  r.g.userData.downed=!!s.downed;
+}
+function renderRoster(){
+  const box=el('roomRoster'); if(!box) return;
+  box.innerHTML='';
+  for(const p of net.players.values()){
+    const row=document.createElement('div');
+    row.textContent=p.name+(p.id===net.id?' (you)':'');
+    if(p.host){const b=document.createElement('b');b.textContent='HOST';row.appendChild(b);}
+    box.appendChild(row);
+  }
+  el('startOnline').style.display=net.host?'inline-block':'none';
+  el('roomCode').textContent=net.code||'------';
+  const n=net.players.size;
+  setNetStatus(net.host?(n+'/4 connected \u00b7 choose a map when ready'):(n+'/4 connected \u00b7 waiting for host'));
+}
+function netHandle(msg){
+  let m; try{m=JSON.parse(msg);}catch(e){return;}
+  if(m.type==='welcome'){
+    net.id=m.id; net.host=!!m.host; net.connected=true; net.players.clear();
+    for(const p of m.players||[]){net.players.set(p.id,p);makeRemotePlayer(p);}
+    net.players.set(net.id,{id:net.id,name:m.name||safeNetName(el('netName').value),host:net.host});
+    showScreen('lobby'); renderRoster();
+    if(m.room&&m.room.active&&m.room.map){
+      net.activeGame=true; startGame(m.room.map); toast('Joined room '+net.code);
+    }
+  } else if(m.type==='player_joined'){
+    net.players.set(m.player.id,m.player); makeRemotePlayer(m.player); renderRoster();
+    toast(m.player.name+' joined');
+  } else if(m.type==='player_left'){
+    const p=net.players.get(m.id); net.players.delete(m.id); removeRemotePlayer(m.id); renderRoster();
+    if(p) toast(p.name+' left');
+  } else if(m.type==='role'){
+    for(const p of net.players.values()) p.host=false;
+    const p=net.players.get(m.id); if(p)p.host=!!m.host;
+    net.host=m.id===net.id&&!!m.host;
+    renderRoster(); if(net.host) toast('You are now the room host');
+  } else if(m.type==='state'){
+    const p=net.players.get(m.id); if(p)p.state=m.state;
+    updateRemoteState(m.id,m.state||{});
+  } else if(m.type==='start'&&(m.map==='town'||m.map==='nuketown')){
+    net.activeGame=true; startGame(m.map); toast('Online room '+net.code);
+  } else if(m.type==='error'){
+    setNetStatus(m.message||'Room error'); sfxDeny();
+  }
+}
+async function netCreate(){
+  setNetStatus('Creating room');
+  try{
+    const r=await fetch('/api/rooms',{method:'POST'});
+    const j=await r.json(); if(!r.ok) throw new Error(j.error||'Could not create room');
+    el('netCode').value=j.code; netConnect(j.code);
+  }catch(e){setNetStatus(e.message||'Could not create room');}
+}
+async function netConnect(raw){
+  const code=String(raw||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
+  if(code.length!==6){setNetStatus('Enter a six-character room code');sfxDeny();return;}
+  const name=safeNetName(el('netName').value);
+  try{localStorage.setItem('town:netname',name);}catch(e){}
+  setNetStatus('Checking room '+code);
+  try{
+    const check=await fetch('/api/rooms/'+code);
+    const info=await check.json();
+    if(!check.ok||!info.exists) throw new Error('Room not found');
+    if(info.players>=4) throw new Error('Room is full');
+  }catch(e){setNetStatus(e.message||'Could not reach room');sfxDeny();return;}
+  netDisconnect(false); net.code=code; net.manualClose=false; setNetStatus('Connecting to '+code);
+  const proto=location.protocol==='https:'?'wss:':'ws:';
+  const ws=new WebSocket(proto+'//'+location.host+'/api/rooms/'+code+'/ws?name='+encodeURIComponent(name));
+  net.ws=ws;
+  ws.onmessage=e=>netHandle(e.data);
+  ws.onerror=()=>setNetStatus('Connection failed');
+  ws.onclose=e=>{
+    if(net.ws!==ws) return;
+    const manual=net.manualClose; net.connected=false; net.ws=null;
+    if(!manual){setNetStatus('Disconnected from room');toast('Online room disconnected');}
+  };
+}
+function netDisconnect(showMenu){
+  net.manualClose=true;
+  if(net.ws) try{net.ws.close(1000,'Left room');}catch(e){}
+  net.ws=null; net.connected=false; net.activeGame=false; net.host=false; net.id=''; net.code='';
+  net.players.clear(); clearRemotePlayers();
+  el('netbadge').style.opacity=0;
+  if(showMenu) showScreen('menu');
+}
+function netStep(dt){
+  for(const r of net.remotes.values()){
+    r.g.position.lerp(r.target,Math.min(1,dt*12));
+    let d=((r.yaw-r.g.rotation.y+Math.PI)%(TAU)+TAU)%TAU-Math.PI;
+    r.g.rotation.y+=d*Math.min(1,dt*12);
+    const down=r.g.userData.downed;
+    r.g.rotation.z=lerp(r.g.rotation.z,down?Math.PI/2:0,Math.min(1,dt*8));
+  }
+  if(!net.connected||!game.running||game.time<net.nextState) return;
+  net.nextState=game.time+.08;
+  const g=curGun();
+  netSend({type:'state',state:{x:player.pos.x,y:player.y,z:player.pos.z,yaw:player.yaw,
+    pitch:player.pitch,hp:player.hp,downed:player.downed,weapon:g?g.def.id:'',map:currentMap}});
+  el('netbadge').textContent='ONLINE  \u00b7  '+net.code+'  \u00b7  '+net.players.size+'/4';
+  el('netbadge').style.opacity=.78;
+}
+
 /* ---------- settings, menus and screens ---------- */
 const SET={mouse:1,pad:1,touch:1,fov:76,vol:.45,invert:false,adsToggle:false,quality:'High',fps:false,gore:true};
 const best={round:0,points:0,kills:0};
-const SCREENS=['menu','mapsel','options','controls','howto','exitmsg','pause','over'];
-let menuScreen=null, menuIdx=0, optionsFrom='menu';
+const SCREENS=['menu','online','lobby','mapsel','options','controls','howto','exitmsg','pause','over'];
+let menuScreen=null, menuIdx=0, optionsFrom='menu',mapBack='menu';
 
 function applySettings(){
   if(master) master.gain.value=SET.vol;
@@ -3957,6 +4171,7 @@ function exitGame(){
 function quitToMenu(){
   game.running=false; player.firing=false; player.ads=false;
   if(document.exitPointerLock) document.exitPointerLock();
+  if(net.connected||net.ws) netDisconnect(false);
   bestLine(); showScreen('menu');
 }
 function recordBest(){
@@ -3966,16 +4181,45 @@ function recordBest(){
   }
 }
 function doAct(a){
-  if(a==='new'){ showScreen('mapsel'); }
+  if(a==='new'){ netDisconnect(false); mapBack='menu'; showScreen('mapsel'); }
+  else if(a==='online'){
+    game.running=false; mapBack='lobby';
+    try{el('netName').value=localStorage.getItem('town:netname')||el('netName').value;}catch(e){}
+    showScreen('online');
+  }
   else if(a==='options'){ optionsFrom=menuScreen||'menu'; showScreen('options'); }
   else if(a==='controls') showScreen('controls');
   else if(a==='howto') showScreen('howto');
   else if(a==='exit') exitGame();
-  else if(a==='back') showScreen(menuScreen==='options'?optionsFrom:'menu');
+  else if(a==='back'){
+    if(menuScreen==='online') netDisconnect(false);
+    showScreen(menuScreen==='options'?optionsFrom:(menuScreen==='mapsel'?mapBack:'menu'));
+  }
   else if(a==='resume') resume();
-  else if(a==='restart'){ hideScreens(); startGame(currentMap); }
+  else if(a==='restart'){
+    if(net.connected){if(net.host)netSend({type:'start',map:currentMap});else toast('Only the host can restart');}
+    else{hideScreens();startGame(currentMap);}
+  }
   else if(a==='menu') quitToMenu();
-  else if(a&&a.indexOf('map:')===0){ hideScreens(); startGame(a.slice(4)); }
+  else if(a==='net-create') netCreate();
+  else if(a==='net-join') netConnect(el('netCode').value);
+  else if(a==='net-map'){
+    if(!net.connected) setNetStatus('Connect to the room first');
+    else if(!net.host) setNetStatus('Only the host can choose the map');
+    else{mapBack='lobby';showScreen('mapsel');}
+  }
+  else if(a==='net-copy'){
+    const link=location.origin+'/?room='+net.code;
+    if(navigator.clipboard&&navigator.clipboard.writeText)
+      navigator.clipboard.writeText(link).then(()=>setNetStatus('Invite link copied')).catch(()=>setNetStatus('Room code: '+net.code));
+    else setNetStatus('Room code: '+net.code);
+  }
+  else if(a==='net-leave') netDisconnect(true);
+  else if(a&&a.indexOf('map:')===0){
+    const map=a.slice(4);
+    if(net.connected){if(net.host)netSend({type:'start',map});else setNetStatus('Only the host can start');}
+    else{hideScreens();startGame(map);}
+  }
   else if(a==='reset'){
     Object.assign(SET,{mouse:1,pad:1,touch:1,fov:76,vol:.45,invert:false,
       adsToggle:false,quality:'High',fps:false,gore:true});
@@ -4113,6 +4357,7 @@ function loop(){
   let dt=now-last; last=now;
   dt=clamp(dt,0.001,0.05);
   pollPad(dt);
+  netStep(dt);
   if(game.running){
     game.time+=dt;
     updatePlayer(dt);
@@ -4411,7 +4656,14 @@ function updateEffects(dt){
   }
 }
 
-renderPerks(); updHUD(); loadSettings(); showScreen('menu'); loop();
+renderPerks(); updHUD(); loadSettings();
+const inviteCode=new URLSearchParams(location.search).get('room');
+if(inviteCode){
+  el('netCode').value=inviteCode.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
+  try{el('netName').value=localStorage.getItem('town:netname')||el('netName').value;}catch(e){}
+  showScreen('online'); setNetStatus('Invite ready \u00b7 enter your name and join');
+} else showScreen('menu');
+loop();
 
 </script>
 </body>

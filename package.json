@@ -2,6 +2,7 @@
   "name": "zombie-town-online",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "A browser-based zombie survival FPS prepared for Cloudflare multiplayer.",
   "scripts": {
     "dev": "wrangler dev",
