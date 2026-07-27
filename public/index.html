@@ -481,6 +481,8 @@ renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setSize(innerWidth,innerHeight);
 renderer.autoClear=false;
 renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.08;
 
 const NIGHT=0x0a0c14;
 const scene=new THREE.Scene();
@@ -544,6 +546,51 @@ T.tile=tex(128,128,(x,w,h)=>{for(let r=0;r<8;r++)for(let c=0;c<8;c++){
 T.concrete=tex(128,128,(x,w,h)=>{x.fillStyle='#55565c';x.fillRect(0,0,w,h);
   for(let i=0;i<80;i++){x.fillStyle=`rgba(0,0,0,${Math.random()*.14})`;x.fillRect(rand(0,w),rand(0,h),rand(4,24),rand(4,18));}
   grain(x,w,h,24);},2,2);
+T.flame=tex(128,192,(x,w,h)=>{
+  x.clearRect(0,0,w,h);x.globalCompositeOperation='lighter';
+  const outer=x.createLinearGradient(0,0,0,h);
+  outer.addColorStop(0,'rgba(255,70,0,0)');
+  outer.addColorStop(.35,'rgba(255,72,0,.58)');
+  outer.addColorStop(.72,'rgba(255,174,24,.92)');
+  outer.addColorStop(1,'rgba(255,210,80,0)');
+  x.fillStyle=outer;x.beginPath();x.moveTo(w*.13,h*.96);
+  x.bezierCurveTo(w*.05,h*.70,w*.31,h*.65,w*.29,h*.42);
+  x.bezierCurveTo(w*.28,h*.24,w*.47,h*.18,w*.50,h*.03);
+  x.bezierCurveTo(w*.58,h*.24,w*.80,h*.30,w*.68,h*.52);
+  x.bezierCurveTo(w*.92,h*.66,w*.96,h*.82,w*.87,h*.96);
+  x.closePath();x.fill();
+  for(let i=0;i<26;i++){
+    const px=rand(w*.22,w*.78),py=rand(h*.38,h*.91),rx=rand(6,22),ry=rand(12,38);
+    const g=x.createRadialGradient(px,py,0,px,py,Math.max(rx,ry));
+    g.addColorStop(0,i%3?'rgba(255,245,170,.72)':'rgba(255,255,225,.88)');
+    g.addColorStop(.34,'rgba(255,180,30,.48)');g.addColorStop(1,'rgba(255,60,0,0)');
+    x.fillStyle=g;x.save();x.translate(px,py);x.scale(rx/ry,1);
+    x.beginPath();x.arc(0,0,ry,0,TAU);x.fill();x.restore();
+  }
+});
+T.flame.wrapS=T.flame.wrapT=THREE.ClampToEdgeWrapping;
+T.smoke=tex(128,128,(x,w,h)=>{
+  x.clearRect(0,0,w,h);
+  for(let i=0;i<18;i++){
+    const px=rand(w*.28,w*.72),py=rand(h*.25,h*.75),r=rand(18,46);
+    const g=x.createRadialGradient(px,py,0,px,py,r);
+    g.addColorStop(0,'rgba(150,145,138,.18)');g.addColorStop(.45,'rgba(72,72,76,.13)');
+    g.addColorStop(1,'rgba(24,25,29,0)');x.fillStyle=g;x.beginPath();x.arc(px,py,r,0,TAU);x.fill();
+  }
+});
+T.smoke.wrapS=T.smoke.wrapT=THREE.ClampToEdgeWrapping;
+T.spark=tex(32,32,(x,w,h)=>{
+  const g=x.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);
+  g.addColorStop(0,'rgba(255,255,220,1)');g.addColorStop(.28,'rgba(255,194,58,.95)');
+  g.addColorStop(1,'rgba(255,70,0,0)');x.fillStyle=g;x.fillRect(0,0,w,h);
+});
+T.spark.wrapS=T.spark.wrapT=THREE.ClampToEdgeWrapping;
+T.scorch=tex(128,128,(x,w,h)=>{
+  const g=x.createRadialGradient(w/2,h/2,4,w/2,h/2,w*.49);
+  g.addColorStop(0,'rgba(6,5,4,.76)');g.addColorStop(.55,'rgba(12,9,7,.45)');
+  g.addColorStop(1,'rgba(15,12,10,0)');x.fillStyle=g;x.fillRect(0,0,w,h);
+});
+T.scorch.wrapS=T.scorch.wrapT=THREE.ClampToEdgeWrapping;
 
 
 /* ---------- close-up textures for weapons and kit ---------- */
@@ -675,7 +722,7 @@ function bx(w,h,d,x,y,z,mat,solid,top){
   return m;
 }
 function cyl(r1,r2,h,x,y,z,mat,solid){
-  const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,10),mat);
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,16),mat);
   m.position.set(x,y,z); worldRoot.add(m); blockers.push(m);
   if(solid) addCollider(x-r1,x+r1,z-r1,z+r1,y+h/2,y-h/2);
   return m;
@@ -686,20 +733,69 @@ const torch=new THREE.SpotLight(0xffe9c4,1.05,32,0.5,0.6,1.2); scene.add(torch);
 
 function streetLamp(x,z,rot){
   const g=new THREE.Group();
-  const p=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.13,5.4,7),M.dark); p.position.y=2.7; g.add(p);
+  const p=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.13,5.4,12),M.dark); p.position.y=2.7; g.add(p);
   const a=new THREE.Mesh(new THREE.BoxGeometry(1.0,0.09,0.09),M.dark); a.position.set(0.48,5.32,0); g.add(a);
-  const hd=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.22,0.34),phong({color:0x15171d,emissive:0xffab4a,emissiveIntensity:1})); hd.position.set(0.9,5.18,0); g.add(hd);
+  const shade=new THREE.Mesh(new THREE.CylinderGeometry(.28,.17,.24,16),M.dark);
+  shade.position.set(.9,5.22,0);g.add(shade);
+  const glass=new THREE.Mesh(new THREE.SphereGeometry(.17,16,10),
+    phong({color:0xffc267,emissive:0xff9d32,emissiveIntensity:1.4,transparent:true,opacity:.88,shininess:80}));
+  glass.position.set(.9,5.04,0);g.add(glass);
+  const cap=new THREE.Mesh(new THREE.TorusGeometry(.19,.025,6,16),M.metal);
+  cap.rotation.x=Math.PI/2;cap.position.set(.9,5.08,0);g.add(cap);
   const L=new THREE.PointLight(0xffa93c,1.35,19,1.7); L.position.set(0.9,5.0,0); g.add(L);
   g.position.set(x,0,z); g.rotation.y=rot||0; worldRoot.add(g);
   addCollider(x-0.28,x+0.28,z-0.28,z+0.28);
 }
+function makeFire(x,z,y,scale,intensity){
+  const g=new THREE.Group();g.position.set(x,y,z);worldRoot.add(g);
+  const layers=[];
+  for(const spec of [
+    [0xff4b12,.62,1.18,1.38,-.05,.02,0],
+    [0xff9a24,.78,.88,1.62,.05,-.03,1.7],
+    [0xffe38a,.92,.52,1.15,0,.035,3.4]
+  ]){
+    const mat=new THREE.SpriteMaterial({map:T.flame,color:spec[0],transparent:true,opacity:spec[1],
+      blending:THREE.AdditiveBlending,depthWrite:false,alphaTest:.015});
+    const sp=new THREE.Sprite(mat);sp.center.set(.5,.08);
+    sp.position.set(spec[4]*scale,.02,spec[5]*scale);
+    sp.scale.set(spec[2]*scale,spec[3]*scale,1);sp.renderOrder=4;g.add(sp);
+    layers.push({sp,baseX:spec[2]*scale,baseY:spec[3]*scale,opacity:spec[1],phase:spec[6]});
+  }
+  const smoke=[];
+  for(let i=0;i<3;i++){
+    const mat=new THREE.SpriteMaterial({map:T.smoke,color:0x6a6762,transparent:true,opacity:.12,
+      depthWrite:false});
+    const sp=new THREE.Sprite(mat);sp.center.set(.5,.18);sp.renderOrder=2;g.add(sp);
+    smoke.push({sp,phase:i/3+rand(0,.15)});
+  }
+  const n=Math.max(10,Math.round(15*scale)),arr=new Float32Array(n*3),seed=new Float32Array(n*4);
+  for(let i=0;i<n;i++){
+    seed[i*4]=rand(0,TAU);seed[i*4+1]=rand(.04,.28);seed[i*4+2]=rand(.7,1.45);seed[i*4+3]=rand(0,TAU);
+    arr[i*3+1]=rand(.06,2.2*scale);
+  }
+  const eg=new THREE.BufferGeometry();eg.setAttribute('position',new THREE.BufferAttribute(arr,3));
+  const em=new THREE.PointsMaterial({map:T.spark,color:0xffb12f,size:.075*scale,transparent:true,
+    opacity:.9,blending:THREE.AdditiveBlending,depthWrite:false,alphaTest:.03});
+  const embers=new THREE.Points(eg,em);embers.renderOrder=5;g.add(embers);
+  const L=new THREE.PointLight(0xff7a22,intensity,13*scale,1.8);L.position.y=.75*scale;g.add(L);
+  flames.push({g,layers,smoke,embers,arr,seed,n,scale,intensity,L});
+  return g;
+}
+function fireScorch(x,z,y,size){
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(size,size),
+    new THREE.MeshBasicMaterial({map:T.scorch,transparent:true,opacity:.72,depthWrite:false}));
+  m.rotation.x=-Math.PI/2;m.position.set(x,y+.012,z);worldRoot.add(m);
+}
 function fireBarrel(x,z,y0){
   const y=y0||0;
-  const b=cyl(0.42,0.38,1.05,x,y+0.52,z,M.rust,true);
-  const f=new THREE.Mesh(new THREE.ConeGeometry(0.34,1.0,6),new THREE.MeshBasicMaterial({color:0xff8a2a,transparent:true,opacity:.8}));
-  f.position.set(x,y+1.5,z); worldRoot.add(f);
-  const L=new THREE.PointLight(0xff7a22,1.5,13,1.8); L.position.set(x,y+1.6,z); worldRoot.add(L);
-  flames.push({f,L,base:1.5,i:1.5});
+  const g=new THREE.Group(),body=new THREE.Mesh(new THREE.CylinderGeometry(.42,.38,1.05,20),M.rust);
+  body.position.y=.52;g.add(body);blockers.push(body);
+  for(const yy of [.12,.52,.92]){
+    const band=new THREE.Mesh(new THREE.TorusGeometry(.40,.025,7,20),M.metal);
+    band.rotation.x=Math.PI/2;band.position.y=yy;g.add(band);
+  }
+  g.position.set(x,y,z);worldRoot.add(g);addCollider(x-.42,x+.42,z-.42,z+.42,y+1.05,y);
+  fireScorch(x,z,y,1.65);makeFire(x,z,y+1.02,.68,1.5);
 }
 
 /* ---------- buildings ---------- */
@@ -727,6 +823,13 @@ function wallRun(ax,az,bx2,bz,h,mat,gaps,y0){
     if(h>head){ horiz?wallSeg(a,az,b,bz,h-head,mat,base+head):wallSeg(ax,a,bx2,b,h-head,mat,base+head); }
     if(g.sill){
       horiz?wallSeg(a,az,b,bz,g.sill,mat,base):wallSeg(ax,a,bx2,b,g.sill,mat,base);
+      const wh=Math.max(.2,head-g.sill),wy=base+g.sill+wh/2;
+      const pane=new THREE.Mesh(new THREE.BoxGeometry(horiz?g.w*.92:.07,wh,horiz?.07:g.w*.92),M.glassBroken);
+      pane.position.set(horiz?g.c:ax,wy,horiz?az:g.c);worldRoot.add(pane);
+      const mullion=new THREE.Mesh(new THREE.BoxGeometry(horiz?.075:.09,wh,horiz?.09:.075),M.dark);
+      mullion.position.copy(pane.position);worldRoot.add(mullion);
+      const crossbar=new THREE.Mesh(new THREE.BoxGeometry(horiz?g.w*.92:.09,.075,horiz?.09:g.w*.92),M.dark);
+      crossbar.position.copy(pane.position);worldRoot.add(crossbar);
       if(g.boards!==false){
         for(let i=0;i<3;i++){
           const yy=base+g.sill+0.35+i*0.5;
@@ -791,12 +894,16 @@ function car(x,z,rot,col){
   const g=new THREE.Group();
   const body=new THREE.Mesh(new THREE.BoxGeometry(2.0,0.85,4.5),phong({color:col,shininess:45}));
   body.position.y=0.86; g.add(body); blockers.push(body);
-  const cab=new THREE.Mesh(new THREE.BoxGeometry(1.85,0.8,2.1),M.glassBroken);
-  cab.position.set(0,1.62,-0.25); g.add(cab); blockers.push(cab);
-  const roof=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.16,1.9),phong({color:col}));
-  roof.position.set(0,2.02,-0.25); g.add(roof); blockers.push(roof);
+  const cab=new THREE.Mesh(new THREE.SphereGeometry(1,20,12,0,TAU,0,Math.PI/2),M.glassBroken);
+  cab.position.set(0,1.28,-0.25);cab.scale.set(.93,.84,1.14);g.add(cab);blockers.push(cab);
+  const roof=new THREE.Mesh(new THREE.SphereGeometry(1.01,20,8,0,TAU,0,.62),phong({color:col,shininess:45}));
+  roof.position.copy(cab.position);roof.scale.copy(cab.scale);g.add(roof);blockers.push(roof);
+  for(const zz of [-2.22,2.22]){
+    const bumper=new THREE.Mesh(new THREE.BoxGeometry(2.08,.18,.16),M.metal);
+    bumper.position.set(0,.56,zz);g.add(bumper);
+  }
   for(const [wx,wz] of [[1,1.55],[-1,1.55],[1,-1.55],[-1,-1.55]]){
-    const w=new THREE.Mesh(new THREE.CylinderGeometry(0.44,0.44,0.3,10),M.dark);
+    const w=new THREE.Mesh(new THREE.CylinderGeometry(0.44,0.44,0.3,18),M.dark);
     w.rotation.z=Math.PI/2; w.position.set(wx,0.44,wz); g.add(w);
   }
   g.position.set(x,0,z); g.rotation.y=rot; worldRoot.add(g);
@@ -1047,20 +1154,30 @@ function buildTown(){
 /* --- fountain --- */
 (function fountain(){
   const g=new THREE.Group();
-  g.add(new THREE.Mesh(new THREE.CylinderGeometry(3.3,3.5,1.0,22),M.concrete));
-  const w=new THREE.Mesh(new THREE.CylinderGeometry(3.0,3.0,0.94,22),phong({color:0x16232b,shininess:70}));
+  g.add(new THREE.Mesh(new THREE.CylinderGeometry(3.3,3.5,1.0,48),M.concrete));
+  const lowerRim=new THREE.Mesh(new THREE.TorusGeometry(3.32,.11,10,48),M.concrete);
+  lowerRim.rotation.x=Math.PI/2;lowerRim.position.y=.46;g.add(lowerRim);
+  const w=new THREE.Mesh(new THREE.CylinderGeometry(3.0,3.0,0.94,48),
+    phong({color:0x142a34,shininess:95,specular:0x527580}));
   w.position.y=0.06; g.add(w);
-  const s=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.7,2.6,12),M.concrete); s.position.y=1.7; g.add(s);
-  const b=new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,0.24,16),M.concrete); b.position.y=2.4; g.add(b);
+  const water=new THREE.Mesh(new THREE.CircleGeometry(2.86,48),
+    new THREE.MeshPhongMaterial({color:0x183844,transparent:true,opacity:.78,shininess:110,specular:0x82aab6}));
+  water.rotation.x=-Math.PI/2;water.position.y=.535;g.add(water);
+  for(const rr of [1.15,2.05]){
+    const ripple=new THREE.Mesh(new THREE.TorusGeometry(rr,.018,6,48),
+      new THREE.MeshBasicMaterial({color:0x537985,transparent:true,opacity:.32}));
+    ripple.rotation.x=Math.PI/2;ripple.position.y=.55;g.add(ripple);
+  }
+  const s=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.7,2.6,28),M.concrete); s.position.y=1.7; g.add(s);
+  const b=new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,0.24,36),M.concrete); b.position.y=2.4; g.add(b);
+  const upperRim=new THREE.Mesh(new THREE.TorusGeometry(1.08,.10,8,36),M.concrete);
+  upperRim.rotation.x=Math.PI/2;upperRim.position.y=2.5;g.add(upperRim);
   g.position.y=0.5; worldRoot.add(g);
   // Two crossing rectangles approximate the round base without invisible
   // collision in the square corners of its old bounding box.
   addCollider(-3.5,3.5,-2.45,2.45,1.0);
   addCollider(-2.45,2.45,-3.5,3.5,1.0);
-  const f=new THREE.Mesh(new THREE.ConeGeometry(0.95,2.6,8),new THREE.MeshBasicMaterial({color:0xff8a2a,transparent:true,opacity:.85}));
-  f.position.set(0,4.4,0); worldRoot.add(f);
-  const L=new THREE.PointLight(0xff7a22,2.6,30,1.6); L.position.set(0,4.2,0); worldRoot.add(L);
-  flames.push({f,L,base:2.6,i:2.6});
+  makeFire(0,0,3.0,1.65,2.6);
 })();
 
 /* --- wrecked bus --- */
@@ -1073,7 +1190,7 @@ function buildTown(){
   const stripe=new THREE.Mesh(new THREE.BoxGeometry(2.94,0.3,11.4),phong({color:0x1b1c22}));
   stripe.position.y=0.95; g.add(stripe);
   for(const wz of [-4.2,3.6]) for(const wx of [-1.35,1.35]){
-    const wl=new THREE.Mesh(new THREE.CylinderGeometry(0.62,0.62,0.42,12),M.dark);
+    const wl=new THREE.Mesh(new THREE.CylinderGeometry(0.62,0.62,0.42,20),M.dark);
     wl.rotation.z=Math.PI/2; wl.position.set(wx,0.6,wz); g.add(wl);
   }
   g.position.set(-2,0,-31); g.rotation.y=0.16; worldRoot.add(g);
@@ -5163,6 +5280,10 @@ function applySettings(){
   scene.fog.near=mapFog.near;
   scene.fog.far=mapFog.far*(q==='Low'?0.62:(q==='Medium'?0.85:1));
   if(window.__ash) window.__ash.pts.visible=q!=='Low';
+  for(const f of flames){
+    f.embers.visible=q!=='Low';
+    for(const s of f.smoke) s.sp.visible=q==='High';
+  }
   el('fps').style.opacity=SET.fps?1:0;
 }
 function syncOptions(){
@@ -5842,8 +5963,34 @@ function updateEffects(dt){
   } else if(ui.invuln.style.opacity!=='0') ui.invuln.style.opacity=0;
   const t=performance.now()/1000;
   for(const f of flames){
-    f.f.scale.set(1+Math.sin(t*11+f.base)*0.15,1+Math.sin(t*8.3+f.base)*0.24,1+Math.cos(t*9.7)*0.15);
-    f.L.intensity=f.base*(0.8+Math.sin(t*13+f.base)*0.16+Math.sin(t*7.1)*0.1);
+    for(let i=0;i<f.layers.length;i++){
+      const q=f.layers[i],pulse=1+Math.sin(t*(8.4+i*1.7)+q.phase)*(.08+i*.025);
+      q.sp.scale.set(q.baseX*(1+Math.sin(t*10.7+q.phase)*.11),q.baseY*pulse,1);
+      q.sp.position.x=Math.sin(t*(5.1+i)+q.phase)*.055*f.scale;
+      q.sp.position.z=Math.cos(t*(4.4+i*.8)+q.phase)*.035*f.scale;
+      q.sp.material.rotation=Math.sin(t*(2.2+i)+q.phase)*.08;
+      q.sp.material.opacity=q.opacity*(.90+Math.sin(t*12.3+q.phase)*.08);
+    }
+    for(let i=0;i<f.smoke.length;i++){
+      const q=f.smoke[i],u=(t*.105+q.phase)%1,spread=.12+.30*u;
+      q.sp.position.set(Math.sin(t*.7+q.phase*TAU)*spread*f.scale,
+        (.72+u*2.45)*f.scale,Math.cos(t*.61+q.phase*TAU)*spread*.55*f.scale);
+      const ss=(.72+u*1.25)*f.scale;q.sp.scale.set(ss,ss*.82,1);
+      q.sp.material.rotation=t*.055*(i%2?1:-1)+q.phase*TAU;
+      q.sp.material.opacity=Math.sin(u*Math.PI)*.12;
+    }
+    for(let i=0;i<f.n;i++){
+      const k=i*3,d=i*4,height=2.6*f.scale;
+      f.arr[k+1]+=dt*f.seed[d+2]*f.scale;
+      if(f.arr[k+1]>height){
+        f.arr[k+1]=rand(.03,.24)*f.scale;f.seed[d]=rand(0,TAU);f.seed[d+1]=rand(.04,.28);
+      }
+      const widen=.35+f.arr[k+1]/height;
+      f.arr[k]=Math.sin(t*2.1+f.seed[d]+f.seed[d+3])*f.seed[d+1]*widen*f.scale;
+      f.arr[k+2]=Math.cos(t*1.7+f.seed[d]-f.seed[d+3])*f.seed[d+1]*widen*f.scale;
+    }
+    f.embers.geometry.attributes.position.needsUpdate=true;
+    f.L.intensity=f.intensity*(.82+Math.sin(t*13+f.scale)*.14+Math.sin(t*7.1)*.08);
   }
   for(const jp of jumpPads) jp.ring.rotation.z+=dt*1.4;
   // buffs readout
