@@ -1924,7 +1924,7 @@ function buildBlacksire(){
   SPAWNS=[
     [-42,-34,SY],[42,-34,SY],[-42,34,SY],[42,34,SY],[-42,0,SY],[42,0,SY],
     [-25,-42,SY],[25,-42,SY],[-25,42,SY],[25,42,SY],
-    [-25,-24,0],[25,-24,0],[-25,-9,0],[25,-9,0]
+    [-12,-26,0],[12,-26,0],[-12,-10,0],[12,-10,0]
   ];
   BOX_SPOTS=[[-31,18,SY],[31,18,SY],[-28,-24,0],[24,-11,0],[0,-27,0]];
   mannequins=[]; nukeSign=null; nukeClock=null;
@@ -2048,6 +2048,10 @@ function buildBlacksire(){
   // The open blast ramp is the map's strongest orientation landmark.
   staircase(-4,4,-6,10,0,SY,steel,4.15,
     [[0,12],[0,-8]],[ -8,-8,8,12 ],false);
+  // Full-height blast walls keep players and zombies inside the access ramp
+  // until they reach either floor.
+  wallSeg(-4,-7,-4,10,SY,labDark,0);
+  wallSeg(4,-7,4,10,SY,labDark,0);
   for(const z of [-4,2,8]){
     bx(.28,1.0,.28,-3.55,lerp(.6,SY+.6,(z+6)/16),z,hazard,false);
     bx(.28,1.0,.28,3.55,lerp(.6,SY+.6,(z+6)/16),z,hazard,false);
@@ -2059,12 +2063,12 @@ function buildBlacksire(){
   for(const q of [[-13,34],[15,34],[-13,-34],[14,-34]])crate(q[0],q[1],1.5,rand(0,TAU),SY);
   for(const q of [[-16,1],[16,1],[-15,-4],[15,-4]])fireBarrel(q[0],q[1],SY);
 
-  // Underground lab shell. Wide doors preserve zombie routing and make two
-  // separate loops around the central decontamination hall.
-  wallRun(-30,-30,30,-30,4.8,lab,[{c:0,w:4.5}]);
-  wallRun(-30,-7,30,-7,4.8,lab,[{c:0,w:8},{c:-22,w:3},{c:22,w:3}]);
-  wallRun(-30,-30,-30,-7,4.8,lab,[{c:-18,w:3}]);
-  wallRun(30,-30,30,-7,4.8,lab,[{c:-18,w:3}]);
+  // Underground lab shell. The only exterior opening is the containment ramp.
+  // Interior doors still provide two complete loops around decontamination.
+  wallRun(-30,-30,30,-30,4.8,lab,[]);
+  wallRun(-30,-7,30,-7,4.8,lab,[{c:0,w:8}]);
+  wallRun(-30,-30,-30,-7,4.8,lab,[]);
+  wallRun(30,-30,30,-7,4.8,lab,[]);
   wallRun(-8,-30,-8,-7,4.5,labDark,[{c:-23,w:3},{c:-12,w:3}]);
   wallRun(8,-30,8,-7,4.5,labDark,[{c:-23,w:3},{c:-12,w:3}]);
   wallRun(-30,-18,-8,-18,4.5,labDark,[{c:-20,w:3}]);
@@ -2124,11 +2128,11 @@ function buildBlacksire(){
   // Gameplay distribution encourages both floors and both lab loops.
   addWallBuy('m14',-37.78,SY+2.0,18,Math.PI/2);
   addWallBuy('olympia',38.78,SY+2.0,17,-Math.PI/2);
-  addWallBuy('mp5',-20.78,SY+2.0,-20,-Math.PI/2);
-  addWallBuy('ak74u',20.78,SY+2.0,-20,Math.PI/2);
+  addWallBuy('mp5',-37.78,SY+2.0,-20,Math.PI/2);
+  addWallBuy('ak74u',38.78,SY+2.0,-20,-Math.PI/2);
   addWallBuy('galil',-29.78,2.0,-12,-Math.PI/2);
   addWallBuy('rem870',29.78,2.0,-24,Math.PI/2);
-  addAmmoBuy('m4a1',0,2.0,-7.18,Math.PI,400);
+  addAmmoBuy('m4a1',-8.18,2.0,-16,-Math.PI/2,400);
 
   addPerkMachine('revive',-12,34,SY,0);
   addPerkMachine('jugg',24,-28,0,0);
