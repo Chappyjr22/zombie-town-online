@@ -3771,7 +3771,7 @@ function tryMelee(){
     showHit(best.dead&&!before);
   }
   sfxMelee(!!best);
-  if(net.connected)netSend({type:'melee',yaw:player.yaw,pitch:player.pitch,hit:!!best});
+  if(net.connected)netSend({type:'melee',yaw:netYaw(player.yaw),pitch:player.pitch,hit:!!best});
 }
 function tryFire(){
   const g=curGun(); if(!g) return;
@@ -3795,7 +3795,7 @@ function shootOnce(){
   const d=g.def;
   g.ammo--;
   sfxShot(d.cls==='wonder'?'rifle':d.cls,packLv(g));
-  if(net.connected) netSend({type:'fire',weapon:d.id,pack:packLv(g),yaw:player.yaw,pitch:player.pitch});
+  if(net.connected) netSend({type:'fire',weapon:d.id,pack:packLv(g),yaw:netYaw(player.yaw),pitch:player.pitch});
   const fl=d.mesh.userData.flash;
   fl.material.opacity=1; fl.rotation.z=rand(0,TAU); fl.scale.setScalar(rand(.8,1.5));
   muzzleLight.intensity=d.cls==='shotgun'?7:5.5;
@@ -4563,6 +4563,10 @@ const net={
 function safeNetName(v){
   return String(v||'Survivor').replace(/[^\w .'-]/g,'').trim().slice(0,18)||'Survivor';
 }
+function netYaw(v){
+  v=Number(v);
+  return Number.isFinite(v)?Math.atan2(Math.sin(v),Math.cos(v)):0;
+}
 function setNetStatus(t){
   if(el('netStatus')) el('netStatus').textContent=t;
   if(el('lobbyStatus')) el('lobbyStatus').textContent=t;
@@ -4792,7 +4796,8 @@ function makeRemoteNameTag(name,col){
 }
 function makeRemotePlayer(p){
   if(!p||p.id===net.id||net.remotes.has(p.id)) return;
-  const g=new THREE.Group(),rig=new THREE.Group(),col=netColor(p.id); g.add(rig);
+  const g=new THREE.Group(),rig=new THREE.Group(),upper=new THREE.Group(),col=netColor(p.id);
+  rig.add(upper);g.add(rig);
   const uniform=new THREE.MeshPhongMaterial({color:0x4e5938,shininess:5});
   const uniform2=new THREE.MeshPhongMaterial({color:0x303a28,shininess:4});
   const vest=new THREE.MeshPhongMaterial({color:0x273025,shininess:7});
@@ -4800,14 +4805,14 @@ function makeRemotePlayer(p){
   const skin=new THREE.MeshPhongMaterial({color:0xb98263,shininess:7});
   const patch=new THREE.MeshPhongMaterial({color:col,emissive:col.clone().multiplyScalar(.12),shininess:20});
   const add=(geo,mat,x,y,z,parent)=>{
-    const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);(parent||rig).add(m);return m;
+    const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);(parent||upper).add(m);return m;
   };
   add(new THREE.CylinderGeometry(.19,.16,.54,9),uniform,0,1.29,0);
   add(new THREE.BoxGeometry(.43,.45,.25),vest,0,1.31,-.015);
   add(new THREE.BoxGeometry(.15,.13,.08),uniform2,-.12,1.20,-.16);
   add(new THREE.BoxGeometry(.15,.13,.08),uniform2,.12,1.20,-.16);
   add(new THREE.BoxGeometry(.10,.10,.04),patch,-.22,1.42,-.03);
-  add(new THREE.BoxGeometry(.34,.25,.16),uniform2,0,1.01,.02);
+  add(new THREE.BoxGeometry(.34,.25,.16),uniform2,0,1.01,.02,rig);
   add(new THREE.BoxGeometry(.34,.43,.16),vest,0,1.34,.19);
   add(new THREE.CylinderGeometry(.055,.06,.12,8),skin,0,1.61,0);
   const head=add(new THREE.SphereGeometry(.155,12,9),skin,0,1.75,-.01);
@@ -4816,8 +4821,8 @@ function makeRemotePlayer(p){
   const helmet=add(new THREE.SphereGeometry(.18,12,8,0,TAU,0,Math.PI*.62),uniform2,0,1.84,0);
   helmet.scale.y=.72;
   add(new THREE.CylinderGeometry(.19,.19,.035,12),uniform2,0,1.80,-.005);
-  const armL=remoteJoint(rig,-.255,1.49,0,.34,.072,uniform);
-  const armR=remoteJoint(rig,.255,1.49,0,.34,.072,uniform);
+  const armL=remoteJoint(upper,-.255,1.49,0,.34,.072,uniform);
+  const armR=remoteJoint(upper,.255,1.49,0,.34,.072,uniform);
   const elbowL=remoteJoint(armL,0,-.34,0,.31,.058,skin);
   const elbowR=remoteJoint(armR,0,-.34,0,.31,.058,skin);
   add(new THREE.SphereGeometry(.062,8,6),dark,0,-.32,0,elbowL);
@@ -4828,14 +4833,14 @@ function makeRemotePlayer(p){
   const kneeR=remoteJoint(legR,0,-.42,0,.39,.068,uniform);
   add(new THREE.BoxGeometry(.15,.11,.27),dark,0,-.40,-.06,kneeL);
   add(new THREE.BoxGeometry(.15,.11,.27),dark,0,-.40,-.06,kneeR);
-  const weaponHolder=new THREE.Group();weaponHolder.position.set(.08,1.30,-.25);rig.add(weaponHolder);
-  const meleeKnife=makeCombatKnife(.58);meleeKnife.visible=false;rig.add(meleeKnife);
+  const weaponHolder=new THREE.Group();weaponHolder.position.set(.08,1.30,-.25);upper.add(weaponHolder);
+  const meleeKnife=makeCombatKnife(.58);meleeKnife.visible=false;upper.add(meleeKnife);
   const flash=new THREE.Mesh(new THREE.SphereGeometry(.075,7,5),new THREE.MeshBasicMaterial({
     color:0xffcf7a,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}));
   const shotLight=new THREE.PointLight(0xffb45d,0,5,2);weaponHolder.add(flash,shotLight);
   const nameTag=makeRemoteNameTag(p.name,col);nameTag.position.set(0,-20,0);nameTag.visible=false;scene.add(nameTag);
   g.position.set(0,-20,0); g.visible=game.running; scene.add(g);
-  const remote={g,rig,target:new THREE.Vector3(),yaw:0,pitch:0,speed:0,sprint:false,ads:false,crouched:false,
+  const remote={g,rig,upper,target:new THREE.Vector3(),yaw:0,pitch:0,speed:0,sprint:false,ads:false,crouched:false,
     grounded:true,phase:rand(0,TAU),footStep:-1,recoil:0,meleeT:0,name:p.name||'Survivor',
     mats:[uniform,uniform2,vest,dark,skin,patch,flash.material],weapon:'',weaponMesh:null,
     weaponHolder,meleeKnife,flash,shotLight,nameTag,flashT:0,armL,armR,elbowL,elbowR,legL,legR,kneeL,kneeR,head};
@@ -4861,7 +4866,7 @@ function remoteFire(id,event){
   const r=net.remotes.get(id); if(!r||!r.g.visible) return;
   setRemoteWeapon(r,event.weapon);
   if(Number.isFinite(+event.yaw)){
-    r.yaw=+event.yaw; r.g.rotation.y=r.yaw;
+    r.yaw=netYaw(event.yaw); r.g.rotation.y=r.yaw;
   }
   if(Number.isFinite(+event.pitch))r.pitch=clamp(+event.pitch,-1.2,1.2);
   r.flash.material.opacity=1; r.flash.scale.setScalar(rand(.8,1.5));
@@ -4875,7 +4880,7 @@ function remoteFire(id,event){
 }
 function remoteMelee(id,event){
   const r=net.remotes.get(id);if(!r||!r.g.visible)return;
-  if(Number.isFinite(+event.yaw)){r.yaw=+event.yaw;r.g.rotation.y=r.yaw;}
+  if(Number.isFinite(+event.yaw)){r.yaw=netYaw(event.yaw);r.g.rotation.y=r.yaw;}
   r.meleeT=.52;
   const dist=Math.hypot(r.g.position.x-player.pos.x,r.g.position.y-player.y,r.g.position.z-player.pos.z);
   if(dist<38)sfxMelee(!!event.hit,clamp(1-dist/38,.06,.55));
@@ -4904,7 +4909,7 @@ function updateRemoteState(id,s){
   const r=net.remotes.get(id); if(!r) return;
   if(r.g.parent!==scene)scene.add(r.g);
   r.target.set(+s.x||0,+s.y||0,+s.z||0);
-  r.yaw=+s.yaw||0; r.pitch=clamp(+s.pitch||0,-1.2,1.2);
+  r.yaw=netYaw(s.yaw); r.pitch=clamp(+s.pitch||0,-1.2,1.2);
   r.speed=clamp(+s.speed||0,0,12);r.sprint=!!s.sprint;r.ads=!!s.ads;r.crouched=!!s.crouched;
   r.grounded=s.grounded!==false;
   r.g.visible=game.running&&s.map===currentMap;
@@ -5037,6 +5042,11 @@ function netStep(dt){
     r.legR.rotation.x=lerp(r.legR.rotation.x,air?.12:(crouch?.62:0)-stride,smooth);
     r.kneeL.rotation.x=lerp(r.kneeL.rotation.x,air?-.75:(crouch?-1.08:Math.max(0,-stride)*.65),smooth);
     r.kneeR.rotation.x=lerp(r.kneeR.rotation.x,air?-.45:(crouch?-1.08:Math.max(0,stride)*.65),smooth);
+    // Keep the upper body compact and slightly forward, like a shouldered
+    // tactical stance, while the legs continue their independent locomotion.
+    r.upper.rotation.x=lerp(r.upper.rotation.x,down?0:(crouch?-.16:(r.sprint?-.11:-.075)),smooth);
+    r.upper.rotation.y=lerp(r.upper.rotation.y,down?0:(r.sprint?.08:0),smooth);
+    r.upper.rotation.z=lerp(r.upper.rotation.z,down?0:(r.sprint?-.045:-.012),smooth);
     if(down){
       r.armL.rotation.x=lerp(r.armL.rotation.x,-.35,smooth);
       r.armR.rotation.x=lerp(r.armR.rotation.x,.55,smooth);
@@ -5054,22 +5064,32 @@ function netStep(dt){
       r.meleeKnife.rotation.set(-.48+swing*.62,-.28+swing*1.18,-.72+swing*1.26);
     }else{
       r.meleeKnife.visible=false;
-      const lower=r.sprint?.10:0,lift=r.pitch*.18-lower-(crouch?.17:0),recoilZ=r.recoil*.045;
+      const wd=DEFS[r.weapon]||DEFS.m1911;
+      const compact=wd.cls==='pistol'||wd.cls==='knife'||wd.id==='raygun'||wd.id==='raygun2';
+      const lower=r.sprint?.14:0,lift=r.pitch*.16+(r.ads?.025:0)-lower-(crouch?.12:0);
+      const recoilZ=r.recoil*.045;
+      const supportZ=(compact?-.28:(wd.cls==='lmg'||wd.cls==='sniper'?-.56:-.49))+(r.sprint?.10:0);
+      // Support hand stays on the fore-end; firing hand stays at the pistol
+      // grip. Tucked elbows avoid the old straight-armed, floating-gun pose.
       poseRemoteArm(r.armL,r.elbowL,new THREE.Vector3(-.255,1.49,0),
-        new THREE.Vector3(-.29,1.31+lift*.35,-.18),
-        new THREE.Vector3(-.07,1.28+lift,-.43+recoilZ),smooth);
+        new THREE.Vector3(-.34,1.29+lift*.28,-.10),
+        new THREE.Vector3(-.035,1.255+lift,supportZ+recoilZ),smooth);
       poseRemoteArm(r.armR,r.elbowR,new THREE.Vector3(.255,1.49,0),
-        new THREE.Vector3(.31,1.30+lift*.35,-.16),
-        new THREE.Vector3(.13,1.25+lift,-.40+recoilZ),smooth);
+        new THREE.Vector3(.34,1.27+lift*.24,.055),
+        new THREE.Vector3(.105,1.215+lift,-.105+recoilZ*.35),smooth);
     }
     if(down)r.meleeKnife.visible=false;
     r.rig.position.y=lerp(r.rig.position.y,down?.10:(crouch?-.46:Math.abs(Math.sin(r.phase))*move*.035),smooth);
     r.head.rotation.x=lerp(r.head.rotation.x,down?0:r.pitch*.28,smooth);
     r.recoil=lerp(r.recoil,0,Math.min(1,dt*18));
-    r.weaponHolder.rotation.x=lerp(r.weaponHolder.rotation.x,r.pitch-r.recoil*.12,smooth);
+    r.weaponHolder.rotation.x=lerp(r.weaponHolder.rotation.x,
+      r.pitch-r.recoil*.12-(r.sprint?.32:0),smooth);
+    r.weaponHolder.rotation.y=lerp(r.weaponHolder.rotation.y,r.sprint?.18:0,smooth);
+    r.weaponHolder.rotation.z=lerp(r.weaponHolder.rotation.z,r.sprint?-.20:-.035,smooth);
     r.weaponHolder.position.y=lerp(r.weaponHolder.position.y,
-      1.30-(r.sprint?.10:0)-(crouch?.18:0)-(r.meleeT>0?.18:0),smooth);
-    r.weaponHolder.position.z=lerp(r.weaponHolder.position.z,-.25+r.recoil*.07,smooth);
+      1.30-(r.sprint?.14:0)-(crouch?.14:0)+(r.ads?.025:0)-(r.meleeT>0?.18:0),smooth);
+    r.weaponHolder.position.z=lerp(r.weaponHolder.position.z,
+      -.25+r.recoil*.07+(r.sprint?.06:0),smooth);
     if(r.flashT>0){
       r.flashT=Math.max(0,r.flashT-dt);
       r.flash.material.opacity=clamp(r.flashT*12,0,1); r.shotLight.intensity=clamp(r.flashT*45,0,4);
@@ -5079,7 +5099,7 @@ function netStep(dt){
   if(!net.connected||!game.running||game.time<net.nextState) return;
   net.nextState=game.time+.05;
   const g=curGun();
-  netSend({type:'state',state:{x:player.pos.x,y:player.y,z:player.pos.z,yaw:player.yaw,
+  netSend({type:'state',state:{x:player.pos.x,y:player.y,z:player.pos.z,yaw:netYaw(player.yaw),
     pitch:player.pitch,hp:player.hp,downed:player.downed,weapon:g?g.def.id:'',map:currentMap,
     speed:Math.hypot(player.vel.x,player.vel.z),sprint:player.sprint,ads:player.ads,
     crouched:player.crouched,grounded:player.grounded}});
