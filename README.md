@@ -25,7 +25,7 @@ The shared multiplayer milestone is implemented:
 - Host-controlled room-wide pause and resume
 - Articulated military survivor models with synchronized movement, aim, recoil, airborne, and downed animation
 - Two-handed weapon poses with fire-time yaw and pitch correction
-- Layered footsteps, formant-based zombie vocals, attack snarls, choking death sounds, and War Machine impact audio
+- Layered footsteps, recorded zombie vocals, attack snarls, hurt reactions, death sounds, and War Machine impact audio
 
 ## Current features
 
@@ -128,3 +128,12 @@ wrangler.jsonc     Cloudflare Workers configuration
 - `Shift`: Sprint
 - `Space`: Jump
 - `Esc`: Pause
+
+## Audio credits
+
+The bundled zombie vocal recordings were created by Mike Koenig and downloaded from SoundBible under the [Creative Commons Attribution 3.0 license](https://creativecommons.org/licenses/by/3.0/):
+
+- [Zombie Moan](https://soundbible.com/1035-Zombie-Moan.html)
+- [Zombie Attack Walk](https://soundbible.com/1030-Zombie-Attack-Walk.html)
+- [Zombie Gets Attacked](https://soundbible.com/1040-Zombie-Gets-Attacked.html)
+- [Zombie Long Death](https://soundbible.com/1042-Zombie-Long-Death.html)
