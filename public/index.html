@@ -660,6 +660,11 @@ let SPAWN_YAW=Math.PI;
 let mapFog={near:18,far:92};
 
 function addCollider(minX,maxX,minZ,maxZ,top,bot){colliders.push({minX,maxX,minZ,maxZ,top:top===undefined?99:top,bot:bot===undefined?-99:bot});}
+function addYawCollider(x,z,w,d,rot,top,bot,pad){
+  const a=rot||0,c=Math.abs(Math.cos(a)),s=Math.abs(Math.sin(a)),p=pad||0;
+  const ex=(w*c+d*s)/2+p,ez=(w*s+d*c)/2+p;
+  addCollider(x-ex,x+ex,z-ez,z+ez,top,bot);
+}
 function addPlatform(minX,maxX,minZ,maxZ,y){platforms.push({minX,maxX,minZ,maxZ,y});}
 function addRamp(minX,maxX,minZ,maxZ,yLow,yHigh,axis,flip){platforms.push({minX,maxX,minZ,maxZ,yLow,yHigh,axis,flip,ramp:true});}
 
@@ -795,15 +800,14 @@ function car(x,z,rot,col){
     w.rotation.z=Math.PI/2; w.position.set(wx,0.44,wz); g.add(w);
   }
   g.position.set(x,0,z); g.rotation.y=rot; worldRoot.add(g);
-  const c=Math.abs(Math.cos(rot)),s=Math.abs(Math.sin(rot));
-  addCollider(x-(2*c+4.5*s)/2,x+(2*c+4.5*s)/2,z-(2*s+4.5*c)/2,z+(2*s+4.5*c)/2,2.1);
+  addYawCollider(x,z,2,4.5,rot,2.1);
 }
 function dumpster(x,z,rot){
   const g=new THREE.Group();
   const b=new THREE.Mesh(new THREE.BoxGeometry(2.4,1.4,1.3),M.green); b.position.y=0.8; g.add(b); blockers.push(b);
   const l=new THREE.Mesh(new THREE.BoxGeometry(2.5,0.14,1.4),phong({color:0x22301f})); l.position.set(0,1.55,-0.2); l.rotation.x=-0.3; g.add(l); blockers.push(l);
   g.position.set(x,0,z); g.rotation.y=rot; worldRoot.add(g);
-  addCollider(x-1.3,x+1.3,z-0.9,z+0.9,1.5);
+  addYawCollider(x,z,2.5,1.4,rot,1.62,0,0.08);
 }
 function sandbags(x,z,rot,n,y0){
   const g=new THREE.Group();
@@ -818,12 +822,15 @@ function sandbags(x,z,rot,n,y0){
 }
 function rubble(x,z,r){
   for(let i=0;i<9;i++){
-    const s=rand(0.3,1.0);
-    const m=new THREE.Mesh(new THREE.BoxGeometry(s,s*rand(.5,1),s*rand(.6,1.2)),M.concrete);
-    m.position.set(x+rand(-r,r),s/2,z+rand(-r,r)); m.rotation.set(rand(0,1),rand(0,TAU),rand(0,1));
+    const s=rand(0.3,1.0),h=s*rand(.5,1),d=s*rand(.6,1.2);
+    const px=x+rand(-r,r),pz=z+rand(-r,r),yaw=rand(0,TAU);
+    const m=new THREE.Mesh(new THREE.BoxGeometry(s,h,d),M.concrete);
+    m.position.set(px,h/2,pz); m.rotation.set(rand(-.22,.22),yaw,rand(-.22,.22));
     worldRoot.add(m); blockers.push(m);
+    // Only substantial chunks block movement, and their collision follows the
+    // visible piece instead of wrapping the whole debris field in a solid box.
+    if(s>.62) addYawCollider(px,pz,s,d,yaw,h+.15,0,0.06);
   }
-  addCollider(x-r,x+r,z-r,z+r,0.8);
 }
 function bench(x,z,rot){
   const g=new THREE.Group();
@@ -831,7 +838,7 @@ function bench(x,z,rot){
   const b=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.5,0.12),M.plank); b.position.set(0,0.78,-0.24); g.add(b); blockers.push(b);
   for(const dx of [-0.9,0.9]){const l=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.5,0.5),M.metal); l.position.set(dx,0.25,0); g.add(l);}
   g.position.set(x,0,z); g.rotation.y=rot; worldRoot.add(g);
-  addCollider(x-1.1,x+1.1,z-0.5,z+0.5,0.65);
+  addYawCollider(x,z,2.2,1.0,rot,0.92,0,0.04);
 }
 function trashcan(x,z){ cyl(0.4,0.34,1.0,x,0.5,z,M.metal,true); }
 function crate(x,z,s,rot,y0){ const y=y0||0,m=bx(s,s,s,x,y+s/2,z,M.plank,true); m.rotation.y=rot||rand(0,TAU); }
@@ -900,28 +907,39 @@ function buildTown(){
   floorSlab(x1+0.2,z1+0.2,x2-0.2,z2-0.2,0.04,M.plank);
   // second floor covers the north half, staircase on the west wall
   floorSlab(x1+0.2,-15.7,x2-0.2,z2-0.2,f2,M.plank);
-  addRamp(x1+0.3,x1+4.3,-21.4,-15.4,0.1,f2,'z',false);
-  stairBases.push({x:x1+2.3,z:-20.9,tx:x1+2.3,tz:-14.9,ty:f2,
+  const sx1=x1+0.3,sx2=x1+4.3,sz1=-21.4,sz2=-15.7;
+  const stairSpan=sz2-sz1,stairRise=f2-0.1,steps=14;
+  addRamp(sx1,sx2,sz1,sz2,0.1,f2,'z',false);
+  stairBases.push({x:(sx1+sx2)/2,z:sz1+0.5,tx:(sx1+sx2)/2,tz:sz2+0.8,ty:f2,
     doors:[[-15.4,-16],[-20,-7.4]],room:[-30,-22,-14,-6]});
-  // visible staircase treads and a rail
-  for(let i=0;i<14;i++){
-    const zz=lerp(-21.4,-15.4,(i+0.5)/14), yy=lerp(0.1,f2,(i+1)/14);
-    const st=new THREE.Mesh(new THREE.BoxGeometry(4.0,0.16,6/14+0.08),M.plank);
+  // Even risers, a continuous handrail, and a collision edge keep the stairs
+  // visually aligned with the walkable ramp from the street to the landing.
+  for(let i=0;i<steps;i++){
+    const za=lerp(sz1,sz2,i/steps),zb=lerp(sz1,sz2,(i+1)/steps);
+    const zz=(za+zb)/2,yy=lerp(0.1,f2,(i+1)/steps),stepRise=stairRise/steps;
+    const st=new THREE.Mesh(new THREE.BoxGeometry(sx2-sx1,0.16,zb-za+0.05),M.plank);
     st.position.set(x1+2.3,yy-0.08,zz); worldRoot.add(st); blockers.push(st);
-    const ri=new THREE.Mesh(new THREE.BoxGeometry(4.0,6/14,0.1),M.wood);
-    ri.position.set(x1+2.3,yy-0.16-3/14,zz-3/14); worldRoot.add(ri); blockers.push(ri);
+    const ri=new THREE.Mesh(new THREE.BoxGeometry(sx2-sx1,stepRise+0.02,0.1),M.wood);
+    ri.position.set(x1+2.3,yy-stepRise/2-0.08,za); worldRoot.add(ri); blockers.push(ri);
   }
   for(let i=0;i<8;i++){
-    const zz=lerp(-21.2,-15.6,i/7), yy=lerp(0.4,f2+0.3,i/7);
-    const p=new THREE.Mesh(new THREE.BoxGeometry(0.12,1.0,0.12),M.plank);
-    p.position.set(x1+4.3,yy,zz); worldRoot.add(p); blockers.push(p);
+    const u=i/7,zz=lerp(sz1+0.15,sz2-0.15,u),ground=lerp(0.1,f2,u);
+    const p=new THREE.Mesh(new THREE.BoxGeometry(0.12,1.05,0.12),M.plank);
+    p.position.set(sx2,ground+0.53,zz); worldRoot.add(p); blockers.push(p);
   }
-  addCollider(-25.6,-14.2,-15.85,-15.55,f2+1.1,f2);
+  const handrail=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.14,Math.hypot(stairSpan,stairRise)),M.plank);
+  handrail.position.set(sx2,(0.1+f2)/2+1.03,(sz1+sz2)/2);
+  handrail.rotation.x=-Math.atan2(stairRise,stairSpan);
+  worldRoot.add(handrail); blockers.push(handrail);
+  addCollider(sx2-0.13,sx2+0.13,sz1-0.05,sz2+0.05,f2+1.15,0);
+
+  addCollider(-25.47,-14.33,-15.82,-15.58,f2+1.1,f2-0.05);
   for(let i=0;i<9;i++){
     const xx=lerp(-25.3,-14.5,i/8);
     const p=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.95,0.09),M.plank);
     p.position.set(xx,f2+0.48,-15.7); worldRoot.add(p); blockers.push(p);
   }
+  bx(10.8,0.14,0.14,-19.9,f2+1.0,-15.7,M.plank,false);
   // balcony over the street on the east side
   floorSlab(x2-0.2,-13,x2+4.4,-8,f2,M.plank);
   for(let i=0;i<10;i++){const rz=lerp(-13,-8,i/9);
@@ -929,6 +947,11 @@ function buildTown(){
   bx(4.6,0.14,0.14,x2+2.1,f2+1.0,-13,M.plank,false);
   bx(4.6,0.14,0.14,x2+2.1,f2+1.0,-8,M.plank,false);
   bx(0.14,0.14,5.0,x2+4.3,f2+1.0,-10.5,M.plank,false);
+  // Balcony rails only block actors standing on the balcony. Ground-level
+  // players can still pass freely beneath the overhang.
+  addCollider(x2-0.25,x2+4.45,-13.13,-12.87,f2+1.12,f2-0.05);
+  addCollider(x2-0.25,x2+4.45,-8.13,-7.87,f2+1.12,f2-0.05);
+  addCollider(x2+4.17,x2+4.43,-13.13,-7.87,f2+1.12,f2-0.05);
   // bar counter and stools
   bx(6.0,1.1,0.9,-22,0.6,-9,M.wood);
   for(let i=0;i<4;i++){cyl(0.22,0.22,0.75,-24.5+i*1.7,0.42,-10.4,M.metal,true);}
@@ -1029,7 +1052,10 @@ function buildTown(){
   const s=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.7,2.6,12),M.concrete); s.position.y=1.7; g.add(s);
   const b=new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,0.24,16),M.concrete); b.position.y=2.4; g.add(b);
   g.position.y=0.5; worldRoot.add(g);
-  addCollider(-3.5,3.5,-3.5,3.5,1.0);
+  // Two crossing rectangles approximate the round base without invisible
+  // collision in the square corners of its old bounding box.
+  addCollider(-3.5,3.5,-2.45,2.45,1.0);
+  addCollider(-2.45,2.45,-3.5,3.5,1.0);
   const f=new THREE.Mesh(new THREE.ConeGeometry(0.95,2.6,8),new THREE.MeshBasicMaterial({color:0xff8a2a,transparent:true,opacity:.85}));
   f.position.set(0,4.4,0); worldRoot.add(f);
   const L=new THREE.PointLight(0xff7a22,2.6,30,1.6); L.position.set(0,4.2,0); worldRoot.add(L);
@@ -1056,29 +1082,19 @@ function buildTown(){
 
 /* --- cars, props, clutter --- */
 
-
-
-
-
-
-
-
-
-
-
 car(-8,-14,0.35,0x5e3a3a); car(9,-16,1.72,0x35414f); car(-9,6,1.5,0x4a4a38);
 car(11,4,0.1,0x33454a); car(22,26,0.9,0x4d4038); car(-24,-30,2.4,0x3a3a44);
 dumpster(-13.5,2.5,0.2); dumpster(15.6,-3,1.6); dumpster(6,22,0.4);
 sandbags(-6,10,0,5); sandbags(6,10,0,5); sandbags(14,-26,1.57,4); sandbags(-14,-26,1.57,4);
 rubble(-20,26,3.0); rubble(20,-30,2.6); rubble(-32,0,2.2); rubble(33,2,2.4);
-bench(-4,4,0); bench(4,4,Math.PI); bench(-12,-2,1.57);
+bench(-4,4,Math.PI); bench(4,4,Math.PI); bench(-12,-2,Math.PI/2);
 trashcan(-11,-4); trashcan(12,-6); trashcan(-16,12); trashcan(18,6);
 crate(-13,4,1.2); crate(-11.7,4.5,1.05); crate(13,-6,1.25); crate(25,24,1.35);
 crate(-26,24,1.3); crate(-3,-24,1.2); crate(-1.5,-25,1.0); crate(20,16,1.2);
 pole(-12,-24); pole(12,-24); pole(-12,16); pole(12,16); pole(0,-38);
 hedge(-9,17,7,1.2); hedge(9,17,7,1.2);
 phoneBooth(-10.5,-6,0.4); phoneBooth(10.5,8,-0.3);
-streetLamp(-10,-10,0); streetLamp(10,-10,Math.PI); streetLamp(-10,12,0); streetLamp(10,12,Math.PI);
+streetLamp(-10,-19,0); streetLamp(10,-10,Math.PI); streetLamp(-10,12,0); streetLamp(10,12,Math.PI);
 streetLamp(0,-22,Math.PI/2); streetLamp(-24,4,0); streetLamp(24,-2,Math.PI);
 fireBarrel(-6,-19); fireBarrel(16,20); fireBarrel(-20,32); fireBarrel(28,-28);
 
