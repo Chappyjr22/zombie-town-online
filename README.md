@@ -2,11 +2,11 @@
 
 A browser-based, round-driven zombie survival FPS built with Three.js.
 
-The current version is fully playable as a single-player game and is being prepared for 2 to 4-player online cooperative multiplayer.
+The current version is playable in single-player or in private 2 to 4-player online cooperative rooms.
 
 ## Online milestone status
 
-The first multiplayer foundation is implemented:
+The shared multiplayer milestone is implemented:
 
 - Create and join private rooms with six-character invite codes
 - Four-player room capacity
@@ -16,8 +16,11 @@ The first multiplayer foundation is implemented:
 - Shared map start events
 - Synchronized survivor position, direction, health, weapon, and downed state
 - Interpolated remote survivor models
-
-Zombie, combat, points, purchases, and round synchronization are the next milestone.
+- Host-authoritative zombie spawning, movement, damage, and death
+- Shared round state and automatic host migration
+- Synchronized power-up drops and mystery-box results
+- Per-player combat rewards and shared zombie kill counts
+- Online-safe pause and downed recovery behavior
 
 ## Current features
 
@@ -75,23 +78,26 @@ The recommended first multiplayer release is private 2 to 4-player cooperative Z
 - WebSockets relay real-time player and game-state updates.
 - The room host initially controls zombie simulation and shared round state.
 
-### Planned synchronization
+### Current synchronization
 
 - Player position, rotation, animation, and downed state
-- Weapons, firing, ammunition, health, perks, and points
+- Health, downed state, combat rewards, and points
 - Zombie spawning, movement, damage, death, and ragdoll triggers
-- Rounds, power-ups, mystery-box results, and purchases
-- Reviving teammates
-- Room codes, reconnect handling, and host migration
+- Rounds, power-ups, and mystery-box results
+- Room codes and host migration
+
+### Remaining multiplayer work
+
+- Teammate revive interactions
+- Reconnect into an existing survivor slot
+- Additional server-side validation for public matchmaking
 
 ### Suggested implementation phases
 
-1. Add remote player models and room codes.
-2. Synchronize player movement through WebSockets.
-3. Make zombie rounds and damage shared.
-4. Add teammate revives and shared interactions.
-5. Add reconnect support and host migration.
-6. Move sensitive validation server-side if public matchmaking is introduced.
+1. Add teammate revives and shared interactions.
+2. Add reconnect support.
+3. Improve latency compensation and state compression.
+4. Move sensitive validation server-side if public matchmaking is introduced.
 
 ## Project structure
 

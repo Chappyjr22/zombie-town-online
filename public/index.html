@@ -3194,19 +3194,30 @@ function stepBolts(dt){
 }
 
 /* ---------- damage ---------- */
-function damageZombie(z,dmg,part,dir,impulse,noPoints){
+function damageZombie(z,dmg,part,dir,impulse,noPoints,netMeta){
   if(z.dead) return;
+  if(net.connected&&!net.host&&!(netMeta&&netMeta.authoritative)){
+    if(z.netId) netGameRequest({type:'zombie_damage',id:z.netId,dmg,part,
+      dir:[dir.x,dir.y,dir.z],impulse:impulse||.09,noPoints:!!noPoints});
+    return;
+  }
   if(buffs.instakill>0) dmg=999999;
   z.hp-=dmg;
   if(!noPoints) addPoints(10*roundMult(z.round));
-  if(z.hp<=0) killZombie(z,dir,part,impulse||0.09);
+  if(z.hp<=0) killZombie(z,dir,part,impulse||0.09,!!(netMeta&&netMeta.noReward),!!(netMeta&&netMeta.silent));
   else{
     const idx=part==='head'?HEAD:(part==='torso'?CHEST:PELV);
     const p=z.pts[idx];
     p.px-=dir.x*0.03; p.pz-=dir.z*0.03;
   }
 }
-function killZombie(z,dir,part,impulse){
+function killZombie(z,dir,part,impulse,noReward,silentNet){
+  if(z.dead) return;
+  if(net.connected&&!net.host&&!silentNet){
+    if(z.netId) netGameRequest({type:'zombie_kill',id:z.netId,part,
+      dir:[dir.x,dir.y,dir.z],impulse:impulse||.15});
+    return;
+  }
   z.dead=true; z.deadAt=game.time; z.removeAt=game.time+10;
   for(const m of z.meshes){const i=zombieMeshes.indexOf(m); if(i>=0) zombieMeshes.splice(i,1);}
   const tgt=part==='head'?[HEAD,CHEST]:(part==='torso'?[CHEST,PELV]:[PELV,CHEST]);
@@ -3214,13 +3225,15 @@ function killZombie(z,dir,part,impulse){
     const p=z.pts[i];
     p.px-=dir.x*impulse; p.py-=dir.y*impulse*.7+.02; p.pz-=dir.z*impulse;
   }
-  addPoints((part==='head'?90:50)*roundMult(z.round));
+  if(!noReward) addPoints((part==='head'?90:50)*roundMult(z.round));
   const h=z.pts[HEAD];
   spray(h.x,h.y,h.z,dir.x,.4,dir.z,12,bloodMat,1.4);
   if(z.eyeMat) z.eyeMat.color.setHex(0x2a2a26);
   if(z.mats.eyeGlow) z.mats.eyeGlow.color.setHex(0x000000);
-  game.kills++;
-  maybeDrop(z.pos.x,z.pos.z);
+  if(!net.connected||net.host) game.kills++;
+  if(!net.connected||net.host) maybeDrop(z.pos.x,z.pos.z);
+  if(net.connected&&net.host&&!silentNet&&z.netId) netHostBroadcast({type:'zombie_kill',id:z.netId,part,
+    dir:[dir.x,dir.y,dir.z],impulse:impulse||.15});
 }
 function hurtPlayer(amount){
   if(!player.alive||player.downed||player.invuln>0) return;
@@ -3231,11 +3244,12 @@ function hurtPlayer(amount){
   updHUD();
 }
 function goDown(){
-  if(has('revive')){
-    player.perks.revive=false; delete player.perks.revive;
-    player.downed=true; player.downEnd=game.time+4.0;
+  const quick=has('revive');
+  if(net.connected||quick){
+    if(quick){player.perks.revive=false; delete player.perks.revive;}
+    player.downed=true; player.downEnd=game.time+(quick?4.0:12.0);
     ui.downed.style.opacity=1;
-    toast('Quick Revive used');
+    toast(net.connected?'Survivor downed  \u00b7  recovering':'Quick Revive used');
     sfxTone(180,90,.8,.3,'sawtooth');
     renderPerks();
   } else gameOver();
@@ -3496,7 +3510,7 @@ function rollBox(){
 }
 
 /* --- mystery box --- */
-const mbox={g:null,state:'idle',t:0,gun:null,result:null,pool:null,preview:null,uses:0,spot:0,lid:null,light:null,
+const mbox={g:null,state:'idle',t:0,gun:null,result:null,pool:null,preview:null,uses:0,spot:0,owner:null,lid:null,light:null,
   beam:null,core:null,halo:null,qFloat:null,beamMat:null,coreMat:null};
 function buildBox(){
   const g=new THREE.Group();
@@ -3543,6 +3557,13 @@ function buildBox(){
     cost(){ return mbox.state==='present'?0:(buffs.firesale>0?10:950); },
     can(){ return mbox.state==='idle'||mbox.state==='present'; },
     buy(){
+      if(net.connected){
+        if(mbox.state==='present'){
+          if(mbox.owner&&mbox.owner!==net.id){toast('Reserved for another survivor');sfxDeny();return;}
+          netGameRequest({type:'box_take'}); return;
+        }
+        netGameRequest({type:'box_roll',held:player.guns.map(g=>g.def.id)}); return;
+      }
       if(mbox.state==='present'){
         giveGun(mbox.gun.id); toast(mbox.gun.name);
         if(WONDER.has(mbox.gun.id)) game.wonderFound=true;
@@ -3553,6 +3574,36 @@ function buildBox(){
       sfxTone(400,900,.4,.18,'triangle');
     }});
 }
+function sharedBoxRoll(held){
+  const blocked=new Set(held||[]),pool=[];
+  for(const id in BOX_TIER) if(!blocked.has(id)) pool.push({id,w:BOX_TIER[id]*(WONDER.has(id)?pityMul():1)});
+  let total=0;for(const p of pool)total+=p.w;
+  let r=Math.random()*total;
+  for(const p of pool){r-=p.w;if(r<=0)return p.id;}
+  return pool.length?pool[pool.length-1].id:'m14';
+}
+function beginSharedBox(weapon,owner){
+  const d=DEFS[weapon]||DEFS.m14;
+  mbox.state='roll';mbox.t=0;mbox.uses++;mbox.pool=boxPool();mbox.result=d;mbox.owner=owner;
+  sfxTone(400,900,.4,.18,'triangle');
+}
+function hostRollSharedBox(playerId,held){
+  if(!net.host||mbox.state!=='idle') return;
+  const event={type:'box_roll',owner:playerId,weapon:sharedBoxRoll(held),cost:buffs.firesale>0?10:950};
+  beginSharedBox(event.weapon,event.owner);netHostBroadcast(event);handleSharedGameEvent(event);
+}
+function hostTakeSharedBox(playerId){
+  if(!net.host||mbox.state!=='present'||mbox.owner!==playerId||!mbox.gun) return;
+  const event={type:'box_take',owner:playerId,weapon:mbox.gun.id};
+  netHostBroadcast(event);finishSharedBox(event.weapon,event.owner);
+}
+function finishSharedBox(weapon,owner){
+  if(owner===net.id){
+    giveGun(weapon);toast((DEFS[weapon]||DEFS.m14).name);
+    if(WONDER.has(weapon))game.wonderFound=true;
+  }
+  closeBox();mbox.owner=null;
+}
 function moveBox(i){
   mbox.spot=i;
   const s=BOX_SPOTS[i];
@@ -3561,9 +3612,9 @@ function moveBox(i){
   else { mbox.col.minX=s[0]-0.9; mbox.col.maxX=s[0]+0.9; mbox.col.minZ=s[1]-0.65; mbox.col.maxZ=s[1]+0.65; }
 }
 function closeBox(){
-  mbox.state='idle'; mbox.lid.rotation.x=0;
+  mbox.state='idle'; mbox.owner=null; mbox.lid.rotation.x=0;
   if(mbox.preview){scene.remove(mbox.preview); mbox.preview=null;}
-  if(Math.random()<0.14&&BOX_SPOTS.length>1){
+  if(!net.connected&&Math.random()<0.14&&BOX_SPOTS.length>1){
     let n=mbox.spot; while(n===mbox.spot) n=randi(0,BOX_SPOTS.length-1);
     toast('The box moved');
     sfxTone(900,300,.7,.2,'sine');
@@ -3701,11 +3752,26 @@ const buffs={instakill:0,doublepoints:0,firesale:0};
 function maybeDrop(x,z){
   if(Math.random()>0.028&&!(game.kills%60===0)) return;
   const k=pick(Object.keys(DROPS));
+  const id=net.connected&&net.host?('drop-'+netZombieId()):('drop-'+Math.random().toString(36).slice(2));
+  spawnSharedDrop(k,x,z,id,false);
+  if(net.connected&&net.host) netHostBroadcast({type:'drop_spawn',id,kind:k,x,z});
+}
+function spawnSharedDrop(k,x,z,id,fromNet){
+  if(!DROPS[k]||drops.some(d=>d.netId===id)) return;
   const m=new THREE.Mesh(new THREE.BoxGeometry(.7,.7,.7),
     new THREE.MeshPhongMaterial({color:DROPS[k].col,emissive:DROPS[k].col,emissiveIntensity:.8}));
   m.position.set(x,1.0,z); scene.add(m);
   const L=new THREE.PointLight(DROPS[k].col,1.5,8,2); L.position.set(x,1.2,z); scene.add(L);
-  drops.push({m,L,k,life:26});
+  drops.push({m,L,k,life:26,netId:id,claimed:false});
+}
+function removeSharedDrop(id){
+  const i=drops.findIndex(d=>d.netId===id); if(i<0) return null;
+  const d=drops[i]; scene.remove(d.m);scene.remove(d.L);d.m.material.dispose();drops.splice(i,1);return d;
+}
+function hostCollectDrop(id,playerId){
+  const d=drops.find(x=>x.netId===id); if(!d) return;
+  const event={type:'drop_collect',id,kind:d.k,collector:playerId};
+  removeSharedDrop(id); netHostBroadcast(event); handleSharedGameEvent(event);
 }
 function stepDrops(dt){
   for(let i=drops.length-1;i>=0;i--){
@@ -3714,26 +3780,36 @@ function stepDrops(dt){
     d.m.position.y=1.0+Math.sin(game.time*3)*0.14;
     if(d.life<6) d.m.visible=Math.sin(game.time*14)>-0.3;
     const dd=Math.hypot(d.m.position.x-player.pos.x,d.m.position.z-player.pos.z);
-    if(dd<1.9&&Math.abs(player.y-0)<3){ collectDrop(d.k); d.life=0; }
-    if(d.life<=0){scene.remove(d.m); scene.remove(d.L); d.m.material.dispose(); drops.splice(i,1);}
+    if(dd<1.9&&Math.abs(player.y-0)<3){
+      if(net.connected){
+        if(!d.claimed){d.claimed=true;netGameRequest({type:'drop_collect',id:d.netId});}
+      }else{applyCollectedDrop(d.k,'');removeSharedDrop(d.netId);}
+      continue;
+    }
+    if(d.life<=0) removeSharedDrop(d.netId);
   }
   for(const k in buffs) if(buffs[k]>0) buffs[k]=Math.max(0,buffs[k]-dt);
 }
-function collectDrop(k){
+function applyCollectedDrop(k,collector){
   sfxPowerup(); toast(DROPS[k].name);
   if(k==='maxammo'){ for(const g of player.guns){g.res=resOf(g); g.ammo=magOf(g);} }
   else if(k==='nuke'){
-    for(let i=zombies.length-1;i>=0;i--){
-      const z=zombies[i]; if(z.dead) continue;
-      const dir=new THREE.Vector3(z.pos.x-player.pos.x,-0.6,z.pos.z-player.pos.z).normalize();
-      killZombie(z,dir,'torso',0.22);
+    if(!net.connected||net.host){
+      for(let i=zombies.length-1;i>=0;i--){
+        const z=zombies[i]; if(z.dead) continue;
+        const dir=new THREE.Vector3(z.pos.x-player.pos.x,-0.6,z.pos.z-player.pos.z).normalize();
+        killZombie(z,dir,'torso',0.22,!!net.connected,false);
+      }
+      if(net.connected) netHostDirect(collector,{type:'damage_result',points:400,killed:false});
+      else addPoints(400);
     }
-    addPoints(400); sfxBoom();
+    sfxBoom();
     ui.flashWhite=0.5;
   }
   else buffs[k]=30;
   updHUD();
 }
+function collectDrop(k){ applyCollectedDrop(k,net.id); }
 /* ---------- HUD ---------- */
 const el=id=>document.getElementById(id);
 const ui={hp:el('hpfill'),ammo:el('ammo'),gunname:el('gunname'),reloading:el('reloading'),
@@ -3782,11 +3858,13 @@ const roundCount=r=>10+(r-1)*2;                 // two more every round
 const roundMult=r=>1+(r-1)*0.15;                // and they are worth more
 
 function startRound(){
+  if(net.connected&&!net.host){netGameRequest({type:'round_call'});return;}
   game.round++;
   game.toSpawn=roundCount(game.round); game.spawnTimer=0; game.roundTimer=ROUND_GAP;
   banner('ROUND '+String(game.round).padStart(2,'0'),game.toSpawn+' of them');
   if(typeof placeMannequins==='function') placeMannequins();
   sfxRound(); updHUD();
+  if(net.connected&&net.host) netHostBroadcast({type:'round_start',round:game.round,count:game.toSpawn});
 }
 function spawnOne(){
   if(!SPAWNS.length) return;
@@ -3797,6 +3875,7 @@ function spawnOne(){
     if(d>bd){bd=d;best=s;}
   }
   const z=makeZombie(game.round);
+  if(net.connected&&net.host) z.netId=netZombieId();
   z.pos.set(best[0]+rand(-2.5,2.5),0,best[1]+rand(-2.5,2.5));
   z.yaw=Math.atan2(player.pos.x-z.pos.x,player.pos.z-z.pos.z);
   z.nextGroan=game.time+rand(1,7);
@@ -3918,16 +3997,17 @@ function doBuy(){
   const it=game.focus; if(!it) return;
   const c=it.cost();
   if(player.points<c){ sfxDeny(); toast('Not enough points'); return; }
+  if(net.connected&&it.kind==='box'){it.buy();return;}
   player.points-=c; it.buy(); sfxBuy(); updHUD();
 }
 
 
-/* ---------- online co-op foundation ----------
-   Cloudflare Durable Objects own rooms and relay survivor transforms. Zombie,
-   combat and round authority are added in the next multiplayer milestone. */
+/* ---------- online co-op ----------
+   Cloudflare Durable Objects own rooms. The host simulates zombies and rounds,
+   validates combat requests, and broadcasts shared world state to the room. */
 const net={
   ws:null,code:'',id:'',host:false,connected:false,manualClose:false,
-  players:new Map(),remotes:new Map(),nextState:0,activeGame:false
+  players:new Map(),remotes:new Map(),nextState:0,nextWorld:0,zombieSeq:1,activeGame:false
 };
 function safeNetName(v){
   return String(v||'Survivor').replace(/[^\w .'-]/g,'').trim().slice(0,18)||'Survivor';
@@ -3938,6 +4018,141 @@ function setNetStatus(t){
 }
 function netSend(o){
   if(net.ws&&net.ws.readyState===WebSocket.OPEN) net.ws.send(JSON.stringify(o));
+}
+function netGameRequest(event){
+  if(!net.connected) return false;
+  if(net.host) handleHostGameRequest(event,net.id);
+  else netSend({type:'game_event',event});
+  return true;
+}
+function netHostBroadcast(event){
+  if(net.connected&&net.host) netSend({type:'host_broadcast',event});
+}
+function netHostDirect(target,event){
+  if(target===net.id) handleSharedGameEvent(event);
+  else if(net.connected&&net.host) netSend({type:'host_direct',target,event});
+}
+function netZombie(id){ return zombies.find(z=>z.netId===id); }
+function netZombieId(){ return net.code+'-'+(net.zombieSeq++).toString(36); }
+function netHostWorld(){
+  if(!net.connected||!net.host||!game.running||game.time<net.nextWorld) return;
+  net.nextWorld=game.time+.12;
+  const live=[];
+  for(const z of zombies){
+    if(z.dead) continue;
+    if(!z.netId) z.netId=netZombieId();
+    live.push([z.netId,z.round,+z.pos.x.toFixed(2),+z.y.toFixed(2),+z.pos.z.toFixed(2),
+      +z.yaw.toFixed(3),Math.max(0,Math.round(z.hp)),z.maxHp]);
+  }
+  netHostBroadcast({type:'world',round:game.round,toSpawn:game.toSpawn,
+    roundTimer:+game.roundTimer.toFixed(2),kills:game.kills,z:live,
+    drops:drops.map(d=>[d.netId,d.k,+d.m.position.x.toFixed(2),+d.m.position.z.toFixed(2),+d.life.toFixed(1)]),
+    box:mbox.g?{state:mbox.state,weapon:mbox.gun?mbox.gun.id:(mbox.result?mbox.result.id:null),
+      owner:mbox.owner,t:+mbox.t.toFixed(2),spot:mbox.spot}:null});
+}
+function applySharedWorld(e){
+  if(net.host||!Array.isArray(e.z)) return;
+  game.round=Math.max(0,e.round|0); game.toSpawn=Math.max(0,e.toSpawn|0);
+  game.roundTimer=Math.max(0,+e.roundTimer||0); game.kills=Math.max(0,e.kills|0);
+  const seen=new Set();
+  for(const a of e.z){
+    if(!Array.isArray(a)||a.length<8) continue;
+    const id=String(a[0]); seen.add(id);
+    let z=netZombie(id);
+    if(!z){
+      z=makeZombie(Math.max(1,a[1]|0)); z.netId=id; z.pos.set(+a[2]||0,+a[3]||0,+a[4]||0);
+      z.y=+a[3]||0; z.yaw=+a[5]||0; z.hp=+a[6]||1; z.maxHp=+a[7]||z.maxHp;
+      poseAlive(z,game.time,false);
+      for(const p of z.pts){p.px=p.x;p.py=p.y;p.pz=p.z;}
+      zombies.push(z);
+    }
+    z.netSeen=game.time;
+    z.netTarget={x:+a[2]||0,y:+a[3]||0,z:+a[4]||0,yaw:+a[5]||0,hp:+a[6]||0};
+  }
+  for(let i=zombies.length-1;i>=0;i--){
+    const z=zombies[i];
+    if(!z.dead&&z.netId&&!seen.has(z.netId)&&game.time-(z.netSeen||0)>1.0) removeZombie(z);
+  }
+  if(Array.isArray(e.drops)){
+    const dropSeen=new Set();
+    for(const a of e.drops){
+      if(!Array.isArray(a)||a.length<5) continue;
+      const id=String(a[0]);dropSeen.add(id);
+      let d=drops.find(x=>x.netId===id);
+      if(!d){spawnSharedDrop(a[1],+a[2]||0,+a[3]||0,id,true);d=drops.find(x=>x.netId===id);}
+      if(d)d.life=+a[4]||d.life;
+    }
+    for(let i=drops.length-1;i>=0;i--)if(!dropSeen.has(drops[i].netId))removeSharedDrop(drops[i].netId);
+  }
+  if(e.box&&mbox.g){
+    if(Number.isInteger(e.box.spot)&&e.box.spot!==mbox.spot&&BOX_SPOTS[e.box.spot])moveBox(e.box.spot);
+    const owner=String(e.box.owner||''),weapon=e.box.weapon;
+    if(e.box.state==='idle'){
+      if(mbox.state!=='idle')closeBox();
+    }else if((mbox.state==='idle'||mbox.owner!==owner||(mbox.result&&mbox.result.id)!==weapon)&&weapon){
+      beginSharedBox(weapon,owner);
+    }
+    if(mbox.state!=='idle'){
+      mbox.owner=owner;
+      if(e.box.state==='present'&&mbox.state==='roll')mbox.t=Math.max(mbox.t,3.39);
+      else mbox.t=Math.max(mbox.t,+e.box.t||0);
+    }
+  }
+  updRoundHUD(); updHUD();
+}
+function handleHostGameRequest(e,playerId){
+  if(!net.host||!e) return;
+  if(e.type==='zombie_damage'){
+    const z=netZombie(String(e.id||'')); if(!z||z.dead) return;
+    const part=e.part==='head'?'head':(e.part==='limb'?'limb':'torso');
+    const d=Array.isArray(e.dir)?e.dir:[0,0,1];
+    const dir=new THREE.Vector3(clamp(+d[0]||0,-1,1),clamp(+d[1]||0,-1,1),clamp(+d[2]||0,-1,1)).normalize();
+    const before=z.dead;
+    damageZombie(z,clamp(+e.dmg||0,0,200000),part,dir,clamp(+e.impulse||.09,0,.8),true,
+      {authoritative:true,noReward:true});
+    const killed=!before&&z.dead;
+    const points=(e.noPoints?0:10*roundMult(z.round))+(killed?(part==='head'?90:50)*roundMult(z.round):0);
+    netHostDirect(playerId,{type:'damage_result',points,killed});
+  } else if(e.type==='zombie_kill'){
+    const z=netZombie(String(e.id||'')); if(!z||z.dead) return;
+    const part=e.part==='head'?'head':'torso',d=Array.isArray(e.dir)?e.dir:[0,0,1];
+    const dir=new THREE.Vector3(+d[0]||0,+d[1]||0,+d[2]||0).normalize();
+    killZombie(z,dir,part,clamp(+e.impulse||.2,0,.8),true,false);
+    netHostDirect(playerId,{type:'damage_result',points:(part==='head'?90:50)*roundMult(z.round),killed:true});
+  } else if(e.type==='drop_collect'){
+    hostCollectDrop(String(e.id||''),playerId);
+  } else if(e.type==='box_roll'){
+    hostRollSharedBox(playerId,Array.isArray(e.held)?e.held:[]);
+  } else if(e.type==='box_take'){
+    hostTakeSharedBox(playerId);
+  } else if(e.type==='round_call'&&game.toSpawn===0){
+    startRound();
+  }
+}
+function handleSharedGameEvent(e){
+  if(!e) return;
+  if(e.type==='world') applySharedWorld(e);
+  else if(e.type==='zombie_kill'&&!net.host){
+    const z=netZombie(String(e.id||'')); if(!z||z.dead) return;
+    const d=Array.isArray(e.dir)?e.dir:[0,0,1],dir=new THREE.Vector3(+d[0]||0,+d[1]||0,+d[2]||0).normalize();
+    z.hp=0; killZombie(z,dir,e.part==='head'?'head':'torso',clamp(+e.impulse||.15,0,.8),true,true);
+  } else if(e.type==='drop_spawn'&&!net.host){
+    spawnSharedDrop(e.kind,+e.x||0,+e.z||0,String(e.id||''),true);
+  } else if(e.type==='drop_collect'){
+    removeSharedDrop(String(e.id||'')); applyCollectedDrop(e.kind,String(e.collector||''));
+  } else if(e.type==='box_roll'){
+    if(!net.host) beginSharedBox(e.weapon,String(e.owner||''));
+    if(String(e.owner||'')===net.id){player.points=Math.max(0,player.points-(+e.cost||950));sfxBuy();updHUD();}
+  } else if(e.type==='box_take'){
+    finishSharedBox(e.weapon,String(e.owner||''));
+  } else if(e.type==='damage_result'){
+    if(+e.points>0) addPoints(+e.points);
+    showHit(!!e.killed); updHUD();
+  } else if(e.type==='player_damage'){
+    hurtPlayer(clamp(+e.amount||0,0,100));
+  } else if(e.type==='round_start'){
+    banner('ROUND '+String(e.round|0).padStart(2,'0'),(e.count|0)+' of them'); sfxRound();
+  }
 }
 function netColor(id){
   let h=0; for(let i=0;i<id.length;i++) h=(h*31+id.charCodeAt(i))>>>0;
@@ -4015,10 +4230,19 @@ function netHandle(msg){
     for(const p of net.players.values()) p.host=false;
     const p=net.players.get(m.id); if(p)p.host=!!m.host;
     net.host=m.id===net.id&&!!m.host;
-    renderRoster(); if(net.host) toast('You are now the room host');
+    if(net.host){
+      net.nextWorld=0;
+      for(const z of zombies) if(!z.dead&&!z.netId) z.netId=netZombieId();
+      toast('You are now the room host');
+    }
+    renderRoster();
   } else if(m.type==='state'){
     const p=net.players.get(m.id); if(p)p.state=m.state;
     updateRemoteState(m.id,m.state||{});
+  } else if(m.type==='game_request'){
+    handleHostGameRequest(m.event,m.playerId);
+  } else if(m.type==='game'){
+    handleSharedGameEvent(m.event);
   } else if(m.type==='start'&&(m.map==='town'||m.map==='nuketown')){
     net.activeGame=true; startGame(m.map); toast('Online room '+net.code);
   } else if(m.type==='error'){
@@ -4061,6 +4285,7 @@ function netDisconnect(showMenu){
   net.manualClose=true;
   if(net.ws) try{net.ws.close(1000,'Left room');}catch(e){}
   net.ws=null; net.connected=false; net.activeGame=false; net.host=false; net.id=''; net.code='';
+  net.nextState=0; net.nextWorld=0; net.zombieSeq=1;
   net.players.clear(); clearRemotePlayers();
   el('netbadge').style.opacity=0;
   if(showMenu) showScreen('menu');
@@ -4073,6 +4298,7 @@ function netStep(dt){
     const down=r.g.userData.downed;
     r.g.rotation.z=lerp(r.g.rotation.z,down?Math.PI/2:0,Math.min(1,dt*8));
   }
+  netHostWorld();
   if(!net.connected||!game.running||game.time<net.nextState) return;
   net.nextState=game.time+.08;
   const g=curGun();
@@ -4268,17 +4494,21 @@ function startGame(mapId){
   player.slot=1;
   for(const k in buffs) buffs[k]=0;
   game.round=0; game.kills=0; game.wonderFound=false; game.boxDry=0; game.time=performance.now()/1000;
+  net.nextState=0; net.nextWorld=0;
+  if(net.connected&&net.host) net.zombieSeq=1;
   if(mbox.state!=='idle') closeBox();
   hideScreens();
   ui.downed.style.opacity=0; ui.vig.style.opacity=0;
   renderPerks(); updHUD();
   game.running=true; last=performance.now()/1000;
-  startRound();
+  if(!net.connected||net.host) startRound();
+  else{game.round=0;game.toSpawn=0;game.roundTimer=ROUND_GAP;updRoundHUD();}
   if(!isTouch) canvas.requestPointerLock();
 }
 function pause(){
   if(!game.running) return;
-  game.running=false; player.firing=false;
+  if(!net.connected) game.running=false;
+  player.firing=false; player.vel.x=0; player.vel.z=0;
   el('pauseStats').innerHTML='Round <b>'+game.round+'</b> &nbsp;&middot;&nbsp; <b>'+game.kills+
     '</b> kills &nbsp;&middot;&nbsp; <b>'+player.points.toLocaleString()+'</b> points';
   showScreen('pause');
@@ -4315,7 +4545,7 @@ function pollPad(dt){
   const edge=(k,v)=>{const e=v&&!pad.prev[k]; pad.prev[k]=v; return e;};
   if(A||X||Y||RT||LT||lx||ly||pad.move.x||pad.move.y) pad.used=true;
 
-  if(!game.running){
+  if(!game.running||menuScreen==='pause'){
     const goA=edge('A',A), goB=edge('B',B), goS=edge('ST',ST);
     edge('X',X); edge('Y',Y); edge('RB',RB); edge('LB',LB); edge('L3',L3); edge('SEL',SEL); edge('LT',LT);
     const up=edge('DU',DU)||(pad.move.y<-0.6&&!pad.navHeld), dn=edge('DD',padOn(gp,13))||(pad.move.y>0.6&&!pad.navHeld);
@@ -4376,6 +4606,10 @@ function loop(){
 }
 
 function updatePlayer(dt){
+  if(net.connected&&menuScreen==='pause'){
+    player.vel.x=0; player.vel.z=0; player.firing=false;
+    return;
+  }
   if(player.downed){
     if(game.time>=player.downEnd){
       player.downed=false; player.hp=player.maxHp*0.5;
@@ -4472,6 +4706,7 @@ function updatePlayer(dt){
 }
 
 function updateRounds(dt){
+  if(net.connected&&!net.host){updRoundHUD();return;}
   if(game.toSpawn>0){
     game.spawnTimer-=dt;
     let live=0; for(const z of zombies) if(!z.dead) live++;
@@ -4480,6 +4715,9 @@ function updateRounds(dt){
   }
   game.roundTimer-=dt;
   if(game.roundTimer<=0) startRound();
+  updRoundHUD();
+}
+function updRoundHUD(){
   let alive=game.toSpawn;
   for(const z of zombies) if(!z.dead) alive++;
   ui.wavebig.textContent='ROUND '+String(game.round).padStart(2,'0');
@@ -4489,8 +4727,7 @@ function updateRounds(dt){
   ui.left.textContent=(alive>0?alive+' remaining':'clear')+'  \u00b7  next in '+Math.max(0,Math.ceil(game.roundTimer))+'s'+(alive===0?'  \u00b7  press E':'');
 }
 
-function updateZombies(dt){
-  const px=player.pos.x,pz=player.pos.z;
+function updateReplicaZombies(dt){
   for(let i=zombies.length-1;i>=0;i--){
     const z=zombies[i];
     if(z.dead){
@@ -4504,6 +4741,41 @@ function updateZombies(dt){
       if(game.time>z.removeAt) removeZombie(z);
       continue;
     }
+    const t=z.netTarget;
+    if(t){
+      z.pos.x=lerp(z.pos.x,t.x,Math.min(1,dt*14));
+      z.pos.z=lerp(z.pos.z,t.z,Math.min(1,dt*14));
+      z.y=lerp(z.y,t.y,Math.min(1,dt*14));
+      let da=t.yaw-z.yaw; while(da>Math.PI)da-=TAU;while(da<-Math.PI)da+=TAU;
+      z.yaw+=da*Math.min(1,dt*14); z.hp=t.hp;
+    }
+    poseAlive(z,game.time,true); drawZombie(z);
+  }
+}
+function updateZombies(dt){
+  if(net.connected&&!net.host){updateReplicaZombies(dt);return;}
+  for(let i=zombies.length-1;i>=0;i--){
+    const z=zombies[i];
+    if(z.dead){
+      ragdollStep(z,dt); drawZombie(z);
+      const age=game.time-z.deadAt;
+      if(age>7){
+        const o=clamp(1-(age-7)/3,0,1);
+        Object.values(z.mats).forEach(m=>{m.opacity=o;});
+        if(z.eyeMat) z.eyeMat.opacity=o;
+      }
+      if(game.time>z.removeAt) removeZombie(z);
+      continue;
+    }
+    let px=player.pos.x,pz=player.pos.z,targetY=player.y,targetId=net.id,targetDown=player.downed;
+    if(net.connected&&net.host){
+      let best=Math.hypot(px-z.pos.x,pz-z.pos.z);
+      for(const p of net.players.values()){
+        if(p.id===net.id||!p.state||p.state.map!==currentMap||p.state.hp<=0||p.state.downed) continue;
+        const d=Math.hypot(p.state.x-z.pos.x,p.state.z-z.pos.z);
+        if(d<best){best=d;px=p.state.x;pz=p.state.z;targetY=p.state.y;targetId=p.id;targetDown=false;}
+      }
+    }
     // vertical
     const gz=groundAt(z.pos.x,z.pos.z,z.y,0.7);
     z.vy-=22*dt; z.y+=z.vy*dt;
@@ -4512,7 +4784,7 @@ function updateZombies(dt){
     let tgx=px,tgz=pz;
     // keep climbing until actually on the player's floor, otherwise they abandon
     // the stairs two thirds of the way up and walk off the side
-    if(stairBases.length&&(player.y-z.y>0.8||(z.stair&&player.y-z.y>0.15))){
+    if(stairBases.length&&(targetY-z.y>0.8||(z.stair&&targetY-z.y>0.15))){
       let bs=null,bd=1e9;
       for(const s of stairBases){
         // whichever staircase actually leads to where the player is standing
@@ -4554,14 +4826,16 @@ function updateZombies(dt){
     while(da>Math.PI) da-=TAU; while(da<-Math.PI) da+=TAU;
     z.yaw+=clamp(da,-3.2*dt,3.2*dt);
 
-    const reach=dist>1.1||Math.abs(player.y-z.y)>1.2;
+    const reach=dist>1.1||Math.abs(targetY-z.y)>1.2;
     if(reach){
       z.pos.x+=Math.sin(z.yaw)*z.speed*dt;
       z.pos.z+=Math.cos(z.yaw)*z.speed*dt;
       resolveCircle(z.pos,0.44,z.y);
-    } else if(game.time>z.nextSwing&&!player.downed){
+    } else if(game.time>z.nextSwing&&!targetDown){
       z.nextSwing=game.time+1.05;
-      hurtPlayer(13+z.round*0.7);
+      const amount=13+z.round*0.7;
+      if(!net.connected||targetId===net.id) hurtPlayer(amount);
+      else netHostDirect(targetId,{type:'player_damage',amount});
     }
     if(game.time>z.nextGroan&&dist<46){ z.nextGroan=game.time+rand(4,11); sfxGroan(dist); }
     poseAlive(z,game.time,true);

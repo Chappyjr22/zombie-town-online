@@ -157,7 +157,7 @@ export class GameRoom extends DurableObject {
   }
 
   async webSocketMessage(ws, rawMessage) {
-    if (typeof rawMessage !== "string" || rawMessage.length > 4096) return;
+    if (typeof rawMessage !== "string" || rawMessage.length > 65536) return;
 
     let message;
     try {
@@ -189,6 +189,53 @@ export class GameRoom extends DurableObject {
       player.state = state;
       ws.serializeAttachment(player);
       this.broadcast({ type: "state", id: player.id, state }, ws);
+      return;
+    }
+
+    if (message.type === "game_event" && message.event) {
+      const allowed = new Set([
+        "zombie_damage",
+        "zombie_kill",
+        "drop_collect",
+        "box_roll",
+        "box_take",
+        "round_call",
+      ]);
+      if (!allowed.has(message.event.type)) return;
+      const hostSocket = this.sockets().find((socket) => this.attachment(socket).host);
+      if (hostSocket) {
+        this.send(hostSocket, {
+          type: "game_request",
+          playerId: player.id,
+          event: message.event,
+        });
+      }
+      return;
+    }
+
+    if (message.type === "host_broadcast" && player.host && message.event) {
+      const allowed = new Set([
+        "world",
+        "zombie_kill",
+        "drop_spawn",
+        "drop_collect",
+        "box_roll",
+        "box_take",
+        "round_start",
+      ]);
+      if (allowed.has(message.event.type)) {
+        this.broadcast({ type: "game", event: message.event }, ws);
+      }
+      return;
+    }
+
+    if (message.type === "host_direct" && player.host && message.target && message.event) {
+      const allowed = new Set(["damage_result", "player_damage"]);
+      if (!allowed.has(message.event.type)) return;
+      const target = this.sockets().find(
+        (socket) => this.attachment(socket).id === message.target,
+      );
+      if (target) this.send(target, { type: "game", event: message.event });
       return;
     }
 
