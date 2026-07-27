@@ -25,7 +25,7 @@ The shared multiplayer milestone is implemented:
 - Host-controlled room-wide pause and resume
 - Articulated military survivor models with synchronized movement, aim, recoil, airborne, and downed animation
 - Two-handed weapon poses with fire-time yaw and pitch correction
-- Layered footsteps, zombie vocals, attack snarls, death sounds, and War Machine impact audio
+- Layered footsteps, formant-based zombie vocals, attack snarls, choking death sounds, and War Machine impact audio
 
 ## Current features
 

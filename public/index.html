@@ -2082,26 +2082,91 @@ function sfxTone(f1,f2,dur,vol,type){
 }
 function sfxGroan(dist,variant){
   if(!AC) return;
-  const t=AC.currentTime,o=AC.createOscillator(),o2=AC.createOscillator(),breath=nz();
-  o.type='sawtooth'; o2.type='triangle';
-  const attack=variant==='attack',death=variant==='death';
-  const dur=death?1.25:(attack?.48:rand(.85,1.25)),f=death?rand(58,76):(attack?rand(72,105):rand(48,82));
-  o.frequency.setValueAtTime(f,t);
-  o.frequency.linearRampToValueAtTime(f*(death?.42:(attack?1.32:rand(.62,1.28))),t+dur);
-  o2.frequency.setValueAtTime(f*2.03,t);
-  o2.frequency.linearRampToValueAtTime(f*(death?.65:(attack?1.55:.9)),t+dur);
-  const lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=death?620:(attack?880:520);
-  const g=AC.createGain(); const v=clamp((death?.20:(attack?.18:.15))*(1-dist/52),.006,.2);
-  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(v,t+(attack?.035:.13));
-  if(!attack) g.gain.linearRampToValueAtTime(v*.72,t+dur*.58);
-  g.gain.exponentialRampToValueAtTime(.0008,t+dur);
-  const bh=AC.createBiquadFilter();bh.type='bandpass';bh.frequency.value=attack?1250:820;bh.Q.value=.8;
-  const bg=AC.createGain();bg.gain.setValueAtTime(.0008,t);
-  bg.gain.linearRampToValueAtTime(Math.max(.0008,v*.7),t+(attack?.025:.1));
-  bg.gain.exponentialRampToValueAtTime(.0008,t+dur*.82);
-  o.connect(lp);o2.connect(lp);lp.connect(g);g.connect(master);
-  breath.connect(bh);bh.connect(bg);bg.connect(master);
-  o.start(t);o2.start(t);breath.start(t);o.stop(t+dur+.02);o2.stop(t+dur+.02);breath.stop(t+dur);
+  const t=AC.currentTime,mood=variant||(Math.random()<.44?'growl':'moan');
+  const attack=mood==='attack',death=mood==='death',growl=mood==='growl';
+  const dur=death?1.85:(attack?.58:(growl?1.0:1.45));
+  const v=clamp((death?.25:(attack?.22:.18))*(1-dist/54),.006,.25);
+  const base=death?rand(61,72):(attack?rand(76,94):(growl?rand(48,62):rand(55,73)));
+
+  // A low, unstable glottal source is passed through throat and mouth formants.
+  // This gives the sound a vocal shape instead of exposing a raw oscillator.
+  const throat=AC.createOscillator(),chest=AC.createOscillator(),voiceBus=AC.createGain();
+  throat.type='sawtooth';chest.type='triangle';
+  throat.frequency.setValueAtTime(base,t);
+  chest.frequency.setValueAtTime(base*.505,t);
+  if(death){
+    throat.frequency.linearRampToValueAtTime(base*.78,t+.55);
+    throat.frequency.exponentialRampToValueAtTime(base*.36,t+dur);
+    chest.frequency.exponentialRampToValueAtTime(Math.max(20,base*.22),t+dur);
+  }else if(attack){
+    throat.frequency.linearRampToValueAtTime(base*1.3,t+.09);
+    throat.frequency.exponentialRampToValueAtTime(base*.68,t+dur);
+  }else{
+    throat.frequency.linearRampToValueAtTime(base*rand(.82,1.08),t+dur*.55);
+    throat.frequency.linearRampToValueAtTime(base*rand(.58,.82),t+dur);
+  }
+  const wobble=AC.createOscillator(),wobbleDepth=AC.createGain();
+  wobble.type='sine';wobble.frequency.value=rand(5.2,8.4);
+  wobbleDepth.gain.value=death?42:(attack?30:55);
+  wobble.connect(wobbleDepth);wobbleDepth.connect(throat.detune);
+  throat.connect(voiceBus);chest.connect(voiceBus);
+
+  const formantMix=AC.createGain();
+  const formants=death?[315,790,1520]:(attack?[390,1120,1960]:(growl?[280,720,1370]:[340,910,1710]));
+  const formantLevels=[1,.48,.17];
+  for(let i=0;i<formants.length;i++){
+    const bp=AC.createBiquadFilter(),fg=AC.createGain();
+    bp.type='bandpass';bp.frequency.value=formants[i]*rand(.94,1.06);bp.Q.value=i===0?7:(i===1?5:3);
+    fg.gain.value=formantLevels[i];
+    voiceBus.connect(bp);bp.connect(fg);fg.connect(formantMix);
+  }
+  const grit=AC.createWaveShaper(),curve=new Float32Array(256);
+  for(let i=0;i<curve.length;i++){const x=i*2/(curve.length-1)-1;curve[i]=Math.tanh(x*2.1);}
+  grit.curve=curve;grit.oversample='2x';
+  const voiceGain=AC.createGain();
+  voiceGain.gain.setValueAtTime(.0008,t);
+  if(attack){
+    voiceGain.gain.linearRampToValueAtTime(v,t+.035);
+    voiceGain.gain.exponentialRampToValueAtTime(v*.28,t+.18);
+    voiceGain.gain.linearRampToValueAtTime(v*.72,t+.27);
+  }else if(death){
+    voiceGain.gain.linearRampToValueAtTime(v,t+.09);
+    voiceGain.gain.linearRampToValueAtTime(v*.62,t+.64);
+    voiceGain.gain.linearRampToValueAtTime(v*.78,t+.88);
+    voiceGain.gain.exponentialRampToValueAtTime(v*.16,t+1.48);
+  }else{
+    voiceGain.gain.linearRampToValueAtTime(v,t+.12);
+    voiceGain.gain.linearRampToValueAtTime(v*.46,t+dur*.38);
+    voiceGain.gain.linearRampToValueAtTime(v*.82,t+dur*.62);
+  }
+  voiceGain.gain.exponentialRampToValueAtTime(.0008,t+dur);
+  formantMix.connect(grit);grit.connect(voiceGain);voiceGain.connect(master);
+
+  // Rasping breath makes consonant-like snarls and hides the electronic edge.
+  const breath=nz(),rasp=AC.createBiquadFilter(),raspGain=AC.createGain();
+  rasp.type='bandpass';rasp.frequency.value=attack?1750:(death?1080:rand(820,1450));rasp.Q.value=.65;
+  raspGain.gain.setValueAtTime(.0008,t);
+  raspGain.gain.linearRampToValueAtTime(v*(attack?.95:.62),t+(attack?.018:.07));
+  if(death){
+    raspGain.gain.linearRampToValueAtTime(v*.34,t+.72);
+    raspGain.gain.linearRampToValueAtTime(v*.72,t+.92);
+  }
+  raspGain.gain.exponentialRampToValueAtTime(.0008,t+dur*.92);
+  breath.connect(rasp);rasp.connect(raspGain);raspGain.connect(master);
+
+  // Wet throat pulses, especially during a death, create a choking finish.
+  const pulses=death?[.16,.74,1.03,1.31,1.53]:(attack?[.03,.24]:[.18,dur*.58]);
+  for(let i=0;i<pulses.length;i++){
+    const pt=t+pulses[i],wet=nz(),wetFilter=AC.createBiquadFilter(),wetGain=AC.createGain();
+    wetFilter.type='bandpass';wetFilter.frequency.value=rand(210,430);wetFilter.Q.value=2.4;
+    wetGain.gain.setValueAtTime(.0008,pt);
+    wetGain.gain.linearRampToValueAtTime(v*rand(.28,.52),pt+.012);
+    wetGain.gain.exponentialRampToValueAtTime(.0008,pt+rand(.055,.11));
+    wet.connect(wetFilter);wetFilter.connect(wetGain);wetGain.connect(master);
+    wet.start(pt);wet.stop(pt+.13);
+  }
+  throat.start(t);chest.start(t);wobble.start(t);breath.start(t);
+  throat.stop(t+dur+.03);chest.stop(t+dur+.03);wobble.stop(t+dur+.03);breath.stop(t+dur);
 }
 function sfxFootstep(volume,sprint,side){
   if(!AC) return;
