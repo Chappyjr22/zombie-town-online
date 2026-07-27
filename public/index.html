@@ -646,7 +646,7 @@ function mergeGeos(items){
 
 
 /* ---------- world containers ---------- */
-const colliders=[];   // {minX,maxX,minZ,maxZ,top} solid for movement below `top`
+const colliders=[];   // axis-aligned or yaw-oriented solids for movement
 const blockers=[];    // meshes bullets stop on
 const platforms=[];   // walkable surfaces
 const stairBases=[];  // where zombies enter a staircase
@@ -661,9 +661,9 @@ let mapFog={near:18,far:92};
 
 function addCollider(minX,maxX,minZ,maxZ,top,bot){colliders.push({minX,maxX,minZ,maxZ,top:top===undefined?99:top,bot:bot===undefined?-99:bot});}
 function addYawCollider(x,z,w,d,rot,top,bot,pad){
-  const a=rot||0,c=Math.abs(Math.cos(a)),s=Math.abs(Math.sin(a)),p=pad||0;
-  const ex=(w*c+d*s)/2+p,ez=(w*s+d*c)/2+p;
-  addCollider(x-ex,x+ex,z-ez,z+ez,top,bot);
+  const p=pad||0;
+  colliders.push({x,z,halfW:w/2+p,halfD:d/2+p,rot:rot||0,oriented:true,
+    top:top===undefined?99:top,bot:bot===undefined?-99:bot});
 }
 function addPlatform(minX,maxX,minZ,maxZ,y){platforms.push({minX,maxX,minZ,maxZ,y});}
 function addRamp(minX,maxX,minZ,maxZ,yLow,yHigh,axis,flip){platforms.push({minX,maxX,minZ,maxZ,yLow,yHigh,axis,flip,ramp:true});}
@@ -800,7 +800,7 @@ function car(x,z,rot,col){
     w.rotation.z=Math.PI/2; w.position.set(wx,0.44,wz); g.add(w);
   }
   g.position.set(x,0,z); g.rotation.y=rot; worldRoot.add(g);
-  addYawCollider(x,z,2,4.5,rot,2.1);
+  addYawCollider(x,z,2.25,4.5,rot,2.1,0,0.05);
 }
 function dumpster(x,z,rot){
   const g=new THREE.Group();
@@ -817,8 +817,7 @@ function sandbags(x,z,rot,n,y0){
   }
   const y=y0||0;
   g.position.set(x,y,z); g.rotation.y=rot; worldRoot.add(g);
-  const c=Math.abs(Math.cos(rot)),s2=Math.abs(Math.sin(rot)),L=n*0.74;
-  addCollider(x-(L*c+0.5*s2)/2,x+(L*c+0.5*s2)/2,z-(L*s2+0.5*c)/2,z+(L*s2+0.5*c)/2,y+0.7,y);
+  addYawCollider(x,z,n*0.74+0.35,0.5,rot,y+0.7,y,0.04);
 }
 function rubble(x,z,r){
   for(let i=0;i<9;i++){
@@ -898,10 +897,10 @@ function buildTown(){
 
 /* --- BAR (west), two floors, balcony over the street --- */
 (function bar(){
-  const x1=-30,x2=-14,z1=-22,z2=-6,h=8.6,f2=4.0;
-  // The south stair door lines up with the full staircase width, giving both
-  // players and zombies a real approach from the street instead of a wall.
-  wallRun(x1,z1,x2,z1,h,M.brick,[{c:-27.7,w:4.6},{c:-22,w:3.0,sill:0.9}]);
+  // Extend the bar south to make room for a proper interior stair landing.
+  // Street access remains through the normal east and north entrances.
+  const x1=-30,x2=-14,z1=-26,z2=-6,h=8.6,f2=4.0;
+  wallRun(x1,z1,x2,z1,h,M.brick,[{c:-22,w:3.0,sill:0.9}]);
   wallRun(x1,z2,x2,z2,h,M.brick,[{c:-20,w:3.4}]);
   wallRun(x1,z1,x1,z2,h,M.brick,[{c:-14,w:2.6,sill:1.0}]);
   wallRun(x2,z1,x2,z2,h,M.brick,[{c:-16,w:3.4},{c:-10.5,w:3.2,sill:4.0,head:6.4,boards:false}]);
@@ -909,11 +908,11 @@ function buildTown(){
   floorSlab(x1+0.2,z1+0.2,x2-0.2,z2-0.2,0.04,M.plank);
   // second floor covers the north half, staircase on the west wall
   floorSlab(x1+0.2,-15.7,x2-0.2,z2-0.2,f2,M.plank);
-  const sx1=x1+0.3,sx2=x1+4.3,sz1=z1+0.35,sz2=-15.7;
+  const sx1=x1+0.3,sx2=x1+4.3,sz1=-21.4,sz2=-15.7;
   const stairSpan=sz2-sz1,stairRise=f2-0.1,steps=14;
   addRamp(sx1,sx2,sz1,sz2,0.1,f2,'z',false);
   stairBases.push({x:(sx1+sx2)/2,z:sz1+0.5,tx:(sx1+sx2)/2,tz:sz2+0.8,ty:f2,
-    doors:[[-27.7,z1-0.5],[-15.4,-16],[-20,-7.4]],room:[-30,-22,-14,-6]});
+    doors:[[-15.4,-16],[-20,-7.4]],room:[x1,z1,x2,z2]});
   // Even risers, a continuous handrail, and a collision edge keep the stairs
   // visually aligned with the walkable ramp from the street to the landing.
   for(let i=0;i<steps;i++){
@@ -1078,7 +1077,7 @@ function buildTown(){
     wl.rotation.z=Math.PI/2; wl.position.set(wx,0.6,wz); g.add(wl);
   }
   g.position.set(-2,0,-31); g.rotation.y=0.16; worldRoot.add(g);
-  addCollider(-4.0,0.2,-37,-25.5,3.4);
+  addYawCollider(-2,-31,2.9,11.5,0.16,3.4,0,0.06);
   roomLight(-2,2.4,-31,0x88a0cc,0.35,12);
 })();
 
@@ -1087,11 +1086,11 @@ function buildTown(){
 car(-8,-14,0.35,0x5e3a3a); car(9,-16,1.72,0x35414f); car(-9,6,1.5,0x4a4a38);
 car(11,4,0.1,0x33454a); car(22,26,0.9,0x4d4038); car(-24,-30,2.4,0x3a3a44);
 dumpster(-13.5,2.5,0.2); dumpster(15.6,-3,1.6); dumpster(6,22,0.4);
-sandbags(-6,10,0,5); sandbags(6,10,0,5); sandbags(14,-26,1.57,4); sandbags(-14,-26,1.57,4);
+sandbags(-6,10,0,5); sandbags(6,10,0,5); sandbags(14,-26,Math.PI/2,4); sandbags(-10,-28,Math.PI/2,4);
 rubble(-20,26,3.0); rubble(20,-30,2.6); rubble(-32,0,2.2); rubble(33,2,2.4);
 bench(-4,4,Math.PI); bench(4,4,Math.PI); bench(-12,-2,Math.PI/2);
 trashcan(-11,-4); trashcan(12,-6); trashcan(-16,12); trashcan(18,6);
-crate(-13,4,1.2); crate(-11.7,4.5,1.05); crate(13,-6,1.25); crate(25,24,1.35);
+crate(-13,4,1.2); crate(-11.7,4.5,1.05); crate(13,-6,1.25); crate(25.7,24,1.35);
 crate(-26,24,1.3); crate(-3,-24,1.2); crate(-1.5,-25,1.0); crate(20,16,1.2);
 pole(-12,-24); pole(12,-24); pole(-12,16); pole(12,16); pole(0,-38);
 hedge(-9,17,7,1.2); hedge(9,17,7,1.2);
@@ -2242,14 +2241,24 @@ function resolveCircle(p,r,y){
   for(let i=0;i<colliders.length;i++){
     const b=colliders[i];
     if(y!==undefined && (y>=b.top-0.12 || y+1.75<b.bot)) continue;  // on top of it, or entirely below it
-    const cx=clamp(p.x,b.minX,b.maxX), cz=clamp(p.z,b.minZ,b.maxZ);
-    let dx=p.x-cx, dz=p.z-cz, d2=dx*dx+dz*dz;
+    let px=p.x,pz=p.z,c=1,s=0,minX=b.minX,maxX=b.maxX,minZ=b.minZ,maxZ=b.maxZ;
+    if(b.oriented){
+      c=Math.cos(b.rot);s=Math.sin(b.rot);
+      const dx=p.x-b.x,dz=p.z-b.z;
+      px=c*dx-s*dz;pz=s*dx+c*dz;
+      minX=-b.halfW;maxX=b.halfW;minZ=-b.halfD;maxZ=b.halfD;
+    }
+    const cx=clamp(px,minX,maxX),cz=clamp(pz,minZ,maxZ);
+    let dx=px-cx,dz=pz-cz,d2=dx*dx+dz*dz;
     if(d2<r*r){
-      if(d2>1e-8){const d=Math.sqrt(d2); p.x+=dx/d*(r-d); p.z+=dz/d*(r-d);}
+      if(d2>1e-8){const d=Math.sqrt(d2);px+=dx/d*(r-d);pz+=dz/d*(r-d);}
       else{
-        const l=p.x-b.minX,rr=b.maxX-p.x,s=p.z-b.minZ,n=b.maxZ-p.z,m=Math.min(l,rr,s,n);
-        if(m===l)p.x=b.minX-r; else if(m===rr)p.x=b.maxX+r; else if(m===s)p.z=b.minZ-r; else p.z=b.maxZ+r;
+        const l=px-minX,rr=maxX-px,back=pz-minZ,front=maxZ-pz,m=Math.min(l,rr,back,front);
+        if(m===l)px=minX-r; else if(m===rr)px=maxX+r; else if(m===back)pz=minZ-r; else pz=maxZ+r;
       }
+      if(b.oriented){
+        p.x=b.x+c*px+s*pz;p.z=b.z-s*px+c*pz;
+      }else{p.x=px;p.z=pz;}
     }
   }
   p.x=clamp(p.x,-BND+1.2,BND-1.2); p.z=clamp(p.z,-BND+1.2,BND-1.2);
@@ -2258,7 +2267,12 @@ function blockedAt(x,z,r,y){
   for(let i=0;i<colliders.length;i++){
     const b=colliders[i];
     if(y!==undefined && (y>=b.top-0.12 || y+1.75<b.bot)) continue;
-    if(x>b.minX-r&&x<b.maxX+r&&z>b.minZ-r&&z<b.maxZ+r) return true;
+    if(b.oriented){
+      const c=Math.cos(b.rot),s=Math.sin(b.rot),dx=x-b.x,dz=z-b.z;
+      const lx=c*dx-s*dz,lz=s*dx+c*dz;
+      const qx=lx-clamp(lx,-b.halfW,b.halfW),qz=lz-clamp(lz,-b.halfD,b.halfD);
+      if(qx*qx+qz*qz<r*r) return true;
+    }else if(x>b.minX-r&&x<b.maxX+r&&z>b.minZ-r&&z<b.maxZ+r) return true;
   }
   return false;
 }
