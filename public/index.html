@@ -2791,7 +2791,6 @@ function kReddot(y,z,base){
     ['o',.041,.041,.012,0,y,z+.048,26],                 // rear bezel
     ['o',.033,.033,.086,0,y,z,27],                      // matte interior
     C(.030,.030,.002,0,y,z-.040,10),                    // faint lens
-    B(.0055,.0055,.003,0,y,z-.030,9),                   // the dot itself
     B(.017,.012,.014,.038,y+.002,z,1), B(.012,.017,.014,0,y+.038,z+.010,1)];
 }
 function kScope(y,z,len,base){
@@ -3127,27 +3126,29 @@ function gripHand(side,trigger){
   const D=[0,-.552,.834], W=[0,-.085,.020];
   const at=t=>[W[0]+D[0]*t, W[1]+D[1]*t, W[2]+D[2]*t];
   const p=[
-    pc(BX(.086,.098,.074),20, 0,0,.004),
-    pc(BX(.082,.026,.024),20, 0,.040,-.030),
-    pc(SP(.042),20, 0,.020,-.010, 0,0,0, 1,.9,.95)];
+    pc(SP(.050,16,12),20,0,-.004,.004,0,0,0,.92,1.08,.80),
+    pc(SP(.036,14,10),20,0,.034,-.016,0,0,0,1.04,.72,.88)];
   const fy=[.030,.006,-.018,-.040];
   for(let i=0;i<fy.length;i++){
     if(trigger&&i===0) continue;
-    p.push(pc(BX(.080,.021,.036),20, 0,fy[i],-.044, -.18+i*.05));
-    p.push(pc(BX(.080,.019,.022),20, 0,fy[i]-.004,-.062, .55));
+    p.push(limb(CY(.0105,.012,.072,12),20,0,fy[i],-.041,side,0,-.08));
+    p.push(pc(SP(.012,12,8),20,side*.035,fy[i],-.044));
+    p.push(limb(CY(.009,.0105,.044,12),20,side*.038,fy[i]-.004,-.064,0,-.10,-1));
+    p.push(pc(SP(.010,12,8),20,side*.038,fy[i]-.007,-.087,0,0,0,1,.9,1.05));
   }
   if(trigger){
-    p.push(pc(BX(.021,.022,.052),20, side*.024,.032,-.050, -.10));
-    p.push(pc(BX(.019,.020,.046),20, side*.024,.030,-.092, .18));
+    p.push(limb(CY(.0095,.011,.052,12),20,side*.028,.031,-.052,0,-.08,-1));
+    p.push(limb(CY(.0085,.0095,.043,12),20,side*.028,.026,-.097,0,-.18,-1));
+    p.push(pc(SP(.0095,12,8),20,side*.028,.022,-.119));
   }
-  p.push(pc(BX(.028,.060,.038),20, side*.041,-.006,-.014, 0,0,side*.38));
-  p.push(pc(BX(.024,.044,.030),20, side*.048,.026,-.036, 0,0,side*.55));
+  p.push(limb(CY(.011,.013,.050,12),20,side*.036,.006,-.018,side*.64,-.18,-.75));
+  p.push(pc(SP(.012,12,8),20,side*.052,.001,-.038));
   p.push(limb(CY(.036,.040,.055,10),20, W[0],W[1]+.017,W[2]-.006, D[0],D[1],D[2]));
-  p.push(pc(BX(.090,.020,.080),22, 0,-.052,.006, .20));
+  p.push(pc(CY(.054,.054,.030,16),22,0,-.054,.009,Math.PI/2));
   const c=at(.048), f=at(.200), u=at(.480);
-  p.push(limb(CY(.050,.053,.050,12),22, c[0],c[1],c[2], D[0],D[1],D[2]));
-  p.push(limb(CY(.048,.063,.300,12),21, f[0],f[1],f[2], D[0],D[1],D[2]));
-  p.push(limb(CY(.063,.074,.280,12),21, u[0],u[1],u[2], D[0],D[1],D[2]));
+  p.push(limb(CY(.050,.054,.052,16),22,c[0],c[1],c[2],D[0],D[1],D[2]));
+  p.push(limb(CY(.049,.064,.300,16),21,f[0],f[1],f[2],D[0],D[1],D[2]));
+  p.push(limb(CY(.064,.076,.280,16),21,u[0],u[1],u[2],D[0],D[1],D[2]));
   return mergeGeos(p);
 }
 
@@ -3159,21 +3160,23 @@ function foreHand(side){
   const W=[S*.058,-.032,.050];
   const at=t=>[W[0]+D[0]*t, W[1]+D[1]*t, W[2]+D[2]*t];
   const p=[
-    pc(BX(.034,.082,.104),20, S*.054,-.006,.004),                 // palm and back of hand
-    pc(SP(.044),20, S*.048,.006,-.010, 0,0,0, .8,1,1.05),
-    pc(BX(.072,.022,.104),20, S*.006,-.058,.000),                 // knuckles under the tube
-    pc(BX(.030,.056,.032),20, S*.050,.030,-.032, 0,0,-S*.55)];    // thumb over the top
+    pc(SP(.050,16,12),20,S*.047,-.010,.004,0,0,0,.72,1.02,1.12),
+    pc(SP(.038,14,10),20,S*.018,-.050,.002,0,0,0,1.05,.70,1.22)];
   const fz=[.036,.010,-.016,-.040];
   for(let i=0;i<fz.length;i++){
-    p.push(pc(BX(.074,.023,.023),20, S*.008,-.056,fz[i], 0,0,-S*.22));
-    p.push(pc(BX(.034,.023,.021),20, -S*.040,-.040,fz[i], 0,0,-S*.95));
+    p.push(limb(CY(.0105,.012,.066,12),20,S*.008,-.055,fz[i],-S,-.08,0));
+    p.push(pc(SP(.0115,12,8),20,-S*.024,-.058,fz[i]));
+    p.push(limb(CY(.009,.0105,.040,12),20,-S*.040,-.040,fz[i],-S*.18,1,0));
+    p.push(pc(SP(.0095,12,8),20,-S*.044,-.020,fz[i]));
   }
+  p.push(limb(CY(.011,.013,.056,12),20,S*.043,.026,-.020,-S*.58,.18,-.80));
+  p.push(pc(SP(.012,12,8),20,S*.026,.030,-.043));
   p.push(limb(CY(.036,.040,.058,10),20, W[0]-D[0]*.02,W[1]-D[1]*.02,W[2]-D[2]*.02, D[0],D[1],D[2]));
-  p.push(pc(BX(.026,.070,.086),22, S*.062,-.030,.030, .2,0,-S*.3));
+  p.push(pc(CY(.054,.054,.032,16),22,S*.061,-.034,.032,.22,0,-S*.28));
   const c=at(.052), f=at(.205), u=at(.485);
-  p.push(limb(CY(.050,.053,.050,12),22, c[0],c[1],c[2], D[0],D[1],D[2]));
-  p.push(limb(CY(.048,.063,.300,12),21, f[0],f[1],f[2], D[0],D[1],D[2]));
-  p.push(limb(CY(.063,.074,.280,12),21, u[0],u[1],u[2], D[0],D[1],D[2]));
+  p.push(limb(CY(.050,.054,.052,16),22,c[0],c[1],c[2],D[0],D[1],D[2]));
+  p.push(limb(CY(.049,.064,.300,16),21,f[0],f[1],f[2],D[0],D[1],D[2]));
+  p.push(limb(CY(.064,.076,.280,16),21,u[0],u[1],u[2],D[0],D[1],D[2]));
   return mergeGeos(p);
 }
 const ARM_R=gripHand(1,true), ARM_L=gripHand(-1,false), ARM_F=foreHand(-1);
@@ -3240,8 +3243,7 @@ const PACK_DOT=mergeGeos([
   pc(new THREE.CylinderGeometry(.036,.036,.011,14,1,true),26, 0,0,.043, Math.PI/2),
   pc(new THREE.CylinderGeometry(.028,.028,.004,14),10, 0,0,-.034, Math.PI/2),
   pc(new THREE.BoxGeometry(.042,.030,.074),1, 0,-.038,0),
-  pc(new THREE.BoxGeometry(.052,.014,.062),1, 0,-.055,0),
-  pc(new THREE.BoxGeometry(.0060,.0060,.004),9, 0,0,-.028)
+  pc(new THREE.BoxGeometry(.052,.014,.062),1, 0,-.055,0)
 ]);
 const DOT_Z={pistol:.030,knife:.020,smg:.050,rifle:.060,lmg:.050,shotgun:.040,wonder:.000,sniper:0};
 
@@ -4908,7 +4910,7 @@ function netColor(id){
 }
 function remoteJoint(parent,x,y,z,len,radius,mat){
   const joint=new THREE.Group(); joint.position.set(x,y,z); parent.add(joint);
-  const mesh=new THREE.Mesh(new THREE.CylinderGeometry(radius*.86,radius,len,8),mat);
+  const mesh=new THREE.Mesh(new THREE.CylinderGeometry(radius*.86,radius,len,12),mat);
   mesh.position.y=-len*.5; joint.add(mesh);
   return joint;
 }
@@ -4956,8 +4958,8 @@ function makeRemotePlayer(p){
   if(!p||p.id===net.id||net.remotes.has(p.id)) return;
   const g=new THREE.Group(),rig=new THREE.Group(),upper=new THREE.Group(),col=netColor(p.id);
   rig.add(upper);g.add(rig);
-  const uniform=new THREE.MeshPhongMaterial({color:0x4e5938,shininess:5});
-  const uniform2=new THREE.MeshPhongMaterial({color:0x303a28,shininess:4});
+  const uniform=new THREE.MeshPhongMaterial({color:0x9a9880,map:T.camo,shininess:5,specular:0x2a2e24});
+  const uniform2=new THREE.MeshPhongMaterial({color:0x626756,map:T.camo,shininess:4,specular:0x242820});
   const vest=new THREE.MeshPhongMaterial({color:0x273025,shininess:7});
   const dark=new THREE.MeshPhongMaterial({color:0x151812,shininess:12});
   const skin=new THREE.MeshPhongMaterial({color:0xb98263,shininess:7});
@@ -4981,10 +4983,11 @@ function makeRemotePlayer(p){
   add(new THREE.CylinderGeometry(.19,.19,.035,12),uniform2,0,1.80,-.005);
   const armL=remoteJoint(upper,-.255,1.49,0,.34,.072,uniform);
   const armR=remoteJoint(upper,.255,1.49,0,.34,.072,uniform);
-  const elbowL=remoteJoint(armL,0,-.34,0,.31,.058,skin);
-  const elbowR=remoteJoint(armR,0,-.34,0,.31,.058,skin);
-  add(new THREE.SphereGeometry(.062,8,6),dark,0,-.32,0,elbowL);
-  add(new THREE.SphereGeometry(.062,8,6),dark,0,-.32,0,elbowR);
+  const elbowL=remoteJoint(armL,0,-.34,0,.31,.058,uniform);
+  const elbowR=remoteJoint(armR,0,-.34,0,.31,.058,uniform);
+  const gloveL=add(new THREE.SphereGeometry(.064,12,8),dark,0,-.32,0,elbowL);
+  const gloveR=add(new THREE.SphereGeometry(.064,12,8),dark,0,-.32,0,elbowR);
+  gloveL.scale.set(.86,1.12,.78);gloveR.scale.copy(gloveL.scale);
   const legL=remoteJoint(rig,-.13,1.00,0,.43,.087,uniform2);
   const legR=remoteJoint(rig,.13,1.00,0,.43,.087,uniform2);
   const kneeL=remoteJoint(legL,0,-.42,0,.39,.068,uniform);
