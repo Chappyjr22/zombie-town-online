@@ -3152,6 +3152,37 @@ function gripHand(side,trigger){
   return mergeGeos(p);
 }
 
+/* Pistols use a much tighter two-handed pose than long guns. Keep their
+   compact hand proportions separate so rifle finger geometry cannot fold
+   through the slide or stretch the arms across the sight picture. */
+function pistolGripHand(side,trigger){
+  const D=[0,-.552,.834],W=[0,-.085,.020];
+  const at=t=>[W[0]+D[0]*t,W[1]+D[1]*t,W[2]+D[2]*t];
+  const p=[
+    pc(BX(.086,.098,.074),20,0,0,.004),
+    pc(BX(.082,.026,.024),20,0,.040,-.030),
+    pc(SP(.042),20,0,.020,-.010,0,0,0,1,.9,.95)];
+  const fy=[.030,.006,-.018,-.040];
+  for(let i=0;i<fy.length;i++){
+    if(trigger&&i===0) continue;
+    p.push(pc(BX(.080,.021,.036),20,0,fy[i],-.044,-.18+i*.05));
+    p.push(pc(BX(.080,.019,.022),20,0,fy[i]-.004,-.062,.55));
+  }
+  if(trigger){
+    p.push(pc(BX(.021,.022,.052),20,side*.024,.032,-.050,-.10));
+    p.push(pc(BX(.019,.020,.046),20,side*.024,.030,-.092,.18));
+  }
+  p.push(pc(BX(.028,.060,.038),20,side*.041,-.006,-.014,0,0,side*.38));
+  p.push(pc(BX(.024,.044,.030),20,side*.048,.026,-.036,0,0,side*.55));
+  p.push(limb(CY(.036,.040,.055,10),20,W[0],W[1]+.017,W[2]-.006,D[0],D[1],D[2]));
+  p.push(pc(BX(.090,.020,.080),22,0,-.052,.006,.20));
+  const c=at(.048),f=at(.200),u=at(.480);
+  p.push(limb(CY(.050,.053,.050,12),22,c[0],c[1],c[2],D[0],D[1],D[2]));
+  p.push(limb(CY(.048,.063,.300,12),21,f[0],f[1],f[2],D[0],D[1],D[2]));
+  p.push(limb(CY(.063,.074,.280,12),21,u[0],u[1],u[2],D[0],D[1],D[2]));
+  return mergeGeos(p);
+}
+
 /* support hand wrapped round a horizontal handguard: the tube runs along Z,
    the palm sits under and outboard, the sleeve exits down, back and outboard */
 function foreHand(side){
@@ -3179,7 +3210,8 @@ function foreHand(side){
   p.push(limb(CY(.064,.076,.280,16),21,u[0],u[1],u[2],D[0],D[1],D[2]));
   return mergeGeos(p);
 }
-const ARM_R=gripHand(1,true), ARM_L=gripHand(-1,false), ARM_F=foreHand(-1);
+const ARM_R=gripHand(1,true),ARM_L=gripHand(-1,false),ARM_F=foreHand(-1);
+const ARM_PISTOL_R=pistolGripHand(1,true),ARM_PISTOL_L=pistolGripHand(-1,false);
 
 /* [trigger hand] and [support hand]; support type 'fore' wraps a handguard,
    'grip' cups the shooting hand on a pistol. Anchors sit at the thing being held. */
@@ -3278,9 +3310,11 @@ for(const id in DEFS){
   const small=d.cls==='pistol'||d.cls==='knife'||d.id==='raygun'||d.id==='raygun2';
   const H=HANDS[id];
   if(H){
-    if(H[0]){ const a=new THREE.Mesh(ARM_R,GM); a.position.set(H[0][0],H[0][1],H[0][2]);
+    const pistol=d.cls==='pistol';
+    if(H[0]){ const a=new THREE.Mesh(pistol?ARM_PISTOL_R:ARM_R,GM); a.position.set(H[0][0],H[0][1],H[0][2]);
       a.rotation.set(H[0][3]||0,H[0][4]||0,H[0][5]||0); a.userData.arm=true; d.mesh.add(a); }
-    if(H[1]){ const a=new THREE.Mesh(H[2]==='fore'?ARM_F:ARM_L,GM); a.position.set(H[1][0],H[1][1],H[1][2]);
+    if(H[1]){ const support=pistol?ARM_PISTOL_L:(H[2]==='fore'?ARM_F:ARM_L);
+      const a=new THREE.Mesh(support,GM); a.position.set(H[1][0],H[1][1],H[1][2]);
       a.rotation.set(H[1][3]||0,H[1][4]||0,H[1][5]||0); a.userData.arm=true; d.mesh.add(a); }
   }
   if(!d.reddot&&!d.scoped){
