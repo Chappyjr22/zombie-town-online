@@ -164,11 +164,11 @@ Mystery Box crate sounds use Minetest's `default_chest_open.ogg` and `default_ch
 
 Fire barrel crackle uses [“Fire, Campfire, Bonfire”](https://freesound.org/people/yaros_nov/sounds/434026/) by yaros_nov under CC0. The bundled proximity loop is a normalized mono Ogg conversion of the original field recording.
 
-The map ambience recordings are sourced from CC0 FreeSound recordings preserved in Nicky Case's open game repositories:
+The map ambience recordings use CC0 field recordings:
 
-- Town: “Night City Ambience” by amszala, from [Coming Out Simulator](https://github.com/ncase/cos)
-- Nuketown: [“Nature ambient” by michorvath](https://freesound.org/people/michorvath/sounds/427601/), from [Adventures With Anxiety](https://github.com/ncase/anxiety)
-- BLACKSIRE: “Room Ambience” by gchase, from [Coming Out Simulator](https://github.com/ncase/cos)
+- Town: [“Ambience: Night in nature (South of France) - 6”](https://freesound.org/people/SamuelGremaud/sounds/437003/) by SamuelGremaud, recorded outdoors with a Zoom H4N Pro and Rycote windscreen
+- Nuketown: [“Nature ambient” by michorvath](https://freesound.org/people/michorvath/sounds/427601/), preserved in [Adventures With Anxiety](https://github.com/ncase/anxiety)
+- BLACKSIRE: “Room Ambience” by gchase, preserved in [Coming Out Simulator](https://github.com/ncase/cos)
 
 Jump pads use [“Swosh swoosh whoosh air sound”](https://freesound.org/people/qubodup/sounds/60026/) by qubodup under CC0. It is a field recording made by swinging a bamboo stick past a Zoom H2 recorder.
 
