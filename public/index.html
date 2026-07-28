@@ -464,12 +464,17 @@
 <script type="importmap">
 {
   "imports": {
-    "three": "/vendor/three/three.module.min.js"
+    "three": "/vendor/three/three.module.min.js",
+    "three/addons/": "/vendor/three/addons/"
   }
 }
 </script>
 <script type="module">
 import * as THREE from "three";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 /* ===================================================================
    TOWN - first person zombie survival
    Single file. Three.js r160 (vendored locally, no CDN). No build step.
@@ -506,10 +511,19 @@ viewScene.add(new THREE.AmbientLight(0xa8b4cc,0.8));
 const vk=new THREE.DirectionalLight(0xfff0d8,0.9); vk.position.set(0.6,1.2,0.9); viewScene.add(vk);
 const vr=new THREE.DirectionalLight(0x5a74a0,0.55); vr.position.set(-0.9,0.1,-1); viewScene.add(vr);
 
+/* bloom only wraps the world scene, not the first-person viewmodel, so weapon detail stays crisp */
+const composer=new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene,camera));
+const bloomPass=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.55,0.4,0.86);
+composer.addPass(bloomPass);
+composer.addPass(new OutputPass());
+
 addEventListener('resize',()=>{
   camera.aspect=viewCam.aspect=innerWidth/innerHeight;
   camera.updateProjectionMatrix(); viewCam.updateProjectionMatrix();
   renderer.setSize(innerWidth,innerHeight);
+  composer.setSize(innerWidth,innerHeight);
+  bloomPass.resolution.set(innerWidth,innerHeight);
 });
 
 /* ---------- textures ---------- */
@@ -6199,7 +6213,7 @@ function loop(){
   updateEffects(dt);
   if(SET.fps){ fpsAcc+=dt; fpsN++; if(fpsAcc>=0.5){ el('fps').textContent=Math.round(fpsN/fpsAcc)+' fps'; fpsAcc=0; fpsN=0; } }
   renderer.clear();
-  renderer.render(scene,camera);
+  composer.render();
   renderer.clearDepth();
   renderer.render(viewScene,viewCam);
 }
