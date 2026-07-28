@@ -591,6 +591,21 @@ T.scorch=tex(128,128,(x,w,h)=>{
   g.addColorStop(1,'rgba(15,12,10,0)');x.fillStyle=g;x.fillRect(0,0,w,h);
 });
 T.scorch.wrapS=T.scorch.wrapT=THREE.ClampToEdgeWrapping;
+T.chainLink=tex(96,96,(x,w,h)=>{
+  x.clearRect(0,0,w,h);x.strokeStyle='rgba(185,191,198,.72)';x.lineWidth=2;
+  for(let i=-h;i<w+h;i+=16){
+    x.beginPath();x.moveTo(i,0);x.lineTo(i-h,h);x.stroke();
+    x.beginPath();x.moveTo(i,0);x.lineTo(i+h,h);x.stroke();
+  }
+},3,3);
+T.foliage=tex(96,96,(x,w,h)=>{
+  x.fillStyle='#24351f';x.fillRect(0,0,w,h);
+  for(let i=0;i<180;i++){
+    const c=pick(['#304a29','#3b5730','#243d22','#496139']);
+    x.fillStyle=c;x.beginPath();x.ellipse(rand(0,w),rand(0,h),rand(2,6),rand(1,3),rand(0,TAU),0,TAU);x.fill();
+  }
+  grain(x,w,h,14);
+},3,2);
 
 
 /* ---------- close-up textures for weapons and kit ---------- */
@@ -656,6 +671,11 @@ M.boxMetal=phong({color:0x292b31,shininess:48,specular:0x777b82});
 M.boxInside=phong({color:0x170f0a,emissive:0x6f3508,emissiveIntensity:.55});
 M.busStripe=phong({color:0xe0d29a,shininess:28,specular:0x6f684d});
 M.busMarker=phong({color:0xe28a19,emissive:0xff9a1f,emissiveIntensity:.65,shininess:70});
+M.sandbag=phong({color:0x766b49,shininess:4,specular:0x2a2519});
+M.foliage=phong({map:T.foliage,color:0x607455,shininess:3,specular:0x111811});
+M.foliageDark=phong({map:T.foliage,color:0x394b34,shininess:2,specular:0x0c110c});
+M.chainLink=new THREE.MeshPhongMaterial({map:T.chainLink,color:0xb6bbc2,transparent:true,opacity:.68,
+  alphaTest:.08,side:THREE.DoubleSide,shininess:70,specular:0x8e949b,depthWrite:false});
 
 /* ---------- geometry merging (core three only, no examples build) ---------- */
 const _mm=new THREE.Matrix4(),_mq=new THREE.Quaternion(),_me=new THREE.Euler();
@@ -982,69 +1002,196 @@ function car(x,z,rot,col){
   g.position.set(x,0,z); g.rotation.y=rot; worldRoot.add(g);
   addYawCollider(x,z,2.30,4.48,rot,2.15,0,0.025);
 }
+const PROP_BOX=new THREE.BoxGeometry(1,1,1);
+const PROP_SPHERE=new THREE.SphereGeometry(1,14,9);
+const PROP_SACK=new THREE.SphereGeometry(1,16,10);
+const PROP_RUBBLE=new THREE.DodecahedronGeometry(1,0);
+const PROP_RIVET=new THREE.SphereGeometry(1,8,6);
+const PROP_TIRE=new THREE.TorusGeometry(1,.24,8,18);
 function dumpster(x,z,rot){
-  const g=new THREE.Group();
-  const b=new THREE.Mesh(new THREE.BoxGeometry(2.4,1.4,1.3),M.green); b.position.y=0.8; g.add(b); blockers.push(b);
-  const l=new THREE.Mesh(new THREE.BoxGeometry(2.5,0.14,1.4),phong({color:0x22301f})); l.position.set(0,1.55,-0.2); l.rotation.x=-0.3; g.add(l); blockers.push(l);
-  g.position.set(x,0,z); g.rotation.y=rot; worldRoot.add(g);
-  addYawCollider(x,z,2.5,1.4,rot,1.62,0,0.08);
+  const R=rot||0,g=new THREE.Group();
+  const geo=mergeGeos([
+    pc(PROP_BOX,0,0,.73,0,0,0,0,2.30,1.18,1.22),
+    pc(PROP_BOX,0,0,1.29,0,0,0,0,2.42,.14,1.34),
+    pc(PROP_BOX,1,0,.18,0,0,0,0,2.38,.14,1.27),
+    ...[-.82,0,.82].flatMap(xx=>[
+      pc(PROP_BOX,1,xx,.72,-.625,0,0,0,.055,1.04,.055),
+      pc(PROP_BOX,1,xx,.72,.625,0,0,0,.055,1.04,.055)
+    ]),
+    pc(PROP_BOX,1,-1.175,.72,0,0,0,0,.055,1.04,1.05),
+    pc(PROP_BOX,1,1.175,.72,0,0,0,0,.055,1.04,1.05),
+    pc(PROP_BOX,0,0,1.43,-.34,-.08,0,0,2.42,.12,.65),
+    pc(PROP_BOX,0,0,1.43,.34,.08,0,0,2.42,.12,.65),
+    pc(PROP_BOX,2,-.78,.11,-.53,0,0,Math.PI/2,.22,.22,.10),
+    pc(PROP_BOX,2,.78,.11,-.53,0,0,Math.PI/2,.22,.22,.10),
+    pc(PROP_BOX,2,-.78,.11,.53,0,0,Math.PI/2,.22,.22,.10),
+    pc(PROP_BOX,2,.78,.11,.53,0,0,Math.PI/2,.22,.22,.10),
+    pc(PROP_BOX,2,0,.84,-.665,0,0,0,.48,.12,.055)
+  ]);
+  const mesh=new THREE.Mesh(geo,[M.green,M.dark,M.metal]);g.add(mesh);blockers.push(mesh);
+  const warnTex=tex(128,64,(c,w,h)=>{
+    c.fillStyle='#d6b13a';c.fillRect(0,0,w,h);c.fillStyle='#181818';
+    c.font='bold 22px Arial';c.textAlign='center';c.textBaseline='middle';c.fillText('WASTE',w/2,h/2);
+    c.strokeStyle='#1b1b1b';c.lineWidth=4;c.strokeRect(3,3,w-6,h-6);
+  });
+  const warn=new THREE.Mesh(new THREE.PlaneGeometry(.70,.34),new THREE.MeshBasicMaterial({map:warnTex}));
+  warn.position.set(0,.87,-.66);warn.rotation.y=Math.PI;g.add(warn);
+  g.position.set(x,0,z);g.rotation.y=R;worldRoot.add(g);
+  addYawCollider(x,z,2.44,1.36,R,1.52,0,0.025);
 }
 function sandbags(x,z,rot,n,y0){
-  const g=new THREE.Group();
-  for(let r=0;r<2;r++) for(let i=0;i<n;i++){
-    const s=new THREE.Mesh(new THREE.BoxGeometry(0.72,0.32,0.44),phong({color:0x6b6144}));
-    s.position.set((i-(n-1)/2)*0.74+(r?0.35:0),0.17+r*0.33,0); s.rotation.y=rand(-.06,.06); g.add(s); blockers.push(s);
+  const g=new THREE.Group(),bags=[],seams=[];
+  for(let row=0;row<2;row++) for(let i=0;i<n;i++){
+    const px=(i-(n-1)/2)*.72+(row?.34:0),py=.17+row*.31,yaw=rand(-.07,.07);
+    bags.push(pc(PROP_SACK,0,px,py,0,0,yaw,0,.39,.16,.25));
+    seams.push(pc(PROP_BOX,0,px,py+.155,0,0,yaw,0,.52,.018,.035));
   }
-  const y=y0||0;
-  g.position.set(x,y,z); g.rotation.y=rot; worldRoot.add(g);
-  addYawCollider(x,z,n*0.74+0.35,0.5,rot,y+0.7,y,0.04);
+  const body=new THREE.Mesh(mergeGeos(bags),M.sandbag);g.add(body);blockers.push(body);
+  const stitch=new THREE.Mesh(mergeGeos(seams),M.dark);g.add(stitch);
+  const y=y0||0,R=rot||0;
+  g.position.set(x,y,z);g.rotation.y=R;worldRoot.add(g);
+  addYawCollider(x,z,n*.72+.38,.56,R,y+.66,y,0.025);
 }
 function rubble(x,z,r){
   for(let i=0;i<9;i++){
     const s=rand(0.3,1.0),h=s*rand(.5,1),d=s*rand(.6,1.2);
     const px=x+rand(-r,r),pz=z+rand(-r,r),yaw=rand(0,TAU);
-    const m=new THREE.Mesh(new THREE.BoxGeometry(s,h,d),M.concrete);
+    const m=new THREE.Mesh(PROP_RUBBLE,M.concrete);
     m.position.set(px,h/2,pz); m.rotation.set(rand(-.22,.22),yaw,rand(-.22,.22));
+    m.scale.set(s*.58,h*.58,d*.58);
     worldRoot.add(m); blockers.push(m);
+    if(i%4===0){
+      const rebar=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,s*1.25,7),M.rust);
+      rebar.position.set(px,h*.72,pz);rebar.rotation.set(rand(.8,1.4),yaw,rand(-.4,.4));
+      worldRoot.add(rebar);blockers.push(rebar);
+    }
     // Only substantial chunks block movement, and their collision follows the
     // visible piece instead of wrapping the whole debris field in a solid box.
-    if(s>.62) addYawCollider(px,pz,s,d,yaw,h+.15,0,0.06);
+    if(s>.62) addYawCollider(px,pz,s*.9,d*.9,yaw,h+.12,0,0.035);
   }
 }
 function bench(x,z,rot){
-  const g=new THREE.Group();
-  const s=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.14,0.6),M.plank); s.position.y=0.5; g.add(s); blockers.push(s);
-  const b=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.5,0.12),M.plank); b.position.set(0,0.78,-0.24); g.add(b); blockers.push(b);
-  for(const dx of [-0.9,0.9]){const l=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.5,0.5),M.metal); l.position.set(dx,0.25,0); g.add(l);}
-  g.position.set(x,0,z); g.rotation.y=rot; worldRoot.add(g);
-  addYawCollider(x,z,2.2,1.0,rot,0.92,0,0.04);
+  const R=rot||0,g=new THREE.Group(),wood=[],metal=[];
+  for(const zz of [-.24,-.08,.08,.24]) wood.push(pc(PROP_BOX,0,0,.53,zz,0,0,0,2.25,.10,.12));
+  for(const yy of [.72,.89,1.06]) wood.push(pc(PROP_BOX,0,0,yy,-.31,-.12,0,0,2.25,.11,.12));
+  for(const dx of [-.88,.88]){
+    metal.push(pc(PROP_BOX,0,dx,.27,0,0,0,0,.10,.48,.48));
+    metal.push(pc(PROP_BOX,0,dx,.66,-.26,-.18,0,0,.10,.80,.10));
+    metal.push(pc(PROP_BOX,0,dx,.69,.33,0,0,0,.10,.10,.42));
+    for(const yy of [.53,.89]) metal.push(pc(PROP_RIVET,0,dx,yy,-.375,0,0,0,.035,.035,.035));
+  }
+  const slats=new THREE.Mesh(mergeGeos(wood),M.plank);g.add(slats);blockers.push(slats);
+  const frame=new THREE.Mesh(mergeGeos(metal),M.metal);g.add(frame);blockers.push(frame);
+  g.position.set(x,0,z);g.rotation.y=R;worldRoot.add(g);
+  addYawCollider(x,z,2.28,.80,R,1.15,0,0.025);
 }
-function trashcan(x,z){ cyl(0.4,0.34,1.0,x,0.5,z,M.metal,true); }
-function crate(x,z,s,rot,y0){ const y=y0||0,m=bx(s,s,s,x,y+s/2,z,M.plank,true); m.rotation.y=rot||rand(0,TAU); }
+function trashcan(x,z){
+  const g=new THREE.Group(),body=new THREE.Mesh(new THREE.CylinderGeometry(.34,.39,.92,20),M.metal);
+  body.position.y=.49;g.add(body);blockers.push(body);
+  for(const yy of [.13,.44,.75]){
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(.37,.025,7,20),M.dark);
+    ring.rotation.x=Math.PI/2;ring.position.y=yy;g.add(ring);
+  }
+  for(let i=0;i<8;i++){
+    const rib=new THREE.Mesh(new THREE.BoxGeometry(.025,.70,.035),M.dark);
+    const a=i*TAU/8;rib.position.set(Math.sin(a)*.36,.50,Math.cos(a)*.36);rib.rotation.y=a;g.add(rib);
+  }
+  const lid=new THREE.Mesh(new THREE.CylinderGeometry(.42,.38,.10,20),M.metal);
+  lid.position.y=1.0;g.add(lid);blockers.push(lid);
+  const handle=new THREE.Mesh(new THREE.TorusGeometry(.13,.025,6,14,Math.PI),M.dark);
+  handle.position.y=1.09;g.add(handle);
+  g.position.set(x,0,z);worldRoot.add(g);addYawCollider(x,z,.84,.84,0,1.12,0,0.015);
+}
+function crate(x,z,s,rot,y0){
+  const y=y0||0,R=rot===undefined?rand(0,TAU):rot,g=new THREE.Group(),parts=[];
+  parts.push(pc(PROP_BOX,0,0,s*.50,0,0,0,0,s*.94,s*.94,s*.94));
+  for(const side of [-1,1]){
+    parts.push(pc(PROP_BOX,1,0,s*.50,side*s*.48,0,0,0,s,0.10*s,.08*s));
+    parts.push(pc(PROP_BOX,1,0,s*.18,side*s*.48,0,0,0,s,.09*s,.08*s));
+    parts.push(pc(PROP_BOX,1,0,s*.82,side*s*.48,0,0,0,s,.09*s,.08*s));
+    parts.push(pc(PROP_BOX,1,side*s*.48,s*.50,0,0,0,0,.08*s,.94*s,.09*s));
+  }
+  for(const side of [-1,1]){
+    parts.push(pc(PROP_BOX,1,side*s*.48,s*.50,0,0,0,side*.70,.08*s,.10*s,1.18*s));
+    parts.push(pc(PROP_BOX,1,0,s*.50,side*s*.48,0,0,side*.70,1.18*s,.10*s,.08*s));
+  }
+  const mesh=new THREE.Mesh(mergeGeos(parts),[M.plank,M.wood]);g.add(mesh);blockers.push(mesh);
+  g.position.set(x,y,z);g.rotation.y=R;worldRoot.add(g);
+  addYawCollider(x,z,s,s,R,y+s,y,0.015);
+}
 function pole(x,z){
-  cyl(0.16,0.2,8.5,x,4.25,z,M.wood,true);
-  bx(2.4,0.16,0.16,x,7.6,z,M.wood,false);
-  bx(1.8,0.14,0.14,x,7.0,z,M.wood,false);
-}
-function hedge(x,z,w,d){ const m=bx(w,1.3,d,x,0.65,z,phong({color:0x223022}),true); }
-function phoneBooth(x,z,rot){
   const g=new THREE.Group();
-  const f=new THREE.Mesh(new THREE.BoxGeometry(1.0,2.4,1.0),phong({color:0x2a4a6a,transparent:true,opacity:.75}));
-  f.position.y=1.2; g.add(f); blockers.push(f);
-  const t=new THREE.Mesh(new THREE.BoxGeometry(1.1,0.25,1.1),phong({color:0x1b3450})); t.position.y=2.5; g.add(t);
-  g.position.set(x,0,z); g.rotation.y=rot; worldRoot.add(g);
-  addCollider(x-0.55,x+0.55,z-0.55,z+0.55,2.4);
+  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.14,.21,8.5,14),M.wood);shaft.position.y=4.25;g.add(shaft);blockers.push(shaft);
+  for(const yy of [7.62,7.05]){
+    const arm=new THREE.Mesh(new THREE.BoxGeometry(yy>7.2?2.5:1.85,.15,.18),M.wood);arm.position.y=yy;g.add(arm);
+    for(const xx of yy>7.2?[-.94,0,.94]:[-.66,.66]){
+      const ins=new THREE.Mesh(new THREE.CylinderGeometry(.08,.11,.24,10),M.glassBroken);
+      ins.position.set(xx,yy+.19,0);g.add(ins);
+      const cap=new THREE.Mesh(new THREE.SphereGeometry(.07,10,7),M.metal);cap.position.set(xx,yy+.33,0);g.add(cap);
+    }
+  }
+  const tag=new THREE.Mesh(new THREE.BoxGeometry(.24,.38,.035),M.metal);tag.position.set(0,2.0,.18);g.add(tag);
+  g.position.set(x,0,z);worldRoot.add(g);addYawCollider(x,z,.44,.44,0,8.5,0,0.015);
+}
+function hedge(x,z,w,d){
+  const items=[],cols=Math.max(3,Math.round(w/.65)),rows=2;
+  for(let row=0;row<rows;row++) for(let i=0;i<cols;i++){
+    const px=lerp(-w/2+.28,w/2-.28,(i+.5)/cols),pz=(row?.17:-.17)+rand(-.08,.08);
+    items.push(pc(PROP_SPHERE,0,px,.55+row*.28,pz,0,rand(0,TAU),0,
+      .46+rand(-.08,.08),.48+rand(-.07,.09),Math.max(.30,d*.48)));
+  }
+  const m=new THREE.Mesh(mergeGeos(items),M.foliage);m.position.set(x,0,z);worldRoot.add(m);blockers.push(m);
+  addYawCollider(x,z,w,d,0,1.35,0,0.025);
+}
+function phoneBooth(x,z,rot){
+  const R=rot||0,g=new THREE.Group(),frame=[];
+  frame.push(pc(PROP_BOX,0,0,.08,0,0,0,0,1.12,.16,1.12));
+  frame.push(pc(PROP_BOX,0,0,2.36,0,0,0,0,1.16,.22,1.16));
+  for(const sx of [-.52,.52]) for(const sz of [-.52,.52])
+    frame.push(pc(PROP_BOX,0,sx,1.20,sz,0,0,0,.10,2.24,.10));
+  for(const sx of [-.52,.52]) for(const yy of [.72,1.48,2.15])
+    frame.push(pc(PROP_BOX,0,sx,yy,0,0,0,0,.10,.07,1.02));
+  const shell=new THREE.Mesh(mergeGeos(frame),phong({color:0x244b70,shininess:55,specular:0x567997}));
+  g.add(shell);blockers.push(shell);
+  const glassItems=[
+    pc(PROP_BOX,0,0,1.45,-.535,0,0,0,.86,1.54,.025),
+    pc(PROP_BOX,0,-.535,1.45,0,0,0,0,.025,1.54,.86),
+    pc(PROP_BOX,0,.535,1.45,0,0,0,0,.025,1.54,.86)
+  ];
+  const panes=new THREE.Mesh(mergeGeos(glassItems),M.glassBroken);g.add(panes);blockers.push(panes);
+  const phone=new THREE.Mesh(new THREE.BoxGeometry(.34,.48,.18),M.dark);phone.position.set(-.25,1.22,.40);g.add(phone);
+  const receiver=new THREE.Mesh(new THREE.CylinderGeometry(.045,.045,.24,10),M.metal);
+  receiver.position.set(-.25,1.26,.29);receiver.rotation.z=Math.PI/2;g.add(receiver);
+  for(const xx of [-.37,-.13]){
+    const ear=new THREE.Mesh(new THREE.SphereGeometry(.065,10,7),M.metal);
+    ear.position.set(xx,1.26,.29);ear.scale.set(1,.72,.72);g.add(ear);
+  }
+  const handle=new THREE.Mesh(new THREE.BoxGeometry(.035,.28,.035),M.chrome);handle.position.set(.40,1.18,-.56);g.add(handle);
+  const signTex=tex(160,48,(c,w,h)=>{c.fillStyle='#e7edf2';c.fillRect(0,0,w,h);
+    c.fillStyle='#17334f';c.font='bold 27px Arial';c.textAlign='center';c.textBaseline='middle';c.fillText('TELEPHONE',w/2,h/2+1);});
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(.92,.28),new THREE.MeshBasicMaterial({map:signTex}));
+  sign.position.set(0,2.38,-.591);sign.rotation.y=Math.PI;g.add(sign);
+  g.position.set(x,0,z);g.rotation.y=R;worldRoot.add(g);
+  addYawCollider(x,z,1.16,1.16,R,2.48,0,0.02);
 }
 function fenceRun(x1,z1,x2,z2){
   const horiz=Math.abs(x2-x1)>Math.abs(z2-z1);
   const len=Math.hypot(x2-x1,z2-z1), n=Math.max(1,Math.round(len/2.4));
   for(let i=0;i<n;i++){
     const t=(i+0.5)/n, x=lerp(x1,x2,t), z=lerp(z1,z2,t);
-    const m=new THREE.Mesh(new THREE.BoxGeometry(horiz?2.3:0.18,3.0,horiz?0.18:2.3),M.fence);
-    m.position.set(x,1.5,z); worldRoot.add(m); blockers.push(m);
-    if(i%3===0){const p=new THREE.Mesh(new THREE.BoxGeometry(0.22,3.4,0.22),M.dark); p.position.set(x,1.7,z); worldRoot.add(p);}
+    const panel=new THREE.Mesh(new THREE.PlaneGeometry(2.32,2.82),M.chainLink);
+    panel.position.set(x,1.48,z);if(!horiz)panel.rotation.y=Math.PI/2;worldRoot.add(panel);blockers.push(panel);
+    for(const yy of [.10,1.48,2.88]){
+      const rail=new THREE.Mesh(new THREE.BoxGeometry(horiz?2.36:.075,.075,horiz?.075:2.36),M.metal);
+      rail.position.set(x,yy,z);worldRoot.add(rail);blockers.push(rail);
+    }
+    if(i%3===0){
+      const p=new THREE.Mesh(new THREE.CylinderGeometry(.10,.13,3.35,10),M.dark);
+      p.position.set(x,1.67,z);worldRoot.add(p);blockers.push(p);
+      const cap=new THREE.Mesh(new THREE.SphereGeometry(.13,10,7),M.metal);cap.position.set(x,3.38,z);worldRoot.add(cap);
+    }
   }
-  addCollider(Math.min(x1,x2)-0.3,Math.max(x1,x2)+0.3,Math.min(z1,z2)-0.3,Math.max(z1,z2)+0.3);
+  addCollider(Math.min(x1,x2)-0.14,Math.max(x1,x2)+0.14,Math.min(z1,z2)-0.14,Math.max(z1,z2)+0.14,3.45,0);
 }
 function jumpPad(x,z){
   const m=new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.2,0.3,14),
@@ -1539,7 +1686,7 @@ function chain(x1,z1,x2,z2,h){
     const t=i/n, p=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,(h||2.4)+0.2,7),M.metal);
     p.position.set(lerp(x1,x2,t),((h||2.4)+0.2)/2,lerp(z1,z2,t)); worldRoot.add(p); blockers.push(p);
   }
-  addCollider(Math.min(x1,x2)-0.14,Math.max(x1,x2)+0.14,Math.min(z1,z2)-0.14,Math.max(z1,z2)+0.14);
+  addCollider(Math.min(x1,x2)-0.14,Math.max(x1,x2)+0.14,Math.min(z1,z2)-0.14,Math.max(z1,z2)+0.14,(h||2.4)+.2,0);
 }
 function mannequin(x,z,rot,pose){
   const g=new THREE.Group(), m=M.mannequin;
@@ -1580,8 +1727,12 @@ function swingSet(x,z,rot){
     const seat=new THREE.Mesh(new THREE.BoxGeometry(.44,.05,.18),M.dark);
     seat.position.set(s,0.86,0); g.add(seat); blockers.push(seat);
   }
-  g.position.set(x,0,z); g.rotation.y=rot||0; worldRoot.add(g);
-  addCollider(x-1.7,x+1.7,z-0.9,z+0.9,0.1);
+  const R=rot||0;g.position.set(x,0,z);g.rotation.y=R;worldRoot.add(g);
+  const c=Math.cos(R),sn=Math.sin(R);
+  for(const sx of [-1,1]) for(const sz of [-1,1]){
+    const lx=sx*1.5,lz=sz*.70,px=x+lx*c+lz*sn,pz=z-lx*sn+lz*c;
+    addYawCollider(px,pz,.22,.22,R,2.50,0,0.02);
+  }
 }
 function pool(x,z){
   const w=new THREE.Mesh(new THREE.CylinderGeometry(1.35,1.35,0.22,18),
@@ -1589,7 +1740,8 @@ function pool(x,z){
   w.position.set(x,0.13,z); worldRoot.add(w); blockers.push(w);
   const r=new THREE.Mesh(new THREE.TorusGeometry(1.42,0.13,7,20),phong({color:0xcfd6dc}));
   r.rotation.x=Math.PI/2; r.position.set(x,0.16,z); worldRoot.add(r); blockers.push(r);
-  addCollider(x-1.5,x+1.5,z-1.5,z+1.5,0.3);
+  addCollider(x-1.50,x+1.50,z-.72,z+.72,.32,0);
+  addCollider(x-.72,x+.72,z-1.50,z+1.50,.32,0);
 }
 function testTower(x,z){
   const g=new THREE.Group();
@@ -1610,27 +1762,66 @@ function testTower(x,z){
 
 /* ---------- Nuketown vehicles ---------- */
 function schoolBus(x,z,rot){
-  const g=new THREE.Group();
-  const paint=phong({color:0xd9b62c,shininess:38});
-  const body=new THREE.Mesh(new THREE.BoxGeometry(2.9,2.5,11.0),paint);
-  body.position.y=1.75; g.add(body); blockers.push(body);
-  const win=new THREE.Mesh(new THREE.BoxGeometry(2.96,0.9,8.6),M.glassBroken);
-  win.position.y=2.45; g.add(win); blockers.push(win);
-  const roof=new THREE.Mesh(new THREE.BoxGeometry(2.72,0.24,10.8),phong({color:0xe8dcc4}));
-  roof.position.y=3.08; g.add(roof); blockers.push(roof);
-  const skirt=new THREE.Mesh(new THREE.BoxGeometry(2.94,0.55,11.0),phong({color:0x1c1d22}));
-  skirt.position.y=0.72; g.add(skirt); blockers.push(skirt);
-  const stripe=new THREE.Mesh(new THREE.BoxGeometry(2.98,0.22,11.0),phong({color:0x1c1d22}));
-  stripe.position.y=1.34; g.add(stripe);
-  const hood=new THREE.Mesh(new THREE.BoxGeometry(2.5,1.15,1.6),paint);
-  hood.position.set(0,1.05,-6.1); g.add(hood); blockers.push(hood);
-  for(const wz of [-4.6,3.4,4.9]) for(const wx of [-1.36,1.36]){
-    const w=new THREE.Mesh(new THREE.CylinderGeometry(0.56,0.56,0.42,12),M.dark);
-    w.rotation.z=Math.PI/2; w.position.set(wx,0.56,wz); g.add(w);
+  const R=rot||0,g=new THREE.Group(),box=new THREE.BoxGeometry(1,1,1);
+  const bodyGeo=mergeGeos([
+    pc(box,0,0,1.12,.18,0,0,0,2.88,1.55,10.35),
+    pc(box,0,0,2.24,.25,0,0,0,2.72,1.35,9.90),
+    pc(CAR_ROOF_SPHERE,0,0,3.00,.25,0,0,0,1.40,.55,5.05),
+    pc(CAR_BODY_SPHERE,0,0,1.10,-5.45,0,0,0,1.28,.48,1.16),
+    pc(box,0,0,1.00,-5.48,0,0,0,2.48,.74,1.78)
+  ]);
+  const paint=phong({color:0xd9b62c,shininess:48,specular:0x8b7932});
+  const body=new THREE.Mesh(bodyGeo,paint);g.add(body);blockers.push(body);
+
+  const glassItems=[];
+  for(const sx of [-1,1]) for(const wz of [-3.65,-2.55,-1.45,-.35,.75,1.85,2.95,4.05])
+    glassItems.push(pc(box,0,sx*1.395,2.40,wz,0,0,0,.035,.72,.82));
+  glassItems.push(pc(box,0,-.63,2.34,-4.78,0,0,0,1.04,.74,.035));
+  glassItems.push(pc(box,0,.63,2.34,-4.78,0,0,0,1.04,.74,.035));
+  glassItems.push(pc(box,0,1.425,1.88,-4.18,0,0,0,.035,1.56,.38));
+  glassItems.push(pc(box,0,1.425,1.88,-3.74,0,0,0,.035,1.56,.38));
+  const glass=new THREE.Mesh(mergeGeos(glassItems),M.glassBroken);g.add(glass);blockers.push(glass);
+
+  const lamp=new THREE.SphereGeometry(1,14,8),details=[
+    pc(box,0,-1.43,.75,.15,0,0,0,.04,.52,10.55),
+    pc(box,0,1.43,.75,.15,0,0,0,.04,.52,10.55),
+    pc(box,0,-1.435,1.45,.22,0,0,0,.04,.19,10.30),
+    pc(box,0,1.435,1.45,.22,0,0,0,.04,.19,10.30),
+    pc(box,0,0,.52,-6.38,0,0,0,2.72,.18,.16),
+    pc(box,1,0,.91,-6.33,0,0,0,1.24,.34,.055),
+    ...[-.42,-.14,.14,.42].map(xx=>pc(box,2,xx,.91,-6.37,0,0,0,.035,.30,.035)),
+    pc(lamp,3,-.74,1.06,-6.34,0,0,0,.28,.17,.075),
+    pc(lamp,3,.74,1.06,-6.34,0,0,0,.28,.17,.075),
+    pc(lamp,4,-.88,1.05,5.37,0,0,0,.19,.22,.07),
+    pc(lamp,4,.88,1.05,5.37,0,0,0,.19,.22,.07),
+    ...[-4.20,-3.10,-2.00,-.90,.20,1.30,2.40,3.50,4.55].flatMap(wz=>[
+      pc(box,1,-1.435,2.40,wz,0,0,0,.045,.80,.045),
+      pc(box,1,1.435,2.40,wz,0,0,0,.045,.80,.045)
+    ]),
+    pc(box,1,1.455,1.88,-4.41,0,0,0,.05,1.72,.045),
+    pc(box,1,1.455,1.88,-3.96,0,0,0,.05,1.72,.035),
+    pc(box,1,1.455,1.88,-3.51,0,0,0,.05,1.72,.045),
+    pc(box,2,0,3.55,.22,0,0,0,2.58,.10,9.82),
+    pc(box,2,-1.70,2.56,-4.42,0,0,.18,.52,.05,.05),
+    pc(box,2,1.70,2.56,-4.42,0,0,-.18,.52,.05,.05),
+    pc(CAR_MIRROR_SPHERE,1,-1.94,2.56,-4.46,0,0,0,.22,.28,.09),
+    pc(CAR_MIRROR_SPHERE,1,1.94,2.56,-4.46,0,0,0,.22,.28,.09)
+  ];
+  const trim=new THREE.Mesh(mergeGeos(details),[M.dark,M.chrome,M.metal,M.headlight,M.taillight]);
+  g.add(trim);blockers.push(trim);
+
+  const wheels=[];
+  for(const wz of [-4.55,3.35,4.70]) for(const wx of [-1.45,1.45]){
+    wheels.push(pc(CAR_TIRE_TORUS,0,wx,.58,wz,0,Math.PI/2,0,1.36,1.36,1.36));
+    wheels.push(pc(CAR_RIM_CYL,1,wx,.58,wz,0,0,Math.PI/2,1.35,1.35,1.35));
   }
-  g.position.set(x,0,z); g.rotation.y=rot||0; worldRoot.add(g);
-  const c=Math.abs(Math.cos(rot||0)), s=Math.abs(Math.sin(rot||0));
-  addCollider(x-(2.9*c+12.6*s)/2,x+(2.9*c+12.6*s)/2,z-(2.9*s+12.6*c)/2,z+(2.9*s+12.6*c)/2,3.2);
+  const wheelMesh=new THREE.Mesh(mergeGeos(wheels),[M.dark,M.chrome]);g.add(wheelMesh);blockers.push(wheelMesh);
+  const signTex=tex(192,48,(c,w,h)=>{c.fillStyle='#171819';c.fillRect(0,0,w,h);
+    c.fillStyle='#f2c936';c.font='bold 24px Arial';c.textAlign='center';c.textBaseline='middle';c.fillText('NUKETOWN SCHOOL',w/2,h/2);});
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(1.68,.38),new THREE.MeshBasicMaterial({map:signTex}));
+  sign.position.set(0,3.04,-4.82);sign.rotation.y=Math.PI;g.add(sign);
+  g.position.set(x,0,z);g.rotation.y=R;worldRoot.add(g);
+  addYawCollider(x,z,3.00,12.80,R,3.60,0,0.035);
 }
 /* Westward Moving van. Cargo is open on both sides with a ramp, so it is a
    through route across the road, not just a box to hide in. */
@@ -1699,42 +1890,64 @@ function movingTruck(x,z,rot){
   }
 }
 function jeep(x,z,rot){
-  const g=new THREE.Group();
+  const R=rot||0,g=new THREE.Group();
   const olive=phong({color:0x4a5232,shininess:20});
-  const body=new THREE.Mesh(new THREE.BoxGeometry(1.9,0.75,3.9),olive);
-  body.position.y=0.85; g.add(body); blockers.push(body);
-  const hood=new THREE.Mesh(new THREE.BoxGeometry(1.8,0.42,1.3),olive);
-  hood.position.set(0,1.32,-1.2); g.add(hood); blockers.push(hood);
-  const wsh=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.6,0.1),M.glassBroken);
-  wsh.position.set(0,1.6,-0.5); wsh.rotation.x=0.22; g.add(wsh);
-  for(const sx of [-0.85,0.85]){
-    const st=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.9,0.1),olive);
-    st.position.set(sx,1.7,0.9); g.add(st);
+  const bodyGeo=mergeGeos([
+    pc(PROP_BOX,0,0,.82,.10,0,0,0,1.88,.68,3.72),
+    pc(CAR_BODY_SPHERE,0,0,1.22,-1.12,-.05,0,0,.92,.24,.84),
+    pc(PROP_BOX,0,0,.62,1.66,0,0,0,1.76,.48,.50),
+    pc(PROP_BOX,0,-.83,1.18,.62,0,0,0,.10,.66,1.35),
+    pc(PROP_BOX,0,.83,1.18,.62,0,0,0,.10,.66,1.35)
+  ]);
+  const body=new THREE.Mesh(bodyGeo,olive);g.add(body);blockers.push(body);
+  const wsh=new THREE.Mesh(new THREE.BoxGeometry(1.68,.58,.055),M.glassBroken);
+  wsh.position.set(0,1.60,-.48);wsh.rotation.x=.18;g.add(wsh);blockers.push(wsh);
+  const trimGeo=mergeGeos([
+    pc(PROP_BOX,0,0,.74,-1.90,0,0,0,1.62,.34,.06),
+    ...[-.48,-.16,.16,.48].map(xx=>pc(PROP_BOX,1,xx,.74,-1.94,0,0,0,.035,.30,.035)),
+    pc(CAR_LAMP_SPHERE,2,-.58,.93,-1.91,0,0,0,.20,.14,.06),
+    pc(CAR_LAMP_SPHERE,2,.58,.93,-1.91,0,0,0,.20,.14,.06),
+    pc(CAR_LAMP_SPHERE,3,-.62,.72,1.91,0,0,0,.14,.12,.055),
+    pc(CAR_LAMP_SPHERE,3,.62,.72,1.91,0,0,0,.14,.12,.055),
+    pc(PROP_BOX,0,-.84,1.62,.72,0,0,0,.08,.92,.08),
+    pc(PROP_BOX,0,.84,1.62,.72,0,0,0,.08,.92,.08),
+    pc(PROP_BOX,0,0,2.08,.73,0,0,0,1.83,.10,1.92),
+    pc(PROP_BOX,1,0,.48,-2.02,0,0,0,1.98,.15,.12),
+    pc(PROP_BOX,1,0,.48,2.02,0,0,0,1.98,.15,.12),
+    pc(CAR_MIRROR_SPHERE,0,-1.00,1.49,-.56,0,0,0,.12,.09,.15),
+    pc(CAR_MIRROR_SPHERE,0,1.00,1.49,-.56,0,0,0,.12,.09,.15)
+  ]);
+  const trim=new THREE.Mesh(trimGeo,[M.dark,M.chrome,M.headlight,M.taillight]);g.add(trim);blockers.push(trim);
+  for(const sx of [-.43,.43]){
+    const seat=new THREE.Mesh(new THREE.BoxGeometry(.50,.58,.46),M.dark);seat.position.set(sx,1.23,.65);g.add(seat);
   }
-  const canopy=new THREE.Mesh(new THREE.BoxGeometry(1.9,0.1,2.0),phong({color:0x3a4028}));
-  canopy.position.set(0,2.15,0.9); g.add(canopy); blockers.push(canopy);
-  for(const wz of [-1.3,1.3]) for(const wx of [-0.95,0.95]){
-    const w=new THREE.Mesh(new THREE.CylinderGeometry(0.44,0.44,0.3,10),M.dark);
-    w.rotation.z=Math.PI/2; w.position.set(wx,0.44,wz); g.add(w);
+  const spare=new THREE.Mesh(new THREE.TorusGeometry(.35,.12,9,20),M.dark);
+  spare.position.set(0,.92,2.04);g.add(spare);blockers.push(spare);
+  const wheelItems=[];
+  for(const wz of [-1.30,1.30]) for(const wx of [-.99,.99]){
+    wheelItems.push(pc(CAR_TIRE_TORUS,0,wx,.45,wz,0,Math.PI/2,0,.98,.98,.98));
+    wheelItems.push(pc(CAR_RIM_CYL,1,wx,.45,wz,0,0,Math.PI/2,.98,.98,.98));
   }
-  g.position.set(x,0,z); g.rotation.y=rot||0; worldRoot.add(g);
-  const c=Math.abs(Math.cos(rot||0)), s=Math.abs(Math.sin(rot||0));
-  addCollider(x-(1.9*c+3.9*s)/2,x+(1.9*c+3.9*s)/2,z-(1.9*s+3.9*c)/2,z+(1.9*s+3.9*c)/2,2.1);
+  const wheels=new THREE.Mesh(mergeGeos(wheelItems),[M.dark,M.chrome]);g.add(wheels);blockers.push(wheels);
+  g.position.set(x,0,z);g.rotation.y=R;worldRoot.add(g);
+  addYawCollider(x,z,2.06,4.12,R,2.16,0,0.025);
 }
 function wreck(x,z,rot,col){
-  const g=new THREE.Group();
-  const paint=phong({color:col,shininess:12});
-  const body=new THREE.Mesh(new THREE.BoxGeometry(1.95,0.8,4.3),paint);
-  body.position.y=0.78; body.rotation.z=0.05; g.add(body); blockers.push(body);
-  const cab=new THREE.Mesh(new THREE.BoxGeometry(1.75,0.7,1.9),paint);
-  cab.position.set(0,1.45,-0.2); g.add(cab); blockers.push(cab);
-  for(const [wx,wz] of [[1,1.5],[-1,1.5],[1,-1.5]]){
-    const w=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.42,0.28,10),M.dark);
-    w.rotation.z=Math.PI/2; w.position.set(wx,0.42,wz); g.add(w);
+  const g=new THREE.Group(),paint=phong({color:col,shininess:10,specular:0x332b29});
+  const body=new THREE.Mesh(CAR_BODY_GEO,paint);body.rotation.z=.045;body.scale.set(.96,.94,.96);g.add(body);blockers.push(body);
+  const glass=new THREE.Mesh(CAR_GLASS_GEO,M.glassBroken);glass.scale.set(.96,.94,.96);g.add(glass);blockers.push(glass);
+  const rustTrim=new THREE.Mesh(CAR_DETAIL_GEO,[M.rust,M.metal,M.headlight,M.taillight,M.plate]);
+  rustTrim.scale.set(.96,.94,.96);g.add(rustTrim);blockers.push(rustTrim);
+  const wheelItems=[];
+  for(const [wx,wz] of [[-1.02,-1.48],[1.02,-1.48],[1.02,1.48]]){
+    wheelItems.push(pc(CAR_TIRE_TORUS,0,wx,.43,wz,0,Math.PI/2,0,.94,.94,.94));
+    wheelItems.push(pc(CAR_RIM_CYL,1,wx,.43,wz,0,0,Math.PI/2,.90,.90,.90));
   }
-  g.position.set(x,0,z); g.rotation.y=rot; worldRoot.add(g);
-  const c=Math.abs(Math.cos(rot)), s=Math.abs(Math.sin(rot));
-  addCollider(x-(1.95*c+4.3*s)/2,x+(1.95*c+4.3*s)/2,z-(1.95*s+4.3*c)/2,z+(1.95*s+4.3*c)/2,2.0);
+  const wheels=new THREE.Mesh(mergeGeos(wheelItems),[M.dark,M.rust]);g.add(wheels);blockers.push(wheels);
+  const axle=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,1.05,8),M.rust);
+  axle.position.set(-.62,.32,1.48);axle.rotation.z=Math.PI/2;axle.rotation.y=.18;g.add(axle);
+  g.position.set(x,0,z);g.rotation.y=rot||0;worldRoot.add(g);
+  addYawCollider(x,z,2.22,4.38,rot||0,2.08,0,0.025);
 }
 function carport(x,z,w,d,rot){
   const g=new THREE.Group();
@@ -1784,8 +1997,12 @@ function gazebo(x,z,rot){
   }
   const roof=new THREE.Mesh(new THREE.BoxGeometry(3.4,0.14,3.4),phong({color:0xb8bcc0}));
   roof.position.y=2.36; g.add(roof); blockers.push(roof);
-  g.position.set(x,0,z); g.rotation.y=rot||0; worldRoot.add(g);
-  addCollider(x-1.6,x+1.6,z-1.6,z+1.6,2.4);
+  const R=rot||0;g.position.set(x,0,z);g.rotation.y=R;worldRoot.add(g);
+  const c=Math.cos(R),sn=Math.sin(R);
+  for(const px of [-1.4,1.4]) for(const pz of [-1.4,1.4]){
+    const wx=x+px*c+pz*sn,wz=z-px*sn+pz*c;
+    addYawCollider(wx,wz,.22,.22,R,2.42,0,0.02);
+  }
 }
 function trellis(x,z,rot){
   const g=new THREE.Group();
@@ -1800,19 +2017,20 @@ function trellis(x,z,rot){
   }
   const arch=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.12,0.5),white);
   arch.position.y=2.34; g.add(arch); blockers.push(arch);
-  g.position.set(x,0,z); g.rotation.y=rot||0; worldRoot.add(g);
-  addCollider(x-0.9,x+0.9,z-0.35,z+0.35,2.4);
+  const R=rot||0;g.position.set(x,0,z);g.rotation.y=R;worldRoot.add(g);
+  const c=Math.cos(R),sn=Math.sin(R);
+  for(const px of [-.75,.75]){
+    const wx=x+px*c,wz=z-px*sn;
+    addYawCollider(wx,wz,.18,.54,R,2.36,0,0.015);
+  }
 }
 function movingClutter(x,z){
   for(let i=0;i<7;i++){
     const s2=rand(0.45,0.75);
-    const b=new THREE.Mesh(new THREE.BoxGeometry(s2,s2*rand(.7,1),s2*rand(.8,1.2)),phong({color:0x9a7f55}));
-    b.position.set(x+rand(-2.2,2.2),s2/2,z+rand(-1.6,1.6)); b.rotation.y=rand(0,TAU);
-    worldRoot.add(b); blockers.push(b);
+    crate(x+rand(-2.2,2.2),z+rand(-1.6,1.6),s2,rand(0,TAU),0);
   }
-  bx(1.1,0.78,1.0,x+2.0,0.39,z-1.4,phong({color:0x6a7256}));
-  bx(1.0,0.55,0.95,x-2.4,0.28,z+1.2,phong({color:0x7a6a4a}));
-  addCollider(x-2.8,x+2.8,z-2.2,z+2.2,0.8);
+  trashcan(x+2.0,z-1.4);
+  crate(x-2.4,z+1.2,.82,rand(0,TAU),0);
 }
 function shed(x,z,rot,openDoor){
   const g=new THREE.Group();
@@ -1824,9 +2042,22 @@ function shed(x,z,rot,openDoor){
   const door=new THREE.Mesh(new THREE.BoxGeometry(0.1,1.9,1.2),phong({color:0x3d2f20}));
   door.position.set(1.52,0.95,-0.5); if(openDoor) door.rotation.y=-1.1;
   g.add(door); blockers.push(door);
-  g.position.set(x,0,z); g.rotation.y=rot||0; worldRoot.add(g);
-  const c=Math.abs(Math.cos(rot||0)), s=Math.abs(Math.sin(rot||0));
-  addCollider(x-(3.0*c+2.6*s)/2,x+(3.0*c+2.6*s)/2,z-(3.0*s+2.6*c)/2,z+(3.0*s+2.6*c)/2,2.4);
+  for(const yy of [.46,1.14,1.82]){
+    const slat=new THREE.Mesh(new THREE.BoxGeometry(3.08,.055,.055),M.wood);slat.position.set(0,yy,-1.33);g.add(slat);
+  }
+  for(const xx of [-1.02,0,1.02]){
+    const seam=new THREE.Mesh(new THREE.BoxGeometry(.055,2.18,.055),M.wood);seam.position.set(xx,1.12,-1.34);g.add(seam);
+  }
+  const hingeMat=M.metal;
+  for(const yy of [.42,1.45]){
+    const hinge=new THREE.Mesh(new THREE.BoxGeometry(.05,.10,.36),hingeMat);hinge.position.set(1.58,yy,-.5);g.add(hinge);
+  }
+  const vent=new THREE.Mesh(new THREE.PlaneGeometry(.64,.42),new THREE.MeshBasicMaterial({
+    map:tex(96,64,(c,W,H)=>{c.fillStyle='#25272a';c.fillRect(0,0,W,H);c.strokeStyle='#8b8e91';c.lineWidth=3;
+      for(let y2=10;y2<H;y2+=10){c.beginPath();c.moveTo(8,y2);c.lineTo(W-8,y2);c.stroke();}})}));
+  vent.position.set(0,1.70,-1.37);vent.rotation.y=Math.PI;g.add(vent);
+  const R=rot||0;g.position.set(x,0,z);g.rotation.y=R;worldRoot.add(g);
+  addYawCollider(x,z,3.08,2.72,R,2.50,0,0.025);
 }
 function falloutShelter(x,z,rot){
   const g=new THREE.Group();
@@ -1845,19 +2076,30 @@ function falloutShelter(x,z,rot){
         c.arc(W/2,H/2,22,i*2.09-0.5,i*2.09+0.5);c.closePath();c.fill();}
       c.fillStyle='#1d2a18';c.beginPath();c.arc(W/2,H/2,7,0,6.3);c.fill();}),transparent:true}));
   sign.rotation.y=Math.PI/2; sign.position.set(1.78,1.2,0); g.add(sign);
-  g.position.set(x,0,z); g.rotation.y=rot||0; worldRoot.add(g);
-  addCollider(x-1.9,x+1.9,z-1.7,z+1.7,1.9);
+  const R=rot||0;g.position.set(x,0,z);g.rotation.y=R;worldRoot.add(g);
+  addYawCollider(x,z,3.72,3.32,R,1.92,0,0.025);
 }
 function mailbox(x,z,num,name){
-  cyl(0.06,0.06,1.1,x,0.55,z,M.plank,false);
-  const b=new THREE.Mesh(new THREE.BoxGeometry(0.26,0.28,0.46),M.metal);
-  b.position.set(x,1.22,z); worldRoot.add(b); blockers.push(b);
+  const g=new THREE.Group(),R=x>0?-Math.PI/2:Math.PI/2;
+  const post=new THREE.Mesh(new THREE.CylinderGeometry(.055,.075,1.05,10),M.plank);post.position.y=.53;g.add(post);
+  const brace=new THREE.Mesh(new THREE.BoxGeometry(.10,.10,.48),M.plank);brace.position.set(0,1.00,.08);g.add(brace);
+  const lower=new THREE.Mesh(new THREE.BoxGeometry(.38,.25,.62),M.metal);lower.position.set(0,1.19,0);g.add(lower);blockers.push(lower);
+  const top=new THREE.Mesh(new THREE.CylinderGeometry(.19,.19,.62,16,1,false,0,Math.PI),M.metal);
+  top.rotation.x=Math.PI/2;top.position.set(0,1.32,0);g.add(top);blockers.push(top);
+  const door=new THREE.Mesh(new THREE.CylinderGeometry(.16,.16,.035,16),M.dark);
+  door.rotation.x=Math.PI/2;door.position.set(0,1.31,-.33);g.add(door);
+  const knob=new THREE.Mesh(new THREE.SphereGeometry(.035,9,6),M.chrome);knob.position.set(0,1.31,-.36);g.add(knob);
+  const flagPole=new THREE.Mesh(new THREE.BoxGeometry(.035,.44,.035),phong({color:0x9d2925}));
+  flagPole.position.set(.23,1.42,.02);g.add(flagPole);
+  const flag=new THREE.Mesh(new THREE.BoxGeometry(.20,.12,.025),phong({color:0xb8322c}));
+  flag.position.set(.31,1.62,.02);g.add(flag);
   const n=new THREE.Mesh(new THREE.PlaneGeometry(0.3,0.2),new THREE.MeshBasicMaterial({
     map:tex(64,42,(c,W,H)=>{c.fillStyle='#151619';c.fillRect(0,0,W,H);
       c.fillStyle='#e8e0cc';c.font='bold 20px Arial';c.textAlign='center';c.textBaseline='middle';
       c.fillText(String(num),W/2,13);
       c.font='bold 13px Arial'; c.fillText(String(name||''),W/2,31);}),transparent:true}));
-  n.position.set(x+0.15,1.22,z); n.rotation.y=Math.PI/2; worldRoot.add(n);
+  n.position.set(.196,1.20,0);n.rotation.y=Math.PI/2;g.add(n);
+  g.position.set(x,0,z);g.rotation.y=R;worldRoot.add(g);
 }
 function streetSign(x,z,rot,top,bottom){
   cyl(0.06,0.06,3.0,x,1.5,z,M.metal,false);
@@ -4313,13 +4555,38 @@ function addAmmoBuy(defId,x,y,z,rot,price){
 function addPerkMachine(key,x,z,y0,rot){
   const P=PERKS[key], y=y0||0, R=rot||0;
   const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.BoxGeometry(1.3,2.2,0.9),phong({color:0x24262c,shininess:40}));
-  body.position.y=1.1; g.add(body); blockers.push(body);
+  const shell=phong({color:0x24262c,shininess:52,specular:0x676b72});
+  const bodyGeo=mergeGeos([
+    pc(PROP_BOX,0,0,1.14,0,0,0,0,1.30,2.12,.88),
+    pc(PROP_BOX,0,0,.10,0,0,0,0,1.42,.20,.98),
+    pc(PROP_BOX,0,0,2.24,0,0,0,0,1.44,.24,1.00),
+    pc(PROP_BOX,1,-.67,1.14,-.02,0,0,0,.09,2.10,.92),
+    pc(PROP_BOX,1,.67,1.14,-.02,0,0,0,.09,2.10,.92)
+  ]);
+  const body=new THREE.Mesh(bodyGeo,[shell,M.chrome]);g.add(body);blockers.push(body);
+  const faceMat=new THREE.MeshPhongMaterial({color:P.col,emissive:P.col,emissiveIntensity:.6,shininess:60});
   const face=new THREE.Mesh(new THREE.BoxGeometry(1.05,1.5,0.1),
-    new THREE.MeshPhongMaterial({color:P.col,emissive:P.col,emissiveIntensity:.6,shininess:60}));
+    faceMat);
   face.position.set(0,1.35,-0.48); g.add(face); blockers.push(face);
   const top=new THREE.Mesh(new THREE.BoxGeometry(1.4,0.22,1.0),phong({color:P.col,emissive:P.col,emissiveIntensity:.5}));
   top.position.y=2.28; g.add(top);
+  const frontDetails=mergeGeos([
+    pc(PROP_BOX,0,0,.39,-.555,0,0,0,.62,.28,.08),
+    pc(PROP_BOX,1,.36,1.60,-.56,0,0,0,.20,.09,.06),
+    pc(PROP_BOX,2,.37,1.34,-.575,0,0,0,.11,.11,.055),
+    pc(PROP_BOX,1,-.46,.50,-.56,0,0,0,.05,.58,.06),
+    pc(PROP_BOX,1,.46,.50,-.56,0,0,0,.05,.58,.06),
+    ...[.20,.29,.38,.47,.56].map(yy=>pc(PROP_BOX,1,-.46,yy,-.565,0,0,0,.20,.025,.06))
+  ]);
+  const buttonMat=phong({color:P.col,emissive:P.col,emissiveIntensity:1.1,shininess:80});
+  const controls=new THREE.Mesh(frontDetails,[M.dark,M.chrome,buttonMat]);g.add(controls);blockers.push(controls);
+  const bottle=new THREE.Group();
+  const bottleBody=new THREE.Mesh(new THREE.CylinderGeometry(.12,.15,.55,14),faceMat);
+  bottleBody.position.set(-.21,1.38,-.57);bottle.add(bottleBody);
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.07,.09,.18,12),M.chrome);
+  neck.position.set(-.21,1.73,-.57);bottle.add(neck);
+  const cap=new THREE.Mesh(new THREE.CylinderGeometry(.08,.08,.05,12),M.dark);
+  cap.position.set(-.21,1.84,-.57);bottle.add(cap);g.add(bottle);
   const lbl=new THREE.Mesh(new THREE.PlaneGeometry(1.0,0.6),new THREE.MeshBasicMaterial({
     map:tex(128,72,(c,w,h)=>{c.clearRect(0,0,w,h);c.fillStyle='#0b0d12';c.fillRect(0,0,w,h);
       c.fillStyle='#f2ead6';c.font='bold 22px Arial';c.textAlign='center';c.textBaseline='middle';
@@ -4329,7 +4596,7 @@ function addPerkMachine(key,x,z,y0,rot){
   lbl.position.set(0,0.62,-0.54); lbl.rotation.y=Math.PI; g.add(lbl);
   const L=new THREE.PointLight(P.col,1.1,9,2); L.position.set(0,1.6,-1.0); g.add(L);
   g.position.set(x,y,z); g.rotation.y=R; worldRoot.add(g);
-  addCollider(x-0.78,x+0.78,z-0.78,z+0.78,y+2.3,y-0.2);
+  addYawCollider(x,z,1.46,1.02,R,y+2.40,y,0.02);
   interactables.push({x:x-0.9*Math.sin(R),y:y+1.2,z:z-0.9*Math.cos(R),r:2.6,kind:'perk',key,
     label(){return 'Buy '+P.name;}, cost(){return P.cost;},
     can(){return !has(key);},
@@ -4528,7 +4795,9 @@ function finishSharedBox(weapon,owner){
 function moveBox(i){
   mbox.spot=i;
   const s=BOX_SPOTS[i];
-  const y=s[2]||0,R=s[3]||0;
+  // The detailed crate hinges at its rear. Rotate every authored placement
+  // once here so the lid and weapon presentation open toward the player.
+  const y=s[2]||0,R=(s[3]||0)+Math.PI;
   mbox.g.position.set(s[0],y,s[1]);
   mbox.g.rotation.y=R;
   if(!mbox.col){ addYawCollider(s[0],s[1],2.18,1.34,R,y+1.18,y,0.025); mbox.col=colliders[colliders.length-1]; }
@@ -4630,7 +4899,7 @@ function addPackAPunch(x,z,rot,y0){
   lbl.position.set(0,2.22,-0.66); g.add(lbl);
   const L=new THREE.PointLight(0x8a4ae0,1.5,11,2); L.position.set(0,1.7,-1.1); g.add(L);
   g.position.set(x,y,z); g.rotation.y=R; worldRoot.add(g);
-  addCollider(x-1.1,x+1.1,z-1.1,z+1.1,y+2.6,y-0.2);
+  addYawCollider(x,z,2.14,1.46,R,y+2.66,y,0.025);
   papGlow={panel,slot,light:L};
   interactables.push({
     x:x-1.5*Math.sin(R), y:y+1.2, z:z-1.5*Math.cos(R), r:3.0, kind:'pap',
