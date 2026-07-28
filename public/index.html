@@ -5782,14 +5782,27 @@ function renderRoster(){
 function netHandle(msg){
   let m; try{m=JSON.parse(msg);}catch(e){return;}
   if(m.type==='welcome'){
+    // If the local game is already running, this "welcome" is our own reconnect after a
+    // network drop (the reconnect token matched us back to our existing id), not a fresh
+    // join - the local sim never actually stopped, so restarting it would reset points,
+    // guns, and perks back to round-1 defaults for no reason other than a brief hiccup.
+    const reconnecting=net.activeGame&&game.running;
     net.id=m.id; net.host=!!m.host; net.connected=true; net.reconnectAttempts=0; net.players.clear();
     if(m.token){net.token=m.token; netSaveToken(net.code,m.token);}
     for(const p of m.players||[]){net.players.set(p.id,p);makeRemotePlayer(p);}
     net.players.set(net.id,{id:net.id,name:m.name||safeNetName(el('netName').value),host:net.host});
-    showScreen('lobby'); renderRoster();
-    if(m.room&&m.room.active&&m.room.map){
-      net.activeGame=true; startGame(m.room.map); toast('Joined room '+net.code);
-      if(m.room.paused) applySessionPause(true);
+    if(reconnecting){
+      rebuildRemotePlayers();
+      for(const p of net.players.values())if(p.id!==net.id&&p.state)updateRemoteState(p.id,p.state);
+      renderRoster();
+      toast('Reconnected to '+net.code);
+      if(m.room&&m.room.paused&&!net.pausedByHost) applySessionPause(true);
+    }else{
+      showScreen('lobby'); renderRoster();
+      if(m.room&&m.room.active&&m.room.map){
+        net.activeGame=true; startGame(m.room.map); toast('Joined room '+net.code);
+        if(m.room.paused) applySessionPause(true);
+      }
     }
   } else if(m.type==='player_joined'){
     net.players.set(m.player.id,m.player); makeRemotePlayer(m.player); renderRoster();
@@ -5850,7 +5863,7 @@ async function netConnect(raw,isRetry){
     if(info.players>=4) throw new Error('Room is full');
   }catch(e){setNetStatus(e.message||'Could not reach room');sfxDeny();return;}
   const token=netLoadToken(code);
-  netDisconnect(false); net.code=code; net.manualClose=false; net.token=token;
+  netDisconnect(false,isRetry); net.code=code; net.manualClose=false; net.token=token;
   setNetStatus('Connecting to '+code);
   const proto=location.protocol==='https:'?'wss:':'ws:';
   const tokenParam=token?('&token='+encodeURIComponent(token)):'';
@@ -5876,13 +5889,20 @@ function netAttemptReconnect(code){
     netConnect(code,true);
   },1500);
 }
-function netDisconnect(showMenu){
+function netDisconnect(showMenu,keepState){
   net.manualClose=true;
   if(net.ws) try{net.ws.close(1000,'Left room');}catch(e){}
-  net.ws=null; net.connected=false; net.activeGame=false; net.host=false; net.id=''; net.code='';
-  net.token='';
-  net.nextState=0; net.nextWorld=0; net.zombieSeq=1; net.pausedByHost=false;
-  net.players.clear(); clearRemotePlayers();
+  net.ws=null; net.connected=false;
+  // keepState is set for an automatic reconnect retry, not a real leave - wiping
+  // net.activeGame/players here would make the "was this a reconnect?" check in the
+  // welcome handler always say no, and clearing remote players would blank out
+  // teammates' models for the whole gap instead of just resyncing them after.
+  if(!keepState){
+    net.activeGame=false; net.host=false; net.id=''; net.code='';
+    net.token='';
+    net.nextState=0; net.nextWorld=0; net.zombieSeq=1; net.pausedByHost=false;
+    net.players.clear(); clearRemotePlayers();
+  }
   el('netbadge').style.opacity=0;
   if(showMenu) showScreen('menu');
 }
