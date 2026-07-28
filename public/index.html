@@ -4036,20 +4036,39 @@ function headGeo(variant){
 const HEAD_GEOS=[0,1,2,3].map(headGeo);
 
 const zombies=[],zombieMeshes=[];
+// Neutral, light base so multiplying by each zombie's random tint color keeps that hue,
+// while the blotches/grain give worn fabric and grimy skin surface detail that a flat
+// solid color never had. Built once and shared by every zombie's material, like GEO.
+T.zombieCloth=tex(128,128,(x,w,h)=>{
+  x.fillStyle='#c8c4bc';x.fillRect(0,0,w,h);
+  for(let i=0;i<90;i++){x.fillStyle=`rgba(${randi(150,190)},${randi(148,186)},${randi(140,178)},.35)`;
+    x.fillRect(rand(0,w),rand(0,h),rand(3,11),rand(3,11));}
+  for(let i=0;i<26;i++){x.fillStyle='rgba(50,42,34,.30)';x.beginPath();
+    x.arc(rand(0,w),rand(0,h),rand(3,9),0,TAU);x.fill();}
+  grain(x,w,h,20);
+},2,2);
+T.zombieSkin=tex(96,96,(x,w,h)=>{
+  x.fillStyle='#c2beb6';x.fillRect(0,0,w,h);
+  for(let i=0;i<60;i++){x.fillStyle=`rgba(${randi(160,200)},${randi(150,190)},${randi(140,180)},.28)`;
+    x.beginPath();x.arc(rand(0,w),rand(0,h),rand(2,6),0,TAU);x.fill();}
+  for(let i=0;i<22;i++){x.fillStyle='rgba(70,45,38,.3)';x.beginPath();
+    x.arc(rand(0,w),rand(0,h),rand(1,4),0,TAU);x.fill();}
+  grain(x,w,h,16);
+},1,1);
 function makeZombie(round){
   const skin=new THREE.Color().setHSL(rand(.20,.28),rand(.10,.22),rand(.30,.46));
   const cloth=new THREE.Color().setHSL(rand(0,1),.16,rand(.11,.26));
   const pants=new THREE.Color().setHSL(rand(0,1),.09,rand(.08,.19));
   const hair=new THREE.Color().setHSL(rand(.05,.12),rand(.1,.4),rand(.05,.22));
   const mats={
-    cloth:new THREE.MeshPhongMaterial({color:cloth,transparent:true,shininess:4}),
-    skin:new THREE.MeshPhongMaterial({color:skin,transparent:true,shininess:9}),
-    pale:new THREE.MeshPhongMaterial({color:0xd8cba4,transparent:true,shininess:26}),
-    dark:new THREE.MeshPhongMaterial({color:hair,transparent:true,shininess:5}),
+    cloth:new THREE.MeshStandardMaterial({color:cloth,map:T.zombieCloth,transparent:true,roughness:.85,metalness:0}),
+    skin:new THREE.MeshStandardMaterial({color:skin,map:T.zombieSkin,transparent:true,roughness:.7,metalness:0}),
+    pale:new THREE.MeshStandardMaterial({color:0xd8cba4,transparent:true,roughness:.6,metalness:0}),
+    dark:new THREE.MeshStandardMaterial({color:hair,map:T.zombieCloth,transparent:true,roughness:.75,metalness:0}),
     eye:new THREE.MeshBasicMaterial({color:0x9eeaff,transparent:true}),
     eyeGlow:new THREE.MeshBasicMaterial({color:0x2f8fd0,transparent:true,opacity:.75,
       blending:THREE.AdditiveBlending,depthWrite:false}),
-    pantsM:new THREE.MeshPhongMaterial({color:pants,transparent:true,shininess:4})};
+    pantsM:new THREE.MeshStandardMaterial({color:pants,map:T.zombieCloth,transparent:true,roughness:.85,metalness:0})};
   // one slot order for every mesh: cloth, skin, pale, dark, eye, glow, trousers
   const SET=[mats.cloth,mats.skin,mats.pale,mats.dark,mats.eye,mats.eyeGlow,mats.pantsM];
   const grp=new THREE.Group(); scene.add(grp);
