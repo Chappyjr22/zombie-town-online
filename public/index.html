@@ -497,7 +497,7 @@ renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=1.08;
 renderer.useLegacyLights=true; // keeps every hand-tuned light intensity below meaning what it already meant
 renderer.shadowMap.enabled=true;
-renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.shadowMap.type=THREE.PCFShadowMap;
 
 const NIGHT=0x0a0c14;
 const scene=new THREE.Scene();
@@ -511,10 +511,13 @@ viewScene.add(new THREE.AmbientLight(0xa8b4cc,0.8));
 const vk=new THREE.DirectionalLight(0xfff0d8,0.9); vk.position.set(0.6,1.2,0.9); viewScene.add(vk);
 const vr=new THREE.DirectionalLight(0x5a74a0,0.55); vr.position.set(-0.9,0.1,-1); viewScene.add(vr);
 
-/* bloom only wraps the world scene, not the first-person viewmodel, so weapon detail stays crisp */
-const composer=new EffectComposer(renderer);
+/* bloom only wraps the world scene, not the first-person viewmodel, so weapon detail stays crisp.
+   Explicit UnsignedByteType render target trades a little HDR precision in the bloom pass for
+   noticeably less bandwidth than the default HalfFloat target. */
+const composerTarget=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.UnsignedByteType});
+const composer=new EffectComposer(renderer,composerTarget);
 composer.addPass(new RenderPass(scene,camera));
-const bloomPass=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.55,0.4,0.86);
+const bloomPass=new UnrealBloomPass(new THREE.Vector2(innerWidth/2,innerHeight/2),0.55,0.4,0.86);
 composer.addPass(bloomPass);
 composer.addPass(new OutputPass());
 
@@ -523,7 +526,7 @@ addEventListener('resize',()=>{
   camera.updateProjectionMatrix(); viewCam.updateProjectionMatrix();
   renderer.setSize(innerWidth,innerHeight);
   composer.setSize(innerWidth,innerHeight);
-  bloomPass.resolution.set(innerWidth,innerHeight);
+  bloomPass.resolution.set(innerWidth/2,innerHeight/2);
 });
 
 /* ---------- textures ---------- */
@@ -780,16 +783,17 @@ function addYawCollider(x,z,w,d,rot,top,bot,pad){
 function addPlatform(minX,maxX,minZ,maxZ,y){platforms.push({minX,maxX,minZ,maxZ,y});}
 function addRamp(minX,maxX,minZ,maxZ,yLow,yHigh,axis,flip){platforms.push({minX,maxX,minZ,maxZ,yLow,yHigh,axis,flip,ramp:true});}
 
+const SHADOW_CASTER_MIN_SIZE=0.6; // tiny props (rivets, rebar...) skip the shadow draw call; too small to read as a shadow anyway
 function bx(w,h,d,x,y,z,mat,solid,top){
   const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
-  m.castShadow=m.receiveShadow=true;
+  m.castShadow=Math.max(w,h,d)>SHADOW_CASTER_MIN_SIZE; m.receiveShadow=true;
   m.position.set(x,y,z); worldRoot.add(m); blockers.push(m);
   if(solid!==false) addCollider(x-w/2,x+w/2,z-d/2,z+d/2,top===undefined?y+h/2:top,y-h/2);
   return m;
 }
 function cyl(r1,r2,h,x,y,z,mat,solid){
   const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,16),mat);
-  m.castShadow=m.receiveShadow=true;
+  m.castShadow=Math.max(r1,r2,h)>SHADOW_CASTER_MIN_SIZE; m.receiveShadow=true;
   m.position.set(x,y,z); worldRoot.add(m); blockers.push(m);
   if(solid) addCollider(x-r1,x+r1,z-r1,z+r1,y+h/2,y-h/2);
   return m;
@@ -798,7 +802,7 @@ function cyl(r1,r2,h,x,y,z,mat,solid){
 /* ---------- lighting ---------- */
 function sunShadow(light,size){
   light.castShadow=true;
-  light.shadow.mapSize.set(2048,2048);
+  light.shadow.mapSize.set(1024,1024);
   light.shadow.camera.left=-size; light.shadow.camera.right=size;
   light.shadow.camera.top=size; light.shadow.camera.bottom=-size;
   light.shadow.camera.near=1; light.shadow.camera.far=160;
@@ -4007,16 +4011,25 @@ function makeZombie(round){
     style:randi(0,3), lean:rand(.10,.30), headTilt:rand(-.16,.12), limp:Math.random()<.35?rand(.15,.35):0,
     limpSide:Math.random()<.5?-1:1, armBias:rand(-.15,.15)};
   z.eyeMat=mats.eye;
+  z.castsShadow=false;
   for(let i=0;i<NPTS;i++) z.pts.push({x:0,y:0,z:0,px:0,py:0,pz:0});
   const hm=new THREE.Mesh(HEAD_GEOS[randi(0,3)],SET);
-  hm.castShadow=true;
   hm.userData={z,part:'head'}; grp.add(hm); z.meshes.push(hm); zombieMeshes.push(hm); z.headMesh=hm;
   for(const b of BONES){
     const m=new THREE.Mesh(GEO[b.geo],SET);
-    if(b.part==='torso') m.castShadow=true; // head+torso is enough to read as a shadow; skip limbs to bound shadow draw calls per zombie
-    m.userData={z,part:b.part}; grp.add(m); z.meshes.push(m); zombieMeshes.push(m);
+    if(b.part==='torso'){ m.userData={z,part:b.part}; z.torsoMesh=m; }
+    else m.userData={z,part:b.part};
+    grp.add(m); z.meshes.push(m); zombieMeshes.push(m);
   }
   return z;
+}
+const ZOMBIE_SHADOW_DIST=32; // only zombies within this range of the player bother casting a shadow
+function updateZombieShadowCasting(z){
+  const near=Math.hypot(z.pos.x-player.pos.x,z.pos.z-player.pos.z)<ZOMBIE_SHADOW_DIST;
+  if(z.castsShadow===near) return;
+  z.castsShadow=near;
+  if(z.headMesh) z.headMesh.castShadow=near;
+  if(z.torsoMesh) z.torsoMesh.castShadow=near;
 }
 function removeZombie(z){
   for(const m of z.meshes){const i=zombieMeshes.indexOf(m); if(i>=0) zombieMeshes.splice(i,1);}
@@ -6356,6 +6369,7 @@ function updRoundHUD(){
 function updateReplicaZombies(dt){
   for(let i=zombies.length-1;i>=0;i--){
     const z=zombies[i];
+    updateZombieShadowCasting(z);
     if(z.dead){
       ragdollStep(z,dt); drawZombie(z);
       const age=game.time-z.deadAt;
@@ -6386,6 +6400,7 @@ function updateZombies(dt){
   if(net.connected&&!net.host){updateReplicaZombies(dt);return;}
   for(let i=zombies.length-1;i>=0;i--){
     const z=zombies[i];
+    updateZombieShadowCasting(z);
     if(z.dead){
       ragdollStep(z,dt); drawZombie(z);
       const age=game.time-z.deadAt;
