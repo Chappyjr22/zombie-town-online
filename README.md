@@ -145,3 +145,9 @@ The bundled zombie vocal recordings were created by Mike Koenig and downloaded f
 - [Zombie Long Death](https://soundbible.com/1042-Zombie-Long-Death.html)
 
 The round-start cue is [Terror transition](https://mixkit.co/free-sound-effects/horror/) from Mixkit, used under the [Mixkit Sound Effects Free License](https://mixkit.co/license/).
+
+Additional player foley also comes from Mixkit under the same license:
+
+- Hit reactions: “Boxer getting hit,” “Fighting man's voice,” and “Fighting man voice of pain” from [Fight sound effects](https://mixkit.co/free-sound-effects/fight/)
+- Footsteps: “Crunchy footsteps loop” from [Footstep sound effects](https://mixkit.co/free-sound-effects/footsteps/)
+- Perk drinking: “Sip of water” from [Drink sound effects](https://mixkit.co/free-sound-effects/drink/)

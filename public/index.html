@@ -2895,6 +2895,14 @@ let AC=null,master=null,noiseBuf=null;
 const zombieSamples={};
 let zombieSamplesLoading=false;
 let roundSample=null,roundSampleBytes=null,roundSampleLoading=false;
+const playerSampleFiles={
+  hurt:['/audio/player-hurt-1.mp3','/audio/player-hurt-2.mp3','/audio/player-hurt-3.mp3'],
+  footstep:['/audio/footstep-1.mp3','/audio/footstep-2.mp3','/audio/footstep-3.mp3','/audio/footstep-4.mp3'],
+  drink:['/audio/perk-drink.mp3']
+};
+const playerSamples={hurt:[],footstep:[],drink:[]};
+const playerSampleLast={hurt:-1,footstep:-1,drink:-1};
+let playerSamplesLoading=false;
 let lastZombieDeathSound=-99;
 function initAudio(){
   if(AC) return;
@@ -2904,6 +2912,7 @@ function initAudio(){
   const d=noiseBuf.getChannelData(0);
   for(let i=0;i<n;i++) d[i]=Math.random()*2-1;
   loadZombieSamples();
+  loadPlayerSamples();
   preloadRoundSample();
   decodeRoundSample();
 }
@@ -2931,6 +2940,36 @@ function loadZombieSamples(){
     fetch(files[key]).then(r=>{if(!r.ok)throw new Error('audio '+r.status);return r.arrayBuffer();})
       .then(b=>AC.decodeAudioData(b)).then(buf=>{zombieSamples[key]=buf;}).catch(()=>{});
   }
+}
+function loadPlayerSamples(){
+  if(!AC||playerSamplesLoading) return;
+  playerSamplesLoading=true;
+  for(const kind in playerSampleFiles){
+    playerSampleFiles[kind].forEach((url,i)=>{
+      fetch(url).then(r=>{if(!r.ok)throw new Error('audio '+r.status);return r.arrayBuffer();})
+        .then(b=>AC.decodeAudioData(b)).then(buf=>{playerSamples[kind][i]=buf;}).catch(()=>{});
+    });
+  }
+}
+function playPlayerSample(kind,volume,rate,delay,maxDuration){
+  if(!AC) return false;
+  const ready=(playerSamples[kind]||[]).filter(Boolean);
+  if(!ready.length) return false;
+  let pick=Math.floor(Math.random()*ready.length);
+  if(ready.length>1&&pick===playerSampleLast[kind]) pick=(pick+1)%ready.length;
+  playerSampleLast[kind]=pick;
+  const buf=ready[pick],t=AC.currentTime+(delay||0),src=AC.createBufferSource(),
+    hp=AC.createBiquadFilter(),lp=AC.createBiquadFilter(),g=AC.createGain();
+  src.buffer=buf;src.playbackRate.value=clamp((rate||1)*rand(.97,1.03),.78,1.22);
+  hp.type='highpass';hp.frequency.value=kind==='hurt'?82:(kind==='footstep'?62:75);
+  lp.type='lowpass';lp.frequency.value=kind==='hurt'?6100:(kind==='footstep'?5200:7300);
+  const available=buf.duration/src.playbackRate.value,dur=Math.min(maxDuration||available,available);
+  const V=clamp(kind==='footstep'?volume*1.18:volume,.001,.72);
+  g.gain.setValueAtTime(.0008,t);g.gain.linearRampToValueAtTime(V,t+.012);
+  g.gain.setValueAtTime(V,Math.max(t+.02,t+dur-.08));g.gain.exponentialRampToValueAtTime(.0008,t+dur);
+  src.connect(hp);hp.connect(lp);lp.connect(g);g.connect(master);
+  src.start(t);src.stop(t+dur+.02);
+  return true;
 }
 function playZombieSample(key,dist){
   const buf=zombieSamples[key];
@@ -3147,8 +3186,9 @@ function sfxGroan(dist,variant){
 }
 function sfxFootstep(volume,sprint,side){
   if(!AC) return;
-  const V=clamp(volume===undefined ? .32 : volume,0,1),t=AC.currentTime;
-  const thud=nz(),lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=sprint?520:390;
+  const V=clamp(volume===undefined ? .32 : volume,0,1);
+  if(playPlayerSample('footstep',V,(sprint?1.06:.98)*(side?1.012:.988),0,.44)) return;
+  const t=AC.currentTime,thud=nz(),lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=sprint?520:390;
   const g=AC.createGain();g.gain.setValueAtTime(Math.max(.0008,V*(sprint?.72:.52)),t);
   g.gain.exponentialRampToValueAtTime(.0008,t+(sprint?.105:.14));
   thud.connect(lp);lp.connect(g);g.connect(master);thud.start(t);thud.stop(t+.17);
@@ -3173,7 +3213,11 @@ function sfxMelee(hit,volume){
     thud.connect(lp);lp.connect(tg);tg.connect(master);thud.start(t+.065);thud.stop(t+.25);
   }
 }
-function sfxHurt(){ sfxTone(240,70,.3,.32,'triangle'); }
+function sfxHurt(volume){
+  const V=clamp(volume===undefined?.46:volume,0,1);
+  if(playPlayerSample('hurt',V,1,0,.72)) return;
+  sfxTone(240,70,.3,V*.7,'triangle');
+}
 function sfxRound(){
   if(!AC) return;
   const t=AC.currentTime;
@@ -3200,7 +3244,14 @@ function sfxRound(){
 }
 function sfxBuy(){ sfxTone(520,880,.16,.22,'square'); setTimeout(()=>sfxTone(880,1320,.18,.18,'square'),90); }
 function sfxDeny(){ sfxTone(200,120,.22,.22,'square'); }
-function sfxPerk(){ sfxTone(330,660,.5,.2,'triangle'); setTimeout(()=>sfxTone(660,990,.5,.16,'triangle'),160); }
+function sfxPerk(){
+  if(playPlayerSample('drink',.50,.97,.07,2.1)){
+    sfxClick(1850,.045,.11);
+    setTimeout(()=>sfxTone(620,980,.28,.08,'triangle'),780);
+    return;
+  }
+  sfxTone(330,660,.5,.2,'triangle');setTimeout(()=>sfxTone(660,990,.5,.16,'triangle'),160);
+}
 function sfxPowerup(){ sfxTone(700,1400,.3,.2,'sine'); setTimeout(()=>sfxTone(1000,1900,.35,.16,'sine'),120); }
 
 /* ---------- gun materials ---------- */
@@ -4481,7 +4532,7 @@ function killZombie(z,dir,part,impulse,noReward,silentNet){
 function hurtPlayer(amount){
   if(!player.alive||player.downed||player.invuln>0) return;
   player.hp-=amount; player.lastHit=game.time;
-  sfxHurt();
+  sfxHurt(clamp(.38+amount/120,.38,.56));
   ui.vig.style.opacity=clamp(.35+(1-player.hp/player.maxHp)*.6,0,1);
   if(player.hp<=0){ player.hp=0; goDown(); }
   updHUD();
@@ -5980,6 +6031,12 @@ function updateRemoteState(id,s){
   r.speed=clamp(+s.speed||0,0,12);r.sprint=!!s.sprint;r.ads=!!s.ads;r.crouched=!!s.crouched;
   r.grounded=s.grounded!==false;
   r.g.visible=game.running&&s.map===currentMap;
+  const nextHp=Number.isFinite(+s.hp)?+s.hp:null;
+  if(nextHp!==null&&r.hp!==undefined&&nextHp<r.hp&&r.g.visible){
+    const dist=Math.hypot(r.g.position.x-player.pos.x,r.g.position.y-player.y,r.g.position.z-player.pos.z);
+    if(dist<30) sfxHurt(clamp((1-dist/30)*.34,.05,.34));
+  }
+  if(nextHp!==null) r.hp=nextHp;
   r.g.userData.downed=!!s.downed;
   setRemoteWeapon(r,s.weapon);
 }
