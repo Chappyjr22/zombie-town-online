@@ -475,6 +475,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 /* ===================================================================
    TOWN - first person zombie survival
    Single file. Three.js r160 (vendored locally, no CDN). No build step.
@@ -3611,7 +3612,13 @@ function limb(g,i,x,y,z,dx,dy,dz){
   const q=new THREE.Quaternion().setFromUnitVectors(_uy,d);
   return {g,i,m:new THREE.Matrix4().compose(new THREE.Vector3(x,y,z),q,new THREE.Vector3(1,1,1))};
 }
-const BX=(w,h,d)=>new THREE.BoxGeometry(w,h,d);
+// A hair of edge rounding reads as "machined" instead of "sharp plastic box" up close on the
+// viewmodel - cheap since it only runs once per weapon build, never per frame.
+function RB(w,h,d){
+  const bevel=Math.min(w,h,d)*0.16;
+  return bevel>0.0015?new RoundedBoxGeometry(w,h,d,1,bevel):new THREE.BoxGeometry(w,h,d);
+}
+const BX=RB;
 const CY=(a,b,h,s)=>new THREE.CylinderGeometry(a,b,h,s||10);
 const SP=(r,w,h)=>new THREE.SphereGeometry(r,w||10,h||8);
 
@@ -3768,8 +3775,8 @@ const PACK_DOT=mergeGeos([
   pc(new THREE.CylinderGeometry(.036,.036,.011,14,1,true),26, 0,0,-.043, Math.PI/2),
   pc(new THREE.CylinderGeometry(.036,.036,.011,14,1,true),26, 0,0,.043, Math.PI/2),
   pc(new THREE.CylinderGeometry(.028,.028,.004,14),10, 0,0,-.034, Math.PI/2),
-  pc(new THREE.BoxGeometry(.042,.030,.074),1, 0,-.038,0),
-  pc(new THREE.BoxGeometry(.052,.014,.062),1, 0,-.055,0)
+  pc(RB(.042,.030,.074),1, 0,-.038,0),
+  pc(RB(.052,.014,.062),1, 0,-.055,0)
 ]);
 const DOT_Z={pistol:.030,knife:.020,smg:.050,rifle:.060,lmg:.050,shotgun:.040,wonder:.000,sniper:0};
 
@@ -3778,7 +3785,7 @@ function gunPart(p){
   let g;
   const tube=p[0]==='o';
   const ax=(p[0]==='c'||tube)?(p[11]||'z'):null;
-  if(p[0]==='b') g=new THREE.BoxGeometry(p[1],p[2],p[3]);
+  if(p[0]==='b') g=RB(p[1],p[2],p[3]);
   else g=new THREE.CylinderGeometry(p[1],p[2],p[3],tube?16:(ax==='x'?12:10),1,tube);
   const qA=new THREE.Quaternion(), e=new THREE.Euler();
   if(ax==='z') qA.setFromEuler(e.set(Math.PI/2,0,0));
@@ -3823,22 +3830,22 @@ for(const id in DEFS){
 }
 function makeCombatKnife(scale){
   const g=new THREE.Group();
-  const handle=new THREE.Mesh(new THREE.BoxGeometry(.072,.075,.245),GM[11]);
+  const handle=new THREE.Mesh(RB(.072,.075,.245),GM[11]);
   handle.position.z=.07;g.add(handle);
   for(let i=0;i<4;i++){
-    const wrap=new THREE.Mesh(new THREE.BoxGeometry(.078,.080,.012),GM[20]);
+    const wrap=new THREE.Mesh(RB(.078,.080,.012),GM[20]);
     wrap.position.z=.15-i*.055;g.add(wrap);
   }
-  const guard=new THREE.Mesh(new THREE.BoxGeometry(.22,.030,.052),GM[1]);
+  const guard=new THREE.Mesh(RB(.22,.030,.052),GM[1]);
   guard.position.z=-.065;g.add(guard);
-  const blade=new THREE.Mesh(new THREE.BoxGeometry(.058,.018,.43),GM[17]);
+  const blade=new THREE.Mesh(RB(.058,.018,.43),GM[17]);
   blade.position.z=-.30;g.add(blade);
   const tip=new THREE.Mesh(new THREE.ConeGeometry(.054,.14,4),GM[17]);
   tip.rotation.x=-Math.PI/2;tip.rotation.y=Math.PI/4;tip.position.z=-.585;g.add(tip);
   g.scale.setScalar(scale||1);return g;
 }
 const meleeView=makeCombatKnife(1);
-const meleeGlove=new THREE.Mesh(new THREE.BoxGeometry(.13,.12,.20),GM[20]);
+const meleeGlove=new THREE.Mesh(RB(.13,.12,.20),GM[20]);
 meleeGlove.position.set(.01,-.02,.15);meleeGlove.rotation.x=-.18;meleeView.add(meleeGlove);
 meleeView.visible=false;viewScene.add(meleeView);
 const WALL_GUNS=Object.values(DEFS).filter(d=>d.wall);
