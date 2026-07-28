@@ -3021,7 +3021,7 @@ function startMapAmbience(){
   const t=AC.currentTime,src=AC.createBufferSource(),hp=AC.createBiquadFilter(),
     lp=AC.createBiquadFilter(),g=AC.createGain();
   // Source recordings are naturally quiet, so normalize each map bed to a clearly audible background level.
-  const cfg=currentMap==='blacksire'?[48,4200,1.30]:(currentMap==='nuketown'?[62,6200,.60]:[80,6100,.39]);
+  const cfg=currentMap==='blacksire'?[48,4200,1.30]:(currentMap==='nuketown'?[62,6200,.60]:[80,4600,.20]);
   src.buffer=buf;src.loop=true;
   hp.type='highpass';hp.frequency.value=cfg[0];
   lp.type='lowpass';lp.frequency.value=cfg[1];lp.Q.value=.45;
