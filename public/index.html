@@ -2897,12 +2897,11 @@ let zombieSamplesLoading=false;
 let roundSample=null,roundSampleBytes=null,roundSampleLoading=false;
 const playerSampleFiles={
   hurt:['/audio/player-hurt-1.mp3','/audio/player-hurt-2.mp3','/audio/player-hurt-3.mp3'],
-  footstep:['/audio/footstep-1.mp3','/audio/footstep-2.mp3','/audio/footstep-3.mp3','/audio/footstep-4.mp3'],
   drink:['/audio/perk-drink.mp3'],
   pap:['/audio/pack-a-punch.mp3']
 };
-const playerSamples={hurt:[],footstep:[],drink:[],pap:[]};
-const playerSampleLast={hurt:-1,footstep:-1,drink:-1,pap:-1};
+const playerSamples={hurt:[],drink:[],pap:[]};
+const playerSampleLast={hurt:-1,drink:-1,pap:-1};
 let playerSamplesLoading=false;
 let lastZombieDeathSound=-99;
 function initAudio(){
@@ -2962,8 +2961,8 @@ function playPlayerSample(kind,volume,rate,delay,maxDuration){
   const buf=ready[pick],t=AC.currentTime+(delay||0),src=AC.createBufferSource(),
     hp=AC.createBiquadFilter(),lp=AC.createBiquadFilter(),g=AC.createGain();
   src.buffer=buf;src.playbackRate.value=clamp((rate||1)*rand(.97,1.03),.78,1.22);
-  hp.type='highpass';hp.frequency.value=kind==='hurt'?82:(kind==='footstep'?72:(kind==='pap'?48:75));
-  lp.type='lowpass';lp.frequency.value=kind==='hurt'?6100:(kind==='footstep'?4900:(kind==='pap'?6800:7300));
+  hp.type='highpass';hp.frequency.value=kind==='hurt'?82:(kind==='pap'?48:75);
+  lp.type='lowpass';lp.frequency.value=kind==='hurt'?6100:(kind==='pap'?6800:7300);
   const available=buf.duration/src.playbackRate.value,dur=Math.min(maxDuration||available,available);
   const V=clamp(kind==='footstep'?volume*1.18:volume,.001,.72);
   g.gain.setValueAtTime(.0008,t);g.gain.linearRampToValueAtTime(V,t+.012);
@@ -3187,18 +3186,8 @@ function sfxGroan(dist,variant){
 }
 function sfxFootstep(volume,sprint,side){
   if(!AC) return;
-  const V=clamp(volume===undefined ? .32 : volume,0,1);
-  const sampled=playPlayerSample('footstep',V,(sprint?1.07:.97)*(side?1.01:.99),0,.39);
-  if(sampled){
-    // A quiet low boot impact adds weight without bringing back the old gravel crunch.
-    const t=AC.currentTime,sole=AC.createOscillator(),sg=AC.createGain();sole.type='sine';
-    sole.frequency.setValueAtTime((side?70:66)*(sprint?1.08:1),t);
-    sole.frequency.exponentialRampToValueAtTime(36,t+.085);
-    sg.gain.setValueAtTime(Math.max(.0008,V*.12),t);sg.gain.exponentialRampToValueAtTime(.0008,t+.09);
-    sole.connect(sg);sg.connect(master);sole.start(t);sole.stop(t+.10);
-    return;
-  }
-  const t=AC.currentTime,thud=nz(),lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=sprint?520:390;
+  const V=clamp(volume===undefined ? .32 : volume,0,1),t=AC.currentTime;
+  const thud=nz(),lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=sprint?520:390;
   const g=AC.createGain();g.gain.setValueAtTime(Math.max(.0008,V*(sprint?.72:.52)),t);
   g.gain.exponentialRampToValueAtTime(.0008,t+(sprint?.105:.14));
   thud.connect(lp);lp.connect(g);g.connect(master);thud.start(t);thud.stop(t+.17);
