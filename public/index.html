@@ -3964,9 +3964,15 @@ const GEO={};
 // between them showed up as a visible ring even though the radii nearly lined up. A lathe
 // has no internal seams by construction and is still a single static shape shared by every
 // zombie, so this costs nothing extra per instance.
+// y=0 lands exactly on the PELV joint (orient() places the mesh origin there), but the hip
+// joints the legs hang from sit ~0.08 below PELV - the seat has to reach past that or the
+// legs visibly detach from the torso. The top has to narrow down close to the neck
+// cylinder's own radius (.05-.07) well before y=.50, or the torso's own bulk just buries
+// that thin cylinder inside its silhouette and reads as "no neck".
 const TORSO_PROFILE=[
-  [0,-.065],[.115,-.045],[.155,-.01],                             // rounded seat instead of a flat cut-off
-  [.160,0],[.178,.07],[.162,.15],[.145,.24],[.155,.32],[.185,.42],[.205,.50],[.160,.58],[.130,.615]
+  [0,-.11],[.09,-.095],[.14,-.06],[.155,-.02],                    // rounded seat, past the hip joint depth
+  [.160,0],[.178,.07],[.162,.15],[.145,.24],[.155,.32],[.185,.42],[.205,.50],
+  [.10,.53],[.06,.555]                                            // taper down to meet the neck instead of staying chunky
 ];
 GEO.torso=mergeGeos([
   pc(LG(TORSO_PROFILE),0, 0,0,0, 0,0,0, 1,1,.68),                 // torso: hips to chest, one continuous profile
