@@ -2898,10 +2898,21 @@ let roundSample=null,roundSampleBytes=null,roundSampleLoading=false;
 const playerSampleFiles={
   hurt:['/audio/player-hurt-1.mp3','/audio/player-hurt-2.mp3','/audio/player-hurt-3.mp3'],
   drink:['/audio/perk-drink.mp3'],
-  pap:['/audio/pack-a-punch.mp3']
+  pap:['/audio/pack-a-punch.mp3'],
+  reloadPistol:['/audio/reload-pistol.mp3'],
+  reloadRifle:['/audio/reload-rifle.mp3'],
+  reloadShell:['/audio/reload-shell.mp3'],
+  reloadShotgun:['/audio/reload-shotgun.mp3'],
+  reloadLmg:['/audio/reload-lmg.mp3'],
+  reloadWonder:['/audio/reload-wonder.mp3'],
+  handle:['/audio/weapon-handle.mp3'],
+  boxOpen:['/audio/mystery-box-open.mp3'],
+  boxRoll:['/audio/mystery-box-roll.mp3'],
+  boxReveal:['/audio/mystery-box-reveal.mp3'],
+  boxClose:['/audio/mystery-box-close.mp3']
 };
-const playerSamples={hurt:[],drink:[],pap:[]};
-const playerSampleLast={hurt:-1,drink:-1,pap:-1};
+const playerSamples={},playerSampleLast={};
+for(const kind in playerSampleFiles){playerSamples[kind]=[];playerSampleLast[kind]=-1;}
 let playerSamplesLoading=false;
 let lastZombieDeathSound=-99;
 function initAudio(){
@@ -2960,9 +2971,10 @@ function playPlayerSample(kind,volume,rate,delay,maxDuration){
   playerSampleLast[kind]=pick;
   const buf=ready[pick],t=AC.currentTime+(delay||0),src=AC.createBufferSource(),
     hp=AC.createBiquadFilter(),lp=AC.createBiquadFilter(),g=AC.createGain();
-  src.buffer=buf;src.playbackRate.value=clamp((rate||1)*rand(.97,1.03),.78,1.22);
-  hp.type='highpass';hp.frequency.value=kind==='hurt'?82:(kind==='pap'?48:75);
-  lp.type='lowpass';lp.frequency.value=kind==='hurt'?6100:(kind==='pap'?6800:7300);
+  const reload=kind.indexOf('reload')===0,mechanical=reload||kind==='handle'||kind.indexOf('box')===0;
+  src.buffer=buf;src.playbackRate.value=clamp((rate||1)*rand(.97,1.03),reload?.58:.78,reload?3.35:1.25);
+  hp.type='highpass';hp.frequency.value=kind==='hurt'?82:(kind==='pap'?48:(mechanical?58:75));
+  lp.type='lowpass';lp.frequency.value=kind==='hurt'?6100:(kind==='pap'?6800:(mechanical?7200:7300));
   const available=buf.duration/src.playbackRate.value,dur=Math.min(maxDuration||available,available);
   const V=clamp(kind==='footstep'?volume*1.18:volume,.001,.72);
   g.gain.setValueAtTime(.0008,t);g.gain.linearRampToValueAtTime(V,t+.012);
@@ -3259,6 +3271,42 @@ function sfxPack(level){
   }
   sfxTone(220,880,.55,.26,'sawtooth');
   setTimeout(()=>sfxTone(full?720:660,full?1580:1320,.5,.20,'triangle'),200);
+}
+const RELOAD_AUDIO_LENGTH={reloadPistol:1.88,reloadRifle:2.48,reloadShell:.77,reloadShotgun:1.75,reloadLmg:3.58,reloadWonder:2.59};
+function reloadSampleKind(d){
+  if(d.shellLoad) return 'reloadShell';
+  if(d.cls==='pistol') return 'reloadPistol';
+  if(d.cls==='shotgun') return 'reloadShotgun';
+  if(d.cls==='lmg') return 'reloadLmg';
+  if(d.cls==='wonder') return 'reloadWonder';
+  return 'reloadRifle';
+}
+function sfxReload(d,duration){
+  const kind=reloadSampleKind(d),base=RELOAD_AUDIO_LENGTH[kind]||2.2;
+  const volume=kind==='reloadLmg'?.46:(kind==='reloadWonder'?.40:.36);
+  if(playPlayerSample(kind,volume,base/Math.max(.22,duration),0,duration)) return true;
+  sfxClick(kind==='reloadLmg'?620:900,.07,.24);
+  setTimeout(()=>{if(player.reloading)sfxClick(kind==='reloadShell'?1350:1500,.05,.19);},Math.max(70,duration*430));
+  return false;
+}
+function sfxHandle(d){
+  const heavy=d&&(d.cls==='lmg'||d.cls==='wonder');
+  if(!playPlayerSample('handle',heavy?.18:.15,heavy?.88:1,0,.58))sfxClick(heavy?560:720,.05,.15);
+}
+function sfxBoxOpen(){
+  const opened=playPlayerSample('boxOpen',.40,1,0,1.08);
+  playPlayerSample('boxRoll',.27,1,.10,3.46);
+  if(!opened)sfxTone(400,900,.4,.18,'triangle');
+}
+function sfxBoxReveal(wonder){
+  if(playPlayerSample('boxReveal',wonder?.42:.34,wonder?.94:1,0,1.42)){
+    if(wonder)setTimeout(()=>sfxTone(480,1560,.52,.10,'triangle'),110);
+    return;
+  }
+  sfxTone(wonder?620:700,wonder?1500:1200,.5,.22,'triangle');
+}
+function sfxBoxClose(){
+  if(!playPlayerSample('boxClose',.34,1,0,.78))sfxClick(360,.08,.18);
 }
 function sfxPowerup(){ sfxTone(700,1400,.3,.2,'sine'); setTimeout(()=>sfxTone(1000,1900,.35,.16,'sine'),120); }
 
@@ -4754,21 +4802,20 @@ function tryReload(){
   player.reloading=true; player.burstLeft=0;
   const t=d.reload*(has('speed')?0.5:1);
   player.reloadEnd=game.time+t;
-  sfxClick(900,.06,.28);
-  setTimeout(()=>{if(player.reloading) sfxClick(1500,.05,.22);},t*450);
+  sfxReload(d,t);
   updHUD();
 }
 function finishReload(){
   const g=curGun(),d=g.def;
   const need=magOf(g)-g.ammo,take=Math.min(need,g.res);
   g.ammo+=take; g.res-=take; player.reloading=false;
-  sfxClick(1200,.07,.28); updHUD();
+  sfxClick(d.shellLoad?1450:1180,.035,.08); updHUD();
 }
 function swapTo(i){
   if(i>=player.guns.length||i===player.slot) return;
   player.slot=i; player.reloading=false; player.burstLeft=0;
   player.nextShot=game.time+.3; player.swapAnim=.35;
-  sfxClick(700,.06,.2); updHUD();
+  sfxHandle(curGun().def); updHUD();
 }
 const muzzleLight=new THREE.PointLight(0xffcf7a,0,15,2); scene.add(muzzleLight);
 
@@ -4859,9 +4906,9 @@ function addPerkMachine(key,x,z,y0,rot){
    weapons rare, and anything already in your hands is taken out of the pool. */
 const BOX_TIER={m14:12,olympia:12,mp5:12,ak74u:12,galil:12,rem870:12,
   an94:7,skorpion:7,rpk:6,hamr:6,m1216:6,dsr50:5,bknife:5,
-  // 7.25 total wonder weight against 114 standard weight is a 5.98% opening chance.
+  // 8.580645 total wonder weight against 114 standard weight is a 7% opening chance.
   // The existing dry-streak pity multiplier still prevents extreme runs of bad luck.
-  raygun:1.6,raygun2:1.6,warmachine:1.45,thunder:1.3,waffe:1.3};
+  raygun:1.9,raygun2:1.9,warmachine:1.72,thunder:1.5303225,waffe:1.5303225};
 const WONDER=new Set(['raygun','raygun2','thunder','waffe','warmachine']);
 /* every roll that does not turn up a wonder weapon makes the next one likelier,
    so a long unlucky run cannot go on forever */
@@ -5010,7 +5057,7 @@ function buildBox(){
       }
       mbox.state='roll'; mbox.t=0; mbox.uses++;
       mbox.pool=boxPool(); mbox.result=rollBox();
-      sfxTone(400,900,.4,.18,'triangle');
+      sfxBoxOpen();
     }});
 }
 function sharedBoxRoll(held){
@@ -5024,7 +5071,7 @@ function sharedBoxRoll(held){
 function beginSharedBox(weapon,owner){
   const d=DEFS[weapon]||DEFS.m14;
   mbox.state='roll';mbox.t=0;mbox.uses++;mbox.pool=boxPool();mbox.result=d;mbox.owner=owner;
-  sfxTone(400,900,.4,.18,'triangle');
+  sfxBoxOpen();
 }
 function hostRollSharedBox(playerId,held){
   if(!net.host||mbox.state!=='idle') return;
@@ -5058,8 +5105,10 @@ function moveBox(i){
   }
 }
 function closeBox(){
+  const wasOpen=mbox.state!=='idle';
   mbox.state='idle'; mbox.owner=null; mbox.lid.rotation.x=0;
   if(mbox.preview){scene.remove(mbox.preview); mbox.preview=null;}
+  if(wasOpen)sfxBoxClose();
   if(!net.connected&&Math.random()<0.14&&BOX_SPOTS.length>1){
     let n=mbox.spot; while(n===mbox.spot) n=randi(0,BOX_SPOTS.length-1);
     toast('The box moved');
@@ -5106,7 +5155,7 @@ function stepBox(dt){
       if(mbox.preview) scene.remove(mbox.preview);
       mbox.preview=d.mesh.clone(); mbox.preview.visible=true;
       mbox.preview.traverse(o=>{ if(o.userData&&o.userData.arm) o.visible=false; }); mbox.preview.scale.setScalar(2.0); scene.add(mbox.preview);
-      sfxTone(700,1200,.5,.22,'triangle');
+      sfxBoxReveal(WONDER.has(d.id));
     }
   } else if(mbox.state==='present'){
     mbox.t+=dt;
@@ -6064,11 +6113,9 @@ function renderRoster(){
 function netHandle(msg){
   let m; try{m=JSON.parse(msg);}catch(e){return;}
   if(m.type==='welcome'){
-    // If the local game is already running, this "welcome" is our own reconnect after a
-    // network drop (the reconnect token matched us back to our existing id), not a fresh
-    // join - the local sim never actually stopped, so restarting it would reset points,
-    // guns, and perks back to round-1 defaults for no reason other than a brief hiccup.
-    const reconnecting=net.activeGame&&game.running;
+    // An active local match remains a reconnect even while the host has paused it.
+    // Restarting a paused survivor here would reset points, guns, and perks to defaults.
+    const reconnecting=net.activeGame;
     net.id=m.id; net.host=!!m.host; net.connected=true; net.reconnectAttempts=0; net.players.clear();
     if(m.token){net.token=m.token; netSaveToken(net.code,m.token);}
     for(const p of m.players||[]){net.players.set(p.id,p);makeRemotePlayer(p);}
@@ -6078,7 +6125,9 @@ function netHandle(msg){
       for(const p of net.players.values())if(p.id!==net.id&&p.state)updateRemoteState(p.id,p.state);
       renderRoster();
       toast('Reconnected to '+net.code);
-      if(m.room&&m.room.paused&&!net.pausedByHost) applySessionPause(true);
+      if(m.room&&m.room.paused){
+        if(!net.pausedByHost)applySessionPause(true);
+      }else if(net.pausedByHost)applySessionPause(false);
     }else{
       showScreen('lobby'); renderRoster();
       if(m.room&&m.room.active&&m.room.map){

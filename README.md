@@ -151,3 +151,5 @@ Additional player foley also comes from Mixkit under the same license:
 - Hit reactions: “Boxer getting hit,” “Fighting man's voice,” and “Fighting man voice of pain” from [Fight sound effects](https://mixkit.co/free-sound-effects/fight/)
 - Perk drinking: “Sip of water” from [Drink sound effects](https://mixkit.co/free-sound-effects/drink/)
 - Pack-a-Punch processing: “Metal tool drop,” “Time machine working,” and “Electricity static power up” from [Tools](https://mixkit.co/free-sound-effects/tools/), [Time Machine](https://mixkit.co/free-sound-effects/time-machine/), and [Electricity](https://mixkit.co/free-sound-effects/electricity/) sound effects
+
+The class-based reload, weapon handling, and four-stage Mystery Box cues are original synthesized audio masters rendered specifically for this project.
