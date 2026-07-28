@@ -4157,8 +4157,18 @@ for(const id in DEFS){
     dot.visible=false; d.mesh.add(dot); d.packDot=dot;
   }
   viewScene.add(d.mesh);
-  d.hip=new THREE.Vector3(small?0.125:0.150,small?-0.105:-0.108,small?-0.400:-0.420);
-  d.adsPos=new THREE.Vector3(0,-d.sightY,small?-0.350:-0.225);
+  // The rebuilt Ray Gun has a broader silhouette than the other sidearms.
+  // Keep its detailed world and box models full size, but make the first-person
+  // presentation more compact and keep its sight centered while aiming.
+  d.viewScale=d.id==='raygun'?.78:1;
+  d.mesh.scale.setScalar(d.viewScale);
+  if(d.id==='raygun'){
+    d.hip=new THREE.Vector3(.135,-.128,-.445);
+    d.adsPos=new THREE.Vector3(0,-d.sightY*d.viewScale,-.385);
+  }else{
+    d.hip=new THREE.Vector3(small?0.125:0.150,small?-0.105:-0.108,small?-0.400:-0.420);
+    d.adsPos=new THREE.Vector3(0,-d.sightY,small?-0.350:-0.225);
+  }
   d.adsFov=d.scoped?28:(d.cls==='pistol'?58:52);
 }
 function makeCombatKnife(scale){
