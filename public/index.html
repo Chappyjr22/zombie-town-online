@@ -3955,7 +3955,7 @@ const LINKLEN=LINKS.map(([a,b])=>dst(a,b));
    material slots: 0 cloth, 1 skin, 2 pale (eyes, teeth, bone), 3 dark (hair, shoes, sockets) */
 const SG=(r,w,h)=>new THREE.SphereGeometry(r,w||10,h||8);
 const CG=(a,b,h,s)=>new THREE.CylinderGeometry(a,b,h,s||10);
-const BG=(w,h,d)=>new THREE.BoxGeometry(w,h,d);
+const BG=RB; // same subtle edge-round as the weapon boxes; built once per shared GEO/HEAD_GEOS entry, reused by every zombie
 
 const GEO={};
 GEO.torso=mergeGeos([
