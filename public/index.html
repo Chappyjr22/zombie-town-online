@@ -819,19 +819,34 @@ function sunShadow(light,size){
 }
 const torch=new THREE.SpotLight(0xffe9c4,1.05,32,0.5,0.6,1.2); scene.add(torch); scene.add(torch.target);
 
+// Every streetlamp is identical geometry at a different placement, so the visual parts (not
+// the light - THREE can't instance those) share one InstancedMesh instead of 5 meshes each.
+const STREETLAMP_CAP=16;
+let streetLampMesh=null, streetLampCount=0;
+M.lampGlass=phong({color:0xffc267,emissive:0xff9d32,emissiveIntensity:1.4,transparent:true,opacity:.88,shininess:80});
+function ensureStreetLampMesh(){
+  if(streetLampMesh) return;
+  const geo=mergeGeos([
+    pc(new THREE.CylinderGeometry(0.08,0.13,5.4,12),0, 0,2.7,0),
+    pc(new THREE.BoxGeometry(1.0,0.09,0.09),0, 0.48,5.32,0),
+    pc(new THREE.CylinderGeometry(.28,.17,.24,16),0, .9,5.22,0),
+    pc(new THREE.TorusGeometry(.19,.025,6,16),1, .9,5.08,0, Math.PI/2,0,0),
+    pc(new THREE.SphereGeometry(.17,16,10),2, .9,5.04,0)
+  ]);
+  streetLampMesh=new THREE.InstancedMesh(geo,[M.dark,M.metal,M.lampGlass],STREETLAMP_CAP);
+  streetLampMesh.castShadow=true; streetLampMesh.receiveShadow=true;
+  streetLampMesh.count=0;
+  worldRoot.add(streetLampMesh);
+}
 function streetLamp(x,z,rot){
-  const g=new THREE.Group();
-  const p=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.13,5.4,12),M.dark); p.position.y=2.7; g.add(p);
-  const a=new THREE.Mesh(new THREE.BoxGeometry(1.0,0.09,0.09),M.dark); a.position.set(0.48,5.32,0); g.add(a);
-  const shade=new THREE.Mesh(new THREE.CylinderGeometry(.28,.17,.24,16),M.dark);
-  shade.position.set(.9,5.22,0);g.add(shade);
-  const glass=new THREE.Mesh(new THREE.SphereGeometry(.17,16,10),
-    phong({color:0xffc267,emissive:0xff9d32,emissiveIntensity:1.4,transparent:true,opacity:.88,shininess:80}));
-  glass.position.set(.9,5.04,0);g.add(glass);
-  const cap=new THREE.Mesh(new THREE.TorusGeometry(.19,.025,6,16),M.metal);
-  cap.rotation.x=Math.PI/2;cap.position.set(.9,5.08,0);g.add(cap);
-  const L=new THREE.PointLight(0xffa93c,1.35,19,1.7); L.position.set(0.9,5.0,0); g.add(L);
-  g.position.set(x,0,z); g.rotation.y=rot||0; worldRoot.add(g);
+  ensureStreetLampMesh();
+  _me.set(0,rot||0,0); _mq.setFromEuler(_me);
+  _mm.compose(new THREE.Vector3(x,0,z),_mq,new THREE.Vector3(1,1,1));
+  streetLampMesh.setMatrixAt(streetLampCount++,_mm);
+  streetLampMesh.count=streetLampCount;
+  streetLampMesh.instanceMatrix.needsUpdate=true;
+  const lightPos=new THREE.Vector3(0.9,5.0,0).applyQuaternion(_mq).add(new THREE.Vector3(x,0,z));
+  const L=new THREE.PointLight(0xffa93c,1.35,19,1.7); L.position.copy(lightPos); worldRoot.add(L);
   addCollider(x-0.28,x+0.28,z-0.28,z+0.28);
 }
 function makeFire(x,z,y,scale,intensity){
@@ -2804,6 +2819,7 @@ function clearWorld(){
   worldRoot=new THREE.Group(); scene.add(worldRoot);
   colliders.length=0; blockers.length=0; platforms.length=0; stairBases.length=0;
   flames.length=0; jumpPads.length=0; interactables.length=0; cullableLights.length=0;
+  streetLampMesh=null; streetLampCount=0;
   window.__ash=null;
   window.__storm=null;
   if(typeof papGlow!=='undefined') papGlow=null;
