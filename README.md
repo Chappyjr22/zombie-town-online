@@ -168,6 +168,8 @@ The map ambience recordings are sourced from CC0 FreeSound recordings preserved 
 - Nuketown: [“Nature ambient” by michorvath](https://freesound.org/people/michorvath/sounds/427601/), from [Adventures With Anxiety](https://github.com/ncase/anxiety)
 - BLACKSIRE: “Room Ambience” by gchase, from [Coming Out Simulator](https://github.com/ncase/cos)
 
+Jump pads use [“Swosh swoosh whoosh air sound”](https://freesound.org/people/qubodup/sounds/60026/) by qubodup under CC0. It is a field recording made by swinging a bamboo stick past a Zoom H2 recorder.
+
 Bullet-impact recordings use the CC0 “Punch” recording credited in [Coming Out Simulator](https://github.com/ncase/cos) plus CC0 metal recordings by Iwan Gabovitch and Ogrebane from the [Minetest default asset library](https://github.com/minetest-game/default#sounds).
 
 Purchase, pickup, denial, and unique power-up cues use Kenney's CC0 [Impact Sounds](https://kenney.nl/assets/impact-sounds), [RPG Audio](https://kenney.nl/assets/rpg-audio), [Interface Sounds](https://kenney.nl/assets/interface-sounds), [Sci-Fi Sounds](https://kenney.nl/assets/sci-fi-sounds), and [Music Jingles](https://kenney.nl/assets/music-jingles), with the exact source mapping documented by [Ironband](https://github.com/chrislingxi/ironband/blob/main/ATTRIBUTION.md).

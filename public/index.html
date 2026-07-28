@@ -2910,6 +2910,7 @@ const playerSampleFiles={
   boxRoll:['/audio/mystery-box-dream-harp.ogg'],
   boxReveal:['/audio/mystery-box-magic-mallet.ogg'],
   boxClose:['/audio/mystery-box-chest-close.ogg'],
+  jumpPad:['/audio/jump-pad-whoosh.wav'],
   impactFlesh:['/audio/impact-flesh.ogg'],
   impactHard:['/audio/impact-metal-1.ogg','/audio/impact-metal-2.ogg','/audio/impact-metal-3.ogg','/audio/impact-metal-4.ogg'],
   interactBuy:['/audio/interact-buy.mp3'],
@@ -3301,14 +3302,14 @@ function sfxBuy(kind){
   let played=false;
   if(kind==='wall'||kind==='ammo'){
     // A purchase cue plus weapon handling makes wall guns and ammo unmistakable.
-    played=playPlayerSample('interactBuy',.62,1,0,.9)||played;
+    played=playPlayerSample('interactBuy',.72,1,0,.9)||played;
     played=playPlayerSample('interactPickup',.72,1.02,.055,.42)||played;
-  }else played=playPlayerSample('interactBuy',.58,1,0,.9);
+  }else played=playPlayerSample('interactBuy',.72,1,0,.9);
   if(played) return;
   sfxTone(520,880,.16,.22,'square'); setTimeout(()=>sfxTone(880,1320,.18,.18,'square'),90);
 }
 function sfxDeny(){
-  if(playPlayerSample('interactDeny',.25,.86,0,.55)) return;
+  if(playPlayerSample('interactDeny',.72,.86,0,.55)) return;
   sfxTone(200,120,.22,.22,'square');
 }
 function sfxPerk(){
@@ -3364,22 +3365,31 @@ function sfxBoxReveal(wonder){
 function sfxBoxClose(){
   if(!playPlayerSample('boxClose',.34,1,0,.78))sfxClick(360,.08,.18);
 }
+function sfxJumpPad(){
+  if(playPlayerSample('jumpPad',.72,.88,0,.49)) return;
+  sfxTone(300,900,.3,.2,'sine');
+}
 let lastImpactSample=-99;
 function sfxImpact(kind){
   if(!AC||AC.currentTime-lastImpactSample<.055) return;
   lastImpactSample=AC.currentTime;
   const flesh=kind==='flesh';
-  if(playPlayerSample(flesh?'impactFlesh':'impactHard',flesh?.24:.20,flesh?.96:1.05,0,flesh?.42:.48)) return;
-  sfxClick(flesh?480:1500,.045,flesh?.15:.12);
+  if(playPlayerSample(flesh?'impactFlesh':'impactHard',.72,flesh?.96:1.05,.035,flesh?.42:.48)) return;
+  setTimeout(()=>sfxClick(flesh?480:1500,.045,flesh?.15:.12),35);
 }
 function sfxPowerup(kind){
-  const sample=kind==='maxammo'?'interactPickup':
-    (kind==='doublepoints'?'interactBuy':
-    (kind==='instakill'?'powerInstakill':
-    (kind==='nuke'?'powerNuke':'powerFireSale')));
-  const cfg={maxammo:[.34,.92,.75],doublepoints:[.35,1.04,.95],instakill:[.38,.88,.8],
-    nuke:[.42,.80,1.05],firesale:[.38,1.02,1.35]}[kind]||[.34,1,.9];
-  if(playPlayerSample(sample,cfg[0],cfg[1],0,cfg[2])) return;
+  if(kind==='maxammo'){
+    const picked=playPlayerSample('interactPickup',.72,.96,0,.42);
+    const clack=playPlayerSample('impactHard',.58,1.08,.045,.34);
+    if(picked||clack) return;
+  }else{
+    const sample=kind==='doublepoints'?'interactBuy':
+      (kind==='instakill'?'powerInstakill':
+      (kind==='nuke'?'powerNuke':'powerFireSale'));
+    const cfg={doublepoints:[.72,1.04,0,.90],instakill:[.72,.88,.02,.80],
+      nuke:[.72,.80,.08,1.05],firesale:[.72,1.02,.02,1.35]}[kind]||[.72,1,0,.9];
+    if(playPlayerSample(sample,cfg[0],cfg[1],cfg[2],cfg[3])) return;
+  }
   sfxTone(700,1400,.3,.2,'sine'); setTimeout(()=>sfxTone(1000,1900,.35,.16,'sine'),120);
 }
 
@@ -6824,7 +6834,7 @@ function updatePlayer(dt){
   if(player.grounded){
     for(const jp of jumpPads){
       if(Math.hypot(jp.x-player.pos.x,jp.z-player.pos.z)<1.3&&player.y<0.4){
-        player.vy=15.2; player.grounded=false; sfxTone(300,900,.3,.2,'sine');
+        player.vy=15.2; player.grounded=false; sfxJumpPad();
       }
     }
   }
