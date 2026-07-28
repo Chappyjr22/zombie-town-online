@@ -2898,10 +2898,11 @@ let roundSample=null,roundSampleBytes=null,roundSampleLoading=false;
 const playerSampleFiles={
   hurt:['/audio/player-hurt-1.mp3','/audio/player-hurt-2.mp3','/audio/player-hurt-3.mp3'],
   footstep:['/audio/footstep-1.mp3','/audio/footstep-2.mp3','/audio/footstep-3.mp3','/audio/footstep-4.mp3'],
-  drink:['/audio/perk-drink.mp3']
+  drink:['/audio/perk-drink.mp3'],
+  pap:['/audio/pack-a-punch.mp3']
 };
-const playerSamples={hurt:[],footstep:[],drink:[]};
-const playerSampleLast={hurt:-1,footstep:-1,drink:-1};
+const playerSamples={hurt:[],footstep:[],drink:[],pap:[]};
+const playerSampleLast={hurt:-1,footstep:-1,drink:-1,pap:-1};
 let playerSamplesLoading=false;
 let lastZombieDeathSound=-99;
 function initAudio(){
@@ -2961,8 +2962,8 @@ function playPlayerSample(kind,volume,rate,delay,maxDuration){
   const buf=ready[pick],t=AC.currentTime+(delay||0),src=AC.createBufferSource(),
     hp=AC.createBiquadFilter(),lp=AC.createBiquadFilter(),g=AC.createGain();
   src.buffer=buf;src.playbackRate.value=clamp((rate||1)*rand(.97,1.03),.78,1.22);
-  hp.type='highpass';hp.frequency.value=kind==='hurt'?82:(kind==='footstep'?62:75);
-  lp.type='lowpass';lp.frequency.value=kind==='hurt'?6100:(kind==='footstep'?5200:7300);
+  hp.type='highpass';hp.frequency.value=kind==='hurt'?82:(kind==='footstep'?72:(kind==='pap'?48:75));
+  lp.type='lowpass';lp.frequency.value=kind==='hurt'?6100:(kind==='footstep'?4900:(kind==='pap'?6800:7300));
   const available=buf.duration/src.playbackRate.value,dur=Math.min(maxDuration||available,available);
   const V=clamp(kind==='footstep'?volume*1.18:volume,.001,.72);
   g.gain.setValueAtTime(.0008,t);g.gain.linearRampToValueAtTime(V,t+.012);
@@ -3187,7 +3188,16 @@ function sfxGroan(dist,variant){
 function sfxFootstep(volume,sprint,side){
   if(!AC) return;
   const V=clamp(volume===undefined ? .32 : volume,0,1);
-  if(playPlayerSample('footstep',V,(sprint?1.06:.98)*(side?1.012:.988),0,.44)) return;
+  const sampled=playPlayerSample('footstep',V,(sprint?1.07:.97)*(side?1.01:.99),0,.39);
+  if(sampled){
+    // A quiet low boot impact adds weight without bringing back the old gravel crunch.
+    const t=AC.currentTime,sole=AC.createOscillator(),sg=AC.createGain();sole.type='sine';
+    sole.frequency.setValueAtTime((side?70:66)*(sprint?1.08:1),t);
+    sole.frequency.exponentialRampToValueAtTime(36,t+.085);
+    sg.gain.setValueAtTime(Math.max(.0008,V*.12),t);sg.gain.exponentialRampToValueAtTime(.0008,t+.09);
+    sole.connect(sg);sg.connect(master);sole.start(t);sole.stop(t+.10);
+    return;
+  }
   const t=AC.currentTime,thud=nz(),lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=sprint?520:390;
   const g=AC.createGain();g.gain.setValueAtTime(Math.max(.0008,V*(sprint?.72:.52)),t);
   g.gain.exponentialRampToValueAtTime(.0008,t+(sprint?.105:.14));
@@ -3251,6 +3261,15 @@ function sfxPerk(){
     return;
   }
   sfxTone(330,660,.5,.2,'triangle');setTimeout(()=>sfxTone(660,990,.5,.16,'triangle'),160);
+}
+function sfxPack(level){
+  const full=level>=2;
+  if(playPlayerSample('pap',full?.58:.52,full?.96:1,0,2.55)){
+    setTimeout(()=>sfxTone(full?520:620,full?1720:1380,.55,full?.17:.14,'triangle'),2020);
+    return;
+  }
+  sfxTone(220,880,.55,.26,'sawtooth');
+  setTimeout(()=>sfxTone(full?720:660,full?1580:1320,.5,.20,'triangle'),200);
 }
 function sfxPowerup(){ sfxTone(700,1400,.3,.2,'sine'); setTimeout(()=>sfxTone(1000,1900,.35,.16,'sine'),120); }
 
@@ -5229,8 +5248,7 @@ function packGun(g){
   g.pack=packLv(g)+1;
   g.ammo=magOf(g);g.res=resOf(g);
   player.swapAnim=.5;papFlash=2.6;
-  sfxTone(220,880,.55,.26,'sawtooth');
-  setTimeout(()=>sfxTone(660,1320,.5,.20,'triangle'),200);
+  sfxPack(g.pack);
   toast(g.def.name+(g.pack>=2?'  fully packed':'  packed'));
   updHUD();
 }
