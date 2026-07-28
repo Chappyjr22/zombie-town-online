@@ -461,11 +461,18 @@
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "/vendor/three/three.module.min.js"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from "three";
 /* ===================================================================
    TOWN - first person zombie survival
-   Single file. Three.js r128. No build step.
+   Single file. Three.js r160 (vendored locally, no CDN). No build step.
    =================================================================== */
 const TAU = Math.PI*2;
 const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
@@ -480,9 +487,10 @@ const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'h
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setSize(innerWidth,innerHeight);
 renderer.autoClear=false;
-renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=1.08;
+renderer.useLegacyLights=true; // keeps every hand-tuned light intensity below meaning what it already meant
 
 const NIGHT=0x0a0c14;
 const scene=new THREE.Scene();
@@ -508,7 +516,7 @@ function tex(w,h,draw,rx,ry){
   draw(cv.getContext('2d'),w,h);
   const t=new THREE.CanvasTexture(cv);
   t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(rx||1,ry||1);
-  t.encoding=THREE.sRGBEncoding; return t;
+  t.colorSpace=THREE.SRGBColorSpace; return t;
 }
 function grain(x,w,h,amt){
   const im=x.getImageData(0,0,w,h),d=im.data;
@@ -2119,7 +2127,7 @@ function clockPost(x,z){
   cyl(0.10,0.13,4.2,x,2.1,z,M.dark,true);
   const cv=document.createElement('canvas'); cv.width=128; cv.height=128;
   const ctx=cv.getContext('2d');
-  const t=new THREE.CanvasTexture(cv); t.encoding=THREE.sRGBEncoding;
+  const t=new THREE.CanvasTexture(cv); t.colorSpace=THREE.SRGBColorSpace;
   for(const r of [0,Math.PI]){
     const f=new THREE.Mesh(new THREE.CircleGeometry(0.52,20),new THREE.MeshBasicMaterial({map:t}));
     f.position.set(x,4.5,z+(r?-0.09:0.09)); f.rotation.y=r; worldRoot.add(f);
@@ -2156,7 +2164,7 @@ function welcomeSign(x,z,rot){
   }
   const cv=document.createElement('canvas'); cv.width=384; cv.height=192;
   const ctx=cv.getContext('2d');
-  const texS=new THREE.CanvasTexture(cv); texS.encoding=THREE.sRGBEncoding;
+  const texS=new THREE.CanvasTexture(cv); texS.colorSpace=THREE.SRGBColorSpace;
   const board=new THREE.Mesh(new THREE.BoxGeometry(5.6,2.8,0.16),new THREE.MeshBasicMaterial({map:texS}));
   board.position.y=3.0; g.add(board); blockers.push(board);
   const back=new THREE.Mesh(new THREE.BoxGeometry(5.6,2.8,0.12),phong({color:0x8a8064}));
@@ -5472,7 +5480,7 @@ function makeRemoteNameTag(name,col){
   c.fillStyle='#f2ead6';c.font='700 34px Arial';c.textAlign='center';c.textBaseline='middle';
   c.shadowColor='rgba(0,0,0,.95)';c.shadowBlur=7;
   c.fillText(String(name||'Survivor').slice(0,18),w/2,h/2-3,w-42);
-  const map=new THREE.CanvasTexture(canvas);map.encoding=THREE.sRGBEncoding;
+  const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;
   const material=new THREE.SpriteMaterial({map,transparent:true,depthTest:true,depthWrite:false});
   const sprite=new THREE.Sprite(material);sprite.scale.set(2.8,.525,1);
   sprite.renderOrder=5;
