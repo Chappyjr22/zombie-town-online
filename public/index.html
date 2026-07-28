@@ -2899,17 +2899,17 @@ const playerSampleFiles={
   hurt:['/audio/player-hurt-1.mp3','/audio/player-hurt-2.mp3','/audio/player-hurt-3.mp3'],
   drink:['/audio/perk-drink.mp3'],
   pap:['/audio/pack-a-punch.mp3'],
-  reloadPistol:['/audio/reload-pistol.mp3'],
-  reloadRifle:['/audio/reload-rifle.mp3'],
-  reloadShell:['/audio/reload-shell.mp3'],
-  reloadShotgun:['/audio/reload-shotgun.mp3'],
-  reloadLmg:['/audio/reload-lmg.mp3'],
-  reloadWonder:['/audio/reload-wonder.mp3'],
-  handle:['/audio/weapon-handle.mp3'],
-  boxOpen:['/audio/mystery-box-open.mp3'],
-  boxRoll:['/audio/mystery-box-roll.mp3'],
-  boxReveal:['/audio/mystery-box-reveal.mp3'],
-  boxClose:['/audio/mystery-box-close.mp3']
+  reloadPistol:['/audio/weapon-pistol-reload.ogg'],
+  reloadRifle:['/audio/weapon-smg-reload.ogg'],
+  reloadShell:['/audio/weapon-metal-load.ogg'],
+  reloadShotgun:['/audio/weapon-smg-reload.ogg'],
+  reloadLmg:['/audio/weapon-smg-reload.ogg'],
+  reloadWonder:['/audio/weapon-smg-reload.ogg'],
+  handle:['/audio/weapon-holster.ogg'],
+  boxOpen:['/audio/mystery-box-chest-open.ogg'],
+  boxRoll:['/audio/mystery-box-dream-harp.ogg'],
+  boxReveal:['/audio/mystery-box-magic-mallet.ogg'],
+  boxClose:['/audio/mystery-box-chest-close.ogg']
 };
 const playerSamples={},playerSampleLast={};
 for(const kind in playerSampleFiles){playerSamples[kind]=[];playerSampleLast[kind]=-1;}
@@ -3272,7 +3272,7 @@ function sfxPack(level){
   sfxTone(220,880,.55,.26,'sawtooth');
   setTimeout(()=>sfxTone(full?720:660,full?1580:1320,.5,.20,'triangle'),200);
 }
-const RELOAD_AUDIO_LENGTH={reloadPistol:1.88,reloadRifle:2.48,reloadShell:.77,reloadShotgun:1.75,reloadLmg:3.58,reloadWonder:2.59};
+const RELOAD_AUDIO_LENGTH={reloadPistol:2.22,reloadRifle:2.79,reloadShell:.50,reloadShotgun:2.79,reloadLmg:2.79,reloadWonder:2.79};
 function reloadSampleKind(d){
   if(d.shellLoad) return 'reloadShell';
   if(d.cls==='pistol') return 'reloadPistol';
@@ -3291,15 +3291,15 @@ function sfxReload(d,duration){
 }
 function sfxHandle(d){
   const heavy=d&&(d.cls==='lmg'||d.cls==='wonder');
-  if(!playPlayerSample('handle',heavy?.18:.15,heavy?.88:1,0,.58))sfxClick(heavy?560:720,.05,.15);
+  if(!playPlayerSample('handle',heavy?.21:.18,heavy?1.05:1.18,0,.92))sfxClick(heavy?560:720,.05,.15);
 }
 function sfxBoxOpen(){
-  const opened=playPlayerSample('boxOpen',.40,1,0,1.08);
-  playPlayerSample('boxRoll',.27,1,.10,3.46);
+  const opened=playPlayerSample('boxOpen',.44,1,0,.60);
+  playPlayerSample('boxRoll',.30,1,.08,3.46);
   if(!opened)sfxTone(400,900,.4,.18,'triangle');
 }
 function sfxBoxReveal(wonder){
-  if(playPlayerSample('boxReveal',wonder?.42:.34,wonder?.94:1,0,1.42)){
+  if(playPlayerSample('boxReveal',wonder?.46:.38,wonder?.96:1,0,2.60)){
     if(wonder)setTimeout(()=>sfxTone(480,1560,.52,.10,'triangle'),110);
     return;
   }

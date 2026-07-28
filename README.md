@@ -152,4 +152,10 @@ Additional player foley also comes from Mixkit under the same license:
 - Perk drinking: “Sip of water” from [Drink sound effects](https://mixkit.co/free-sound-effects/drink/)
 - Pack-a-Punch processing: “Metal tool drop,” “Time machine working,” and “Electricity static power up” from [Tools](https://mixkit.co/free-sound-effects/tools/), [Time Machine](https://mixkit.co/free-sound-effects/time-machine/), and [Electricity](https://mixkit.co/free-sound-effects/electricity/) sound effects
 
-The class-based reload, weapon handling, and four-stage Mystery Box cues are original synthesized audio masters rendered specifically for this project.
+Reload and weapon-handling recordings come from Pixabay under the [Pixabay Content License](https://pixabay.com/service/license-summary/):
+
+- [9mm pistol load and chamber](https://pixabay.com/sound-effects/film-special-effects-9mm-pistol-load-and-chamber-98830/) by michorvath
+- [MP5](https://pixabay.com/sound-effects/film-special-effects-mp5-168858/) by jigokukarano_sisya
+- [Holster Pistol](https://pixabay.com/sound-effects/film-special-effects-holster-pistol-7132/) by nioczkus
+
+Mystery Box crate sounds use Minetest's `default_chest_open.ogg` and `default_chest_close.ogg`, mixed by sofar from CC0 and CC BY 3.0 recordings documented in the [Minetest default asset credits](https://github.com/minetest-game/default#sounds). The cycling and reveal cues use “Dream Harps” by limetoe and “Magic mallet” by Hotlavaman, both CC0 recordings documented by [Happy Onlife](https://github.com/happyonlife/hol#licencing).
