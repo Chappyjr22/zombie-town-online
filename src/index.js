@@ -184,7 +184,12 @@ export class GameRoom extends DurableObject {
     this.ctx.acceptWebSocket(server, ["player"]);
     server.serializeAttachment(player);
 
-    const players = existing.map((ws) => this.attachment(ws));
+    // Socket attachments contain private reconnect tokens and rate-limit counters. Only
+    // expose the public player snapshot needed by the joining client's roster and models.
+    const players = existing.map((ws) => {
+      const current = this.attachment(ws);
+      return { id: current.id, name: current.name, host: current.host, state: current.state };
+    });
     const room = (await this.ctx.storage.get("room")) || { active: false, map: null, paused: false };
     this.send(server, { type: "welcome", id, name, host, token, players, room });
     this.broadcast({ type: "player_joined", player: { id, name, host } }, server);
@@ -377,7 +382,9 @@ export class GameRoom extends DurableObject {
         next.serializeAttachment(replacement);
         this.broadcast({ type: "role", id: replacement.id, host: true });
       } else {
-        await this.ctx.storage.put("room", { active: false, map: null, paused: false });
+        // Preserve the active map and pause state during the reconnect grace period. The
+        // alarm removes the room if nobody returns, while a reconnect receives the same
+        // active room snapshot and can continue without splitting client/server state.
         await this.ctx.storage.setAlarm(Date.now() + RECONNECT_TTL_MS);
       }
     }

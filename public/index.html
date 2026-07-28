@@ -5861,7 +5861,13 @@ async function netConnect(raw,isRetry){
     const info=await check.json();
     if(!check.ok||!info.exists) throw new Error('Room not found');
     if(info.players>=4) throw new Error('Room is full');
-  }catch(e){setNetStatus(e.message||'Could not reach room');sfxDeny();return;}
+  }catch(e){
+    setNetStatus(e.message||'Could not reach room');
+    // A failed status preflight is expected while the network is still down. Keep using
+    // the same bounded retry loop instead of silently stopping after the first attempt.
+    if(isRetry) netAttemptReconnect(code); else sfxDeny();
+    return;
+  }
   const token=netLoadToken(code);
   netDisconnect(false,isRetry); net.code=code; net.manualClose=false; net.token=token;
   setNetStatus('Connecting to '+code);
