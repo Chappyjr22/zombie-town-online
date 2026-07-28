@@ -4001,8 +4001,15 @@ GEO.farm=mergeGeos([
   pc(BG(.020,.070,.030),1, .021,L_FA*.99,.024, .35),
   pc(BG(.026,.055,.026),1, -.034,L_FA*.90,.008, .1,0,.5),         // thumb
 ]);
+// The thigh's own origin sits exactly at the true hip joint (orient() puts it there
+// directly), but the torso mesh rotates to follow the spine's lean - since every zombie
+// has a permanent forward lean bias, the torso's underside tilts away from the hip joint
+// instead of sitting flush above it. Rather than chase that moving target from the torso
+// side, the thigh gets a rounded cap that pokes up into the pelvis on its own, correctly-
+// anchored frame, so the seam is covered regardless of which way the torso is leaning.
 GEO.thigh=mergeGeos([
-  pc(limbTaper(.084,.086,.062,L_TH),6, 0,0,0, 0,0,0, 1,1,.92),
+  pc(LG([[.07,-.05],[.11,-.02],[.118,.015],[.086,L_TH*.40],[.068,L_TH*.82],[.062,L_TH]]),
+    6, 0,0,0, 0,0,0, 1,1,.92),
 ]);
 GEO.shin=mergeGeos([
   pc(limbTaper(.058,.052,.044,L_SH*.92),6, 0,0,0),
@@ -5269,7 +5276,15 @@ addEventListener('mousemove',e=>{
 });
 canvas.addEventListener('mousedown',e=>{
   pad.used=false;
-  if(!pointerLocked) return;
+  if(!pointerLocked){
+    // The browser can drop pointer lock on its own (Escape, alt-tab, focus loss) without
+    // the game noticing until pointerlockchange fires pause(). If that happens while the
+    // pause screen isn't showing for some reason, an ordinary click used to do nothing at
+    // all here - the player was stuck with a dead mouse. Any click while still "running"
+    // now retries the lock instead of being silently swallowed.
+    if(game.running&&!isTouch) canvas.requestPointerLock();
+    return;
+  }
   if(e.button===0){player.firing=true;}
   if(e.button===2) player.ads=SET.adsToggle?!player.ads:true;
   if(e.button===1){e.preventDefault();tryMelee();}
