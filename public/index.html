@@ -5213,17 +5213,124 @@ function maybeDrop(x,z){
   spawnSharedDrop(k,x,z,id,false);
   if(net.connected&&net.host) netHostBroadcast({type:'drop_spawn',id,kind:k,x,z});
 }
+function dropPart(g,geo,mat,x,y,z,rx,ry,rz){
+  const m=new THREE.Mesh(geo,mat);
+  m.position.set(x||0,y||0,z||0);m.rotation.set(rx||0,ry||0,rz||0);
+  m.castShadow=true;g.add(m);return m;
+}
+function dropMaterial(color,emissive,intensity,roughness,metalness){
+  return new THREE.MeshStandardMaterial({color,emissive:emissive===undefined?color:emissive,
+    emissiveIntensity:intensity===undefined?.25:intensity,
+    roughness:roughness===undefined?.42:roughness,metalness:metalness===undefined?.25:metalness});
+}
+function dropLabel(text,col,w,h){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=128;
+  const g=cv.getContext('2d'),hex='#'+col.toString(16).padStart(6,'0');
+  g.clearRect(0,0,256,128);g.textAlign='center';g.textBaseline='middle';
+  g.font='900 '+(text.length>2?62:86)+'px Arial Black,Arial,sans-serif';
+  g.lineJoin='round';g.shadowColor=hex;g.shadowBlur=24;
+  g.strokeStyle='rgba(0,0,0,.92)';g.lineWidth=17;g.strokeText(text,128,68);
+  g.fillStyle='#fff4cf';g.fillText(text,128,68);
+  const tx=new THREE.CanvasTexture(cv);tx.colorSpace=THREE.SRGBColorSpace;
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,transparent:true,depthWrite:false}));
+  s.scale.set(w||1.15,h||.58,1);return s;
+}
+function makeDropModel(k){
+  const root=new THREE.Group(),col=DROPS[k].col;
+  const glow=dropMaterial(col,col,1.25,.24,.18);
+  const dark=dropMaterial(0x15171b,col,.12,.62,.55);
+  if(k==='maxammo'){
+    const olive=dropMaterial(0x3d4824,0x8f942c,.25,.72,.18);
+    const edge=dropMaterial(0x171b13,col,.18,.5,.65);
+    const brass=dropMaterial(0xb68a32,0x8d681b,.28,.28,.78);
+    dropPart(root,new THREE.BoxGeometry(1.25,.58,.78),olive,0,-.03,0);
+    dropPart(root,new THREE.BoxGeometry(1.34,.15,.86),edge,0,.31,0);
+    for(const xx of [-.48,.48]) dropPart(root,new THREE.BoxGeometry(.09,.76,.88),edge,xx,.03,0);
+    for(const xx of [-.34,.34]) dropPart(root,new THREE.BoxGeometry(.16,.22,.07),brass,xx,.12,.43);
+    dropPart(root,new THREE.BoxGeometry(.52,.07,.08),edge,0,.50,0);
+    for(const xx of [-.24,.24]) dropPart(root,new THREE.BoxGeometry(.07,.25,.08),edge,xx,.41,0);
+    for(let i=0;i<5;i++)
+      dropPart(root,new THREE.CylinderGeometry(.045,.058,.36,10),brass,-.38+i*.19,.48,.18,0,0,Math.PI/2);
+  }else if(k==='instakill'){
+    const bone=dropMaterial(0xc8c2a8,0x7a180f,.30,.78,.06);
+    const socket=dropMaterial(0x130807,0xd83a3a,.85,.38,.18);
+    const cranium=dropPart(root,new THREE.SphereGeometry(.46,20,14),bone,0,.12,0);
+    cranium.scale.set(1,.95,.88);
+    const face=dropPart(root,new THREE.SphereGeometry(.32,18,12),bone,0,-.23,.17);
+    face.scale.set(.88,.78,.72);
+    const jaw=dropPart(root,new THREE.SphereGeometry(.28,16,10),bone,0,-.47,.13);
+    jaw.scale.set(.74,.40,.64);
+    for(const xx of [-.17,.17]){
+      const eye=dropPart(root,new THREE.SphereGeometry(.115,14,9),socket,xx,-.06,.37);
+      eye.scale.set(1,.82,.34);
+      dropPart(root,new THREE.SphereGeometry(.035,10,7),glow,xx,-.06,.415);
+    }
+    dropPart(root,new THREE.ConeGeometry(.065,.14,3),socket,0,-.27,.42,Math.PI/2,0,0);
+    for(let i=0;i<5;i++) dropPart(root,new THREE.BoxGeometry(.075,.12,.055),bone,-.16+i*.08,-.50,.36);
+    for(const xx of [-.33,.33]){
+      const cheek=dropPart(root,new THREE.SphereGeometry(.13,12,8),bone,xx,-.27,.17);
+      cheek.scale.set(1.1,.55,.7);
+    }
+  }else if(k==='doublepoints'){
+    dropPart(root,new THREE.TorusGeometry(.62,.075,10,32),glow,0,0,0);
+    dropPart(root,new THREE.TorusGeometry(.47,.025,8,28),dark,0,0,-.02);
+    const label=dropLabel('x2',col,1.22,.62);label.position.z=.08;root.add(label);
+    for(const a of [0,Math.PI/2,Math.PI,Math.PI*1.5])
+      dropPart(root,new THREE.SphereGeometry(.065,10,7),glow,Math.cos(a)*.62,Math.sin(a)*.62,.02);
+  }else if(k==='nuke'){
+    const shell=dropMaterial(0x23252b,col,.30,.30,.82);
+    const band=dropMaterial(0x34204a,col,.85,.25,.66);
+    const body=dropPart(root,new THREE.SphereGeometry(.38,20,14),shell,0,0,0);
+    body.scale.set(.76,1.38,.76);
+    dropPart(root,new THREE.ConeGeometry(.25,.38,14),shell,0,-.67,0,0,0,Math.PI);
+    dropPart(root,new THREE.CylinderGeometry(.16,.22,.30,14),shell,0,.66,0);
+    dropPart(root,new THREE.TorusGeometry(.29,.055,8,22),band,0,.07,0,Math.PI/2,0,0);
+    for(const ry of [0,Math.PI/2])
+      dropPart(root,new THREE.BoxGeometry(.08,.42,.54),band,0,.83,0,0,ry,0);
+    dropPart(root,new THREE.SphereGeometry(.075,10,7),glow,0,-.80,0);
+  }else{
+    const tagMat=dropMaterial(0x1f6d45,col,.52,.50,.22);
+    const sh=new THREE.Shape();
+    sh.moveTo(-.62,-.40);sh.lineTo(.30,-.40);sh.lineTo(.66,0);sh.lineTo(.30,.40);
+    sh.lineTo(-.62,.40);sh.lineTo(-.62,-.40);
+    dropPart(root,new THREE.ExtrudeGeometry(sh,{depth:.16,bevelEnabled:true,
+      bevelSegments:2,steps:1,bevelSize:.035,bevelThickness:.035}),tagMat,0,0,-.08);
+    dropPart(root,new THREE.TorusGeometry(.095,.026,7,16),glow,.38,0,.12);
+    const label=dropLabel('SALE',col,1.10,.48);label.position.set(-.10,0,.20);root.add(label);
+    dropPart(root,new THREE.CylinderGeometry(.16,.16,.08,20),glow,-.48,-.50,0,Math.PI/2,0,0);
+  }
+  const halo=dropPart(root,new THREE.TorusGeometry(.76,.028,6,32),glow,0,0,-.04);
+  halo.userData.dropHalo=true;
+  const orbit=new THREE.Group();
+  for(let i=0;i<3;i++){
+    const a=i*TAU/3;
+    dropPart(orbit,new THREE.SphereGeometry(.035,8,6),glow,Math.cos(a)*.86,Math.sin(a)*.86,0);
+  }
+  root.add(orbit);root.userData.orbit=orbit;
+  return root;
+}
+function disposeDropModel(m){
+  const geos=new Set(),mats=new Set(),textures=new Set();
+  m.traverse(o=>{
+    if(o.geometry) geos.add(o.geometry);
+    if(o.material) for(const mat of (Array.isArray(o.material)?o.material:[o.material])){
+      mats.add(mat);if(mat.map)textures.add(mat.map);
+    }
+  });
+  for(const tx of textures)tx.dispose();
+  for(const mat of mats)mat.dispose();
+  for(const geo of geos)geo.dispose();
+}
 function spawnSharedDrop(k,x,z,id,fromNet){
   if(!DROPS[k]||drops.some(d=>d.netId===id)) return;
-  const m=new THREE.Mesh(new THREE.BoxGeometry(.7,.7,.7),
-    new THREE.MeshPhongMaterial({color:DROPS[k].col,emissive:DROPS[k].col,emissiveIntensity:.8}));
-  m.position.set(x,1.0,z); scene.add(m);
-  const L=new THREE.PointLight(DROPS[k].col,1.5,8,2); L.position.set(x,1.2,z); scene.add(L);
-  drops.push({m,L,k,life:26,netId:id,claimed:false});
+  const m=makeDropModel(k);m.position.set(x,1.08,z);scene.add(m);
+  const L=new THREE.PointLight(DROPS[k].col,1.65,8,2);L.position.set(x,1.30,z);scene.add(L);
+  drops.push({m,L,k,life:26,netId:id,claimed:false,phase:Math.random()*TAU});
 }
 function removeSharedDrop(id){
   const i=drops.findIndex(d=>d.netId===id); if(i<0) return null;
-  const d=drops[i]; scene.remove(d.m);scene.remove(d.L);d.m.material.dispose();drops.splice(i,1);return d;
+  const d=drops[i];scene.remove(d.m);scene.remove(d.L);disposeDropModel(d.m);
+  drops.splice(i,1);return d;
 }
 function hostCollectDrop(id,playerId){
   const d=drops.find(x=>x.netId===id); if(!d) return;
@@ -5232,10 +5339,14 @@ function hostCollectDrop(id,playerId){
 }
 function stepDrops(dt){
   for(let i=drops.length-1;i>=0;i--){
-    const d=drops[i]; d.life-=dt;
-    d.m.rotation.y+=dt*2.2; d.m.rotation.x+=dt*1.1;
-    d.m.position.y=1.0+Math.sin(game.time*3)*0.14;
-    if(d.life<6) d.m.visible=Math.sin(game.time*14)>-0.3;
+    const d=drops[i];d.life-=dt;
+    d.m.rotation.y+=dt*1.55;
+    d.m.rotation.z=Math.sin(game.time*1.7+d.phase)*.065;
+    d.m.position.y=1.08+Math.sin(game.time*3+d.phase)*.15;
+    d.L.position.y=d.m.position.y+.22;
+    if(d.m.userData.orbit)d.m.userData.orbit.rotation.z-=dt*.85;
+    const shown=d.life>=6||Math.sin(game.time*14)>-.3;
+    d.m.visible=shown;d.L.visible=shown;
     const dd=Math.hypot(d.m.position.x-player.pos.x,d.m.position.z-player.pos.z);
     if(dd<1.9&&Math.abs(player.y-0)<3){
       if(net.connected){
