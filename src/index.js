@@ -3,6 +3,9 @@ import { DurableObject } from "cloudflare:workers";
 const ROOM_CODE_LENGTH = 6;
 const ROOM_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const MAX_PLAYERS = 4;
+const RATE_LIMIT_WINDOW_MS = 1000;
+const RATE_LIMIT_MAX_MESSAGES = 40;
+const RATE_LIMIT_KICK_MULTIPLIER = 4;
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -169,15 +172,33 @@ export class GameRoom extends DurableObject {
   async webSocketMessage(ws, rawMessage) {
     if (typeof rawMessage !== "string" || rawMessage.length > 65536) return;
 
+    const player = this.attachment(ws);
+    if (!player.id) return;
+
+    const now = Date.now();
+    if (!player.rateStart || now - player.rateStart >= RATE_LIMIT_WINDOW_MS) {
+      player.rateStart = now;
+      player.rateCount = 0;
+    }
+    player.rateCount += 1;
+    ws.serializeAttachment(player);
+    if (player.rateCount > RATE_LIMIT_MAX_MESSAGES) {
+      if (player.rateCount > RATE_LIMIT_MAX_MESSAGES * RATE_LIMIT_KICK_MULTIPLIER) {
+        try {
+          ws.close(1008, "Rate limit exceeded");
+        } catch {
+          // The client may already be gone.
+        }
+      }
+      return;
+    }
+
     let message;
     try {
       message = JSON.parse(rawMessage);
     } catch {
       return;
     }
-
-    const player = this.attachment(ws);
-    if (!player.id) return;
 
     if (message.type === "state" && message.state) {
       const source = message.state;
@@ -324,7 +345,7 @@ export class GameRoom extends DurableObject {
         next.serializeAttachment(replacement);
         this.broadcast({ type: "role", id: replacement.id, host: true });
       } else {
-        await this.ctx.storage.put("room", { active: false, map: null, paused: false });
+        await this.ctx.storage.deleteAll();
       }
     }
   }
