@@ -4157,12 +4157,13 @@ for(const id in DEFS){
     dot.visible=false; d.mesh.add(dot); d.packDot=dot;
   }
   viewScene.add(d.mesh);
-  // The rebuilt Ray Gun has a broader silhouette than the other sidearms.
-  // Keep its detailed world and box models full size, but make the first-person
-  // presentation more compact and keep its sight centered while aiming.
-  d.viewScale=d.id==='raygun'?.78:1;
+  // The rebuilt Ray Guns have broader silhouettes than the other sidearms.
+  // Keep their detailed world and box models full size, but make the first-person
+  // presentations more compact and keep their sights centered while aiming.
+  const compactRay=d.id==='raygun'||d.id==='raygun2';
+  d.viewScale=compactRay?.78:1;
   d.mesh.scale.setScalar(d.viewScale);
-  if(d.id==='raygun'){
+  if(compactRay){
     d.hip=new THREE.Vector3(.135,-.128,-.445);
     d.adsPos=new THREE.Vector3(0,-d.sightY*d.viewScale,-.385);
   }else{
