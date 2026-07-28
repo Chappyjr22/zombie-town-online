@@ -2892,6 +2892,7 @@ function blockedAt(x,z,r,y){
 let AC=null,master=null,noiseBuf=null;
 const zombieSamples={};
 let zombieSamplesLoading=false;
+let roundSample=null,roundSampleBytes=null,roundSampleLoading=false;
 let lastZombieDeathSound=-99;
 function initAudio(){
   if(AC) return;
@@ -2901,7 +2902,24 @@ function initAudio(){
   const d=noiseBuf.getChannelData(0);
   for(let i=0;i<n;i++) d[i]=Math.random()*2-1;
   loadZombieSamples();
+  preloadRoundSample();
+  decodeRoundSample();
 }
+function preloadRoundSample(){
+  if(roundSample||roundSampleBytes||roundSampleLoading) return;
+  roundSampleLoading=true;
+  fetch('/audio/round-transition.mp3')
+    .then(r=>{if(!r.ok)throw new Error('audio '+r.status);return r.arrayBuffer();})
+    .then(bytes=>{roundSampleBytes=bytes;roundSampleLoading=false;decodeRoundSample();})
+    .catch(()=>{roundSampleLoading=false;});
+}
+function decodeRoundSample(){
+  if(!AC||roundSample||!roundSampleBytes) return;
+  AC.decodeAudioData(roundSampleBytes.slice(0))
+    .then(buf=>{roundSample=buf;roundSampleBytes=null;})
+    .catch(()=>{});
+}
+preloadRoundSample();
 function loadZombieSamples(){
   if(!AC||zombieSamplesLoading) return;
   zombieSamplesLoading=true;
@@ -3156,13 +3174,27 @@ function sfxMelee(hit,volume){
 function sfxHurt(){ sfxTone(240,70,.3,.32,'triangle'); }
 function sfxRound(){
   if(!AC) return;
-  const t=AC.currentTime,o=AC.createOscillator(); o.type='sawtooth';
-  o.frequency.setValueAtTime(300,t);
-  o.frequency.linearRampToValueAtTime(640,t+.9); o.frequency.linearRampToValueAtTime(300,t+1.9);
-  const lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=900;
-  const g=AC.createGain(); g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.16,t+.3);
-  g.gain.linearRampToValueAtTime(.0001,t+2);
-  o.connect(lp); lp.connect(g); g.connect(master); o.start(t); o.stop(t+2.05);
+  const t=AC.currentTime;
+  if(roundSample){
+    const src=AC.createBufferSource(),hp=AC.createBiquadFilter(),lp=AC.createBiquadFilter(),g=AC.createGain();
+    src.buffer=roundSample;src.playbackRate.value=rand(.985,1.015);
+    hp.type='highpass';hp.frequency.value=48;
+    lp.type='lowpass';lp.frequency.value=6500;lp.Q.value=.55;
+    const dur=Math.min(12.35,roundSample.duration/src.playbackRate.value),fade=Math.max(.3,dur-.95);
+    g.gain.setValueAtTime(.0008,t);g.gain.linearRampToValueAtTime(.21,t+.08);
+    g.gain.setValueAtTime(.21,t+fade);g.gain.exponentialRampToValueAtTime(.0008,t+dur);
+    src.connect(hp);hp.connect(lp);lp.connect(g);g.connect(master);
+    src.start(t);src.stop(t+dur+.02);
+    return;
+  }
+  // Quiet, ominous fallback if the recorded cue has not finished decoding.
+  for(const [f,v] of [[82,.055],[123,.035]]){
+    const o=AC.createOscillator(),g=AC.createGain();o.type='triangle';
+    o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(f*.72,t+2.6);
+    g.gain.setValueAtTime(.0008,t);g.gain.linearRampToValueAtTime(v,t+.18);
+    g.gain.exponentialRampToValueAtTime(.0008,t+2.6);
+    o.connect(g);g.connect(master);o.start(t);o.stop(t+2.65);
+  }
 }
 function sfxBuy(){ sfxTone(520,880,.16,.22,'square'); setTimeout(()=>sfxTone(880,1320,.18,.18,'square'),90); }
 function sfxDeny(){ sfxTone(200,120,.22,.22,'square'); }

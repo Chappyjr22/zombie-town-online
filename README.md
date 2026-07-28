@@ -143,3 +143,5 @@ The bundled zombie vocal recordings were created by Mike Koenig and downloaded f
 - [Zombie Attack Walk](https://soundbible.com/1030-Zombie-Attack-Walk.html)
 - [Zombie Gets Attacked](https://soundbible.com/1040-Zombie-Gets-Attacked.html)
 - [Zombie Long Death](https://soundbible.com/1042-Zombie-Long-Death.html)
+
+The round-start cue is [Terror transition](https://mixkit.co/free-sound-effects/horror/) from Mixkit, used under the [Mixkit Sound Effects Free License](https://mixkit.co/license/).
