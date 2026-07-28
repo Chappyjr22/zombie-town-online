@@ -5602,16 +5602,16 @@ function makeRemotePlayer(p){
     const m=new THREE.Mesh(geo,mat);m.castShadow=true;m.position.set(x,y,z);(parent||upper).add(m);return m;
   };
   add(new THREE.CylinderGeometry(.19,.16,.54,9),uniform,0,1.29,0);
-  add(new THREE.BoxGeometry(.43,.45,.25),vest,0,1.31,-.015);
-  add(new THREE.BoxGeometry(.15,.13,.08),uniform2,-.12,1.20,-.16);
-  add(new THREE.BoxGeometry(.15,.13,.08),uniform2,.12,1.20,-.16);
-  add(new THREE.BoxGeometry(.10,.10,.04),patch,-.22,1.42,-.03);
-  add(new THREE.BoxGeometry(.34,.25,.16),uniform2,0,1.01,.02,rig);
-  add(new THREE.BoxGeometry(.34,.43,.16),vest,0,1.34,.19);
+  add(RB(.43,.45,.25),vest,0,1.31,-.015);
+  add(RB(.15,.13,.08),uniform2,-.12,1.20,-.16);
+  add(RB(.15,.13,.08),uniform2,.12,1.20,-.16);
+  add(RB(.10,.10,.04),patch,-.22,1.42,-.03);
+  add(RB(.34,.25,.16),uniform2,0,1.01,.02,rig);
+  add(RB(.34,.43,.16),vest,0,1.34,.19);
   add(new THREE.CylinderGeometry(.055,.06,.12,8),skin,0,1.61,0);
   const head=add(new THREE.SphereGeometry(.155,12,9),skin,0,1.75,-.01);
   head.scale.set(1,.98,.94);
-  add(new THREE.BoxGeometry(.045,.055,.045),skin,0,1.72,-.15);
+  add(RB(.045,.055,.045),skin,0,1.72,-.15);
   const helmet=add(new THREE.SphereGeometry(.18,12,8,0,TAU,0,Math.PI*.62),uniform2,0,1.84,0);
   helmet.scale.y=.72;
   add(new THREE.CylinderGeometry(.19,.19,.035,12),uniform2,0,1.80,-.005);
@@ -5626,8 +5626,8 @@ function makeRemotePlayer(p){
   const legR=remoteJoint(rig,.13,1.00,0,.43,.087,uniform2);
   const kneeL=remoteJoint(legL,0,-.42,0,.39,.068,uniform);
   const kneeR=remoteJoint(legR,0,-.42,0,.39,.068,uniform);
-  add(new THREE.BoxGeometry(.15,.11,.27),dark,0,-.40,-.06,kneeL);
-  add(new THREE.BoxGeometry(.15,.11,.27),dark,0,-.40,-.06,kneeR);
+  add(RB(.15,.11,.27),dark,0,-.40,-.06,kneeL);
+  add(RB(.15,.11,.27),dark,0,-.40,-.06,kneeR);
   const weaponHolder=new THREE.Group();weaponHolder.position.set(.08,1.30,-.25);upper.add(weaponHolder);
   const meleeKnife=makeCombatKnife(.58);meleeKnife.visible=false;upper.add(meleeKnife);
   const flash=new THREE.Mesh(new THREE.SphereGeometry(.075,7,5),new THREE.MeshBasicMaterial({
