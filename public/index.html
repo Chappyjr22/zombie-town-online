@@ -657,7 +657,19 @@ T.knit=tex(64,64,(x,w,h)=>{
 
 /* ---------- materials ---------- */
 const M={};
-const phong=(o)=>new THREE.MeshPhongMaterial(Object.assign({shininess:8,specular:0x14161c},o));
+// Old Phong props (shininess/specular) approximated into PBR roughness/metalness so every
+// existing phong({...}) call site keeps working unchanged while actually getting a PBR material.
+const shininessToRoughness=(sh)=>clamp(1-Math.sqrt((sh===undefined?8:sh)/150),0.05,0.92);
+const specularToMetalness=(spec)=>{
+  const c=new THREE.Color(spec===undefined?0x14161c:spec);
+  const lum=0.299*c.r+0.587*c.g+0.114*c.b;
+  return clamp((lum-0.15)/0.85,0,0.9);
+};
+const phong=(o)=>{
+  const {shininess,specular,...rest}=Object.assign({shininess:8,specular:0x14161c},o);
+  return new THREE.MeshStandardMaterial(Object.assign(
+    {roughness:shininessToRoughness(shininess),metalness:specularToMetalness(specular)},rest));
+};
 M.stucco=phong({map:T.stucco});
 M.brick=phong({map:T.brick});
 M.wood=phong({map:T.wood});
@@ -671,7 +683,7 @@ M.dark=phong({color:0x191b21});
 M.metal=phong({color:0x3c3f47,shininess:40});
 M.rust=phong({color:0x5c3a26});
 M.green=phong({color:0x2f4030});
-M.glassBroken=new THREE.MeshPhongMaterial({color:0x121a1e,transparent:true,opacity:0.45,shininess:90});
+M.glassBroken=new THREE.MeshStandardMaterial({color:0x121a1e,transparent:true,opacity:0.45,roughness:.12,metalness:0});
 M.chrome=phong({color:0x969da5,shininess:105,specular:0xffffff});
 M.headlight=phong({color:0xffe6a8,emissive:0xffc45a,emissiveIntensity:.65,shininess:95,specular:0xffffff});
 M.taillight=phong({color:0x8d0d0a,emissive:0xff2418,emissiveIntensity:.62,shininess:85,specular:0xff5a42});
@@ -684,8 +696,8 @@ M.busMarker=phong({color:0xe28a19,emissive:0xff9a1f,emissiveIntensity:.65,shinin
 M.sandbag=phong({color:0x766b49,shininess:4,specular:0x2a2519});
 M.foliage=phong({map:T.foliage,color:0x607455,shininess:3,specular:0x111811});
 M.foliageDark=phong({map:T.foliage,color:0x394b34,shininess:2,specular:0x0c110c});
-M.chainLink=new THREE.MeshPhongMaterial({map:T.chainLink,color:0xb6bbc2,transparent:true,opacity:.68,
-  alphaTest:.08,side:THREE.DoubleSide,shininess:70,specular:0x8e949b,depthWrite:false});
+M.chainLink=new THREE.MeshStandardMaterial({map:T.chainLink,color:0xb6bbc2,transparent:true,opacity:.68,
+  alphaTest:.08,side:THREE.DoubleSide,roughness:.4,metalness:.8,depthWrite:false});
 
 /* ---------- geometry merging (core three only, no examples build) ---------- */
 const _mm=new THREE.Matrix4(),_mq=new THREE.Quaternion(),_me=new THREE.Euler();
@@ -3112,34 +3124,34 @@ function sfxPowerup(){ sfxTone(700,1400,.3,.2,'sine'); setTimeout(()=>sfxTone(10
 
 /* ---------- gun materials ---------- */
 const GM=[
-  new THREE.MeshPhongMaterial({color:0x1e2127,shininess:96,specular:0x87909c,map:T.metal}),   //0 blued steel
-  new THREE.MeshPhongMaterial({color:0x131418,shininess:18,specular:0x2b2e34}),                //1 matte black polymer
-  new THREE.MeshPhongMaterial({color:0x8a7855,shininess:20,specular:0x3a382e}),                //2 flat dark earth
-  new THREE.MeshPhongMaterial({color:0x7a4a24,shininess:52,specular:0x8a6a44,map:T.wood2}),    //3 walnut
-  new THREE.MeshPhongMaterial({color:0x1b3a22,emissive:0x2bff6a,emissiveIntensity:.95,shininess:90}), //4 alien green
-  new THREE.MeshPhongMaterial({color:0x13283c,emissive:0x35a8ff,emissiveIntensity:1,shininess:90}),   //5 arc blue
-  new THREE.MeshPhongMaterial({color:0x3d2410,emissive:0xff8a20,emissiveIntensity:.9,shininess:80}),  //6 hot orange
-  new THREE.MeshPhongMaterial({color:0xaab0bc,shininess:124,specular:0xe6ecf4,map:T.metal}),   //7 nickel
-  new THREE.MeshPhongMaterial({color:0xb8922f,shininess:100,specular:0xffe9a0}),               //8 brass
-  new THREE.MeshBasicMaterial({color:0xff2a1a}),                                               //9 sight dot
-  new THREE.MeshPhongMaterial({color:0x0d1a1a,transparent:true,opacity:.16,shininess:130,specular:0xbfe8ff}), //10 glass
-  new THREE.MeshPhongMaterial({color:0x0f1013,shininess:6}),                                   //11 rubber
-  new THREE.MeshPhongMaterial({color:0x4c5340,shininess:22,specular:0x2a2e24}),                //12 olive drab
-  new THREE.MeshPhongMaterial({color:0x8f4a1e,shininess:66,specular:0xc09060}),                //13 bakelite
-  new THREE.MeshPhongMaterial({color:0x363b36,shininess:44,specular:0x5c6460,map:T.metal}),    //14 parkerised
-  new THREE.MeshPhongMaterial({color:0x474c55,shininess:64,specular:0x8a919c,map:T.metal}),    //15 hard anodised
-  new THREE.MeshPhongMaterial({color:0xd4af37,shininess:120,specular:0xfff0b0}),               //16 gold
-  new THREE.MeshPhongMaterial({color:0xc2c8d2,shininess:140,specular:0xffffff,map:T.metal}),   //17 stainless
-  new THREE.MeshPhongMaterial({color:0x8c221a,shininess:50,specular:0x6a3a34}),                //18 red accent
-  new THREE.MeshPhongMaterial({color:0xa5642e,shininess:96,specular:0xe0a068}),                //19 copper
-  new THREE.MeshPhongMaterial({color:0x22242a,shininess:14,specular:0x3a3f48,map:T.knit}),     //20 glove
-  new THREE.MeshPhongMaterial({color:0x9a9880,shininess:6,map:T.camo}),                        //21 uniform sleeve
-  new THREE.MeshPhongMaterial({color:0x2f3328,shininess:10}),                                  //22 webbing
-  new THREE.MeshPhongMaterial({color:0x2a1040,emissive:0x9b3bff,emissiveIntensity:.95,shininess:90}), //23 violet arc
-  new THREE.MeshPhongMaterial({color:0x2c4a34,shininess:40,specular:0x5a8a68}),                //24 alien alloy
-  new THREE.MeshPhongMaterial({color:0x161a18,shininess:30,specular:0x40484a}),                //25 dark receiver
-  new THREE.MeshPhongMaterial({color:0x15161a,shininess:26,specular:0x33363c,side:THREE.DoubleSide}), //26 optic housing
-  new THREE.MeshPhongMaterial({color:0x08090b,shininess:4,side:THREE.DoubleSide})               //27 optic interior
+  new THREE.MeshStandardMaterial({color:0x1e2127,roughness:.35,metalness:.9,map:T.metal}),       //0 blued steel
+  new THREE.MeshStandardMaterial({color:0x131418,roughness:.55,metalness:0}),                     //1 matte black polymer
+  new THREE.MeshStandardMaterial({color:0x8a7855,roughness:.6,metalness:0}),                      //2 flat dark earth
+  new THREE.MeshStandardMaterial({color:0x7a4a24,roughness:.45,metalness:0,map:T.wood2}),         //3 walnut
+  new THREE.MeshStandardMaterial({color:0x1b3a22,emissive:0x2bff6a,emissiveIntensity:.95,roughness:.3,metalness:.4}), //4 alien green
+  new THREE.MeshStandardMaterial({color:0x13283c,emissive:0x35a8ff,emissiveIntensity:1,roughness:.3,metalness:.4}),   //5 arc blue
+  new THREE.MeshStandardMaterial({color:0x3d2410,emissive:0xff8a20,emissiveIntensity:.9,roughness:.35,metalness:.4}), //6 hot orange
+  new THREE.MeshStandardMaterial({color:0xaab0bc,roughness:.18,metalness:1,map:T.metal}),         //7 nickel
+  new THREE.MeshStandardMaterial({color:0xb8922f,roughness:.25,metalness:1}),                     //8 brass
+  new THREE.MeshBasicMaterial({color:0xff2a1a}),                                                  //9 sight dot
+  new THREE.MeshStandardMaterial({color:0x0d1a1a,transparent:true,opacity:.16,roughness:.05,metalness:0}), //10 glass
+  new THREE.MeshStandardMaterial({color:0x0f1013,roughness:.85,metalness:0}),                     //11 rubber
+  new THREE.MeshStandardMaterial({color:0x4c5340,roughness:.65,metalness:0}),                     //12 olive drab
+  new THREE.MeshStandardMaterial({color:0x8f4a1e,roughness:.35,metalness:0}),                     //13 bakelite
+  new THREE.MeshStandardMaterial({color:0x363b36,roughness:.55,metalness:.85,map:T.metal}),       //14 parkerised
+  new THREE.MeshStandardMaterial({color:0x474c55,roughness:.4,metalness:.9,map:T.metal}),         //15 hard anodised
+  new THREE.MeshStandardMaterial({color:0xd4af37,roughness:.2,metalness:1}),                      //16 gold
+  new THREE.MeshStandardMaterial({color:0xc2c8d2,roughness:.15,metalness:1,map:T.metal}),         //17 stainless
+  new THREE.MeshStandardMaterial({color:0x8c221a,roughness:.4,metalness:0}),                      //18 red accent
+  new THREE.MeshStandardMaterial({color:0xa5642e,roughness:.25,metalness:1}),                     //19 copper
+  new THREE.MeshStandardMaterial({color:0x22242a,roughness:.75,metalness:0,map:T.knit}),          //20 glove
+  new THREE.MeshStandardMaterial({color:0x9a9880,roughness:.8,metalness:0,map:T.camo}),           //21 uniform sleeve
+  new THREE.MeshStandardMaterial({color:0x2f3328,roughness:.8,metalness:0}),                      //22 webbing
+  new THREE.MeshStandardMaterial({color:0x2a1040,emissive:0x9b3bff,emissiveIntensity:.95,roughness:.3,metalness:.4}), //23 violet arc
+  new THREE.MeshStandardMaterial({color:0x2c4a34,roughness:.4,metalness:.7}),                     //24 alien alloy
+  new THREE.MeshStandardMaterial({color:0x161a18,roughness:.45,metalness:.85}),                   //25 dark receiver
+  new THREE.MeshStandardMaterial({color:0x15161a,roughness:.5,metalness:.8,side:THREE.DoubleSide}), //26 optic housing
+  new THREE.MeshStandardMaterial({color:0x08090b,roughness:.9,metalness:0,side:THREE.DoubleSide})   //27 optic interior
 ];
 
 /* ---------- parts kit ----------
