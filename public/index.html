@@ -2919,6 +2919,7 @@ const playerSampleFiles={
   powerInstakill:['/audio/power-instakill.mp3'],
   powerNuke:['/audio/power-nuke.mp3'],
   powerFireSale:['/audio/power-firesale.mp3'],
+  fireCrackle:['/audio/fire-crackle.ogg'],
   ambienceTown:['/audio/ambience-town.ogg'],
   ambienceNuketown:['/audio/ambience-nuketown.mp3'],
   ambienceBlacksire:['/audio/ambience-blacksire.ogg']
@@ -2973,6 +2974,7 @@ function loadPlayerSamples(){
         .then(b=>AC.decodeAudioData(b)).then(buf=>{
           playerSamples[kind][i]=buf;
           if(kind===mapAmbienceKind(currentMap)&&game.running) startMapAmbience();
+          if(kind==='fireCrackle'&&game.running) startFireCrackle();
         }).catch(()=>{});
     });
   }
@@ -3019,7 +3021,7 @@ function startMapAmbience(){
   const t=AC.currentTime,src=AC.createBufferSource(),hp=AC.createBiquadFilter(),
     lp=AC.createBiquadFilter(),g=AC.createGain();
   // Source recordings are naturally quiet, so normalize each map bed to a clearly audible background level.
-  const cfg=currentMap==='blacksire'?[48,4200,1.75]:(currentMap==='nuketown'?[62,6200,.80]:[45,6200,.72]);
+  const cfg=currentMap==='blacksire'?[48,4200,1.48]:(currentMap==='nuketown'?[62,6200,.68]:[45,6200,.60]);
   src.buffer=buf;src.loop=true;
   hp.type='highpass';hp.frequency.value=cfg[0];
   lp.type='lowpass';lp.frequency.value=cfg[1];lp.Q.value=.45;
@@ -3027,6 +3029,52 @@ function startMapAmbience(){
   src.connect(hp);hp.connect(lp);lp.connect(g);g.connect(master);src.start(t);
   mapAmbienceSource=src;mapAmbienceGain=g;mapAmbienceMap=currentMap;
   src.onended=()=>{if(mapAmbienceSource===src){mapAmbienceSource=null;mapAmbienceGain=null;mapAmbienceMap='';}};
+}
+
+let fireCrackleSource=null,fireCrackleGain=null,fireCracklePan=null;
+const _fireAudioPos=new THREE.Vector3();
+function startFireCrackle(){
+  if(!AC||!master||!game.running||fireCrackleSource) return;
+  const buf=(playerSamples.fireCrackle||[]).find(Boolean);
+  if(!buf) return;
+  const t=AC.currentTime,src=AC.createBufferSource(),hp=AC.createBiquadFilter(),
+    lp=AC.createBiquadFilter(),g=AC.createGain(),
+    pan=AC.createStereoPanner?AC.createStereoPanner():null;
+  src.buffer=buf;src.loop=true;
+  hp.type='highpass';hp.frequency.value=180;
+  lp.type='lowpass';lp.frequency.value=6800;lp.Q.value=.35;
+  g.gain.setValueAtTime(.0008,t);
+  src.connect(hp);hp.connect(lp);lp.connect(g);
+  if(pan){g.connect(pan);pan.connect(master);}else g.connect(master);
+  src.start(t);
+  fireCrackleSource=src;fireCrackleGain=g;fireCracklePan=pan;
+  src.onended=()=>{
+    if(fireCrackleSource===src){
+      fireCrackleSource=null;fireCrackleGain=null;fireCracklePan=null;
+    }
+  };
+}
+function updateFireCrackle(){
+  if(!AC||!master) return;
+  if(!fireCrackleSource&&game.running) startFireCrackle();
+  if(!fireCrackleGain) return;
+  let nearest=Infinity,targetPan=0;
+  if(game.running){
+    for(const f of flames){
+      if(!f.g||!f.g.parent) continue;
+      f.g.getWorldPosition(_fireAudioPos);
+      const dx=_fireAudioPos.x-player.pos.x,dy=_fireAudioPos.y-(player.y+1.4),
+        dz=_fireAudioPos.z-player.pos.z,d=Math.hypot(dx,dy,dz);
+      if(d<nearest){
+        nearest=d;
+        targetPan=d>.001?clamp((dx*Math.cos(player.yaw)-dz*Math.sin(player.yaw))/d,-1,1)*.72:0;
+      }
+    }
+  }
+  const radius=15,v=nearest<radius?.95*Math.pow(1-nearest/radius,1.35):.0008,
+    t=AC.currentTime;
+  fireCrackleGain.gain.setTargetAtTime(Math.max(.0008,v),t,.11);
+  if(fireCracklePan) fireCracklePan.pan.setTargetAtTime(targetPan,t,.14);
 }
 function playZombieSample(key,dist){
   const buf=zombieSamples[key];
@@ -6769,6 +6817,7 @@ function loop(){
     stepParts(dt); stepProjectiles(dt); stepBooms(dt); stepBolts(dt);
     stepDrops(dt); stepBox(dt); stepPap(dt); updateInteract();
   }
+  updateFireCrackle();
   updateWeaponView(dt);
   updateEffects(dt);
   if(SET.fps){ fpsAcc+=dt; fpsN++; if(fpsAcc>=0.5){ el('fps').textContent=Math.round(fpsN/fpsAcc)+' fps'; fpsAcc=0; fpsN=0; } }

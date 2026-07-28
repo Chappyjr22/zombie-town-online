@@ -162,6 +162,8 @@ Reload and weapon-handling recordings come from Pixabay under the [Pixabay Conte
 Mystery Box crate sounds use Minetest's `default_chest_open.ogg` and `default_chest_close.ogg`, mixed by sofar from CC0 and CC BY 3.0 recordings documented in the [Minetest default asset credits](https://github.com/minetest-game/default#sounds). The cycling and reveal cues use “Dream Harps” by limetoe and “Magic mallet” by Hotlavaman, both CC0 recordings documented by [Happy Onlife](https://github.com/happyonlife/hol#licencing).
 
 
+Fire barrel crackle uses [“Fire, Campfire, Bonfire”](https://freesound.org/people/yaros_nov/sounds/434026/) by yaros_nov under CC0. The bundled proximity loop is a normalized mono Ogg conversion of the original field recording.
+
 The map ambience recordings are sourced from CC0 FreeSound recordings preserved in Nicky Case's open game repositories:
 
 - Town: “Night City Ambience” by amszala, from [Coming Out Simulator](https://github.com/ncase/cos)
