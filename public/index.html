@@ -767,6 +767,12 @@ const platforms=[];   // walkable surfaces
 const stairBases=[];  // where zombies enter a staircase
 const flames=[];
 const jumpPads=[];
+// Small decorative point/spot lights (room lights, accent glows) register here so only the
+// ones nearest the player stay active each frame. WebGL's forward renderer pays a shading
+// cost per active light on every visible fragment regardless of distance, so a map with
+// dozens of these (Blacksire has ~35) is expensive even though most are off-screen or dim.
+const cullableLights=[];
+const CULLABLE_LIGHT_CAP=14;
 let worldRoot=new THREE.Group(); scene.add(worldRoot);
 let BND=42;                                   // map half size
 let SPAWNS=[], BOX_SPOTS=[];
@@ -971,6 +977,8 @@ function floorSlab(x1,z1,x2,z2,y,mat){
 }
 function roomLight(x,y,z,color,inten,dist){
   const L=new THREE.PointLight(color||0xffc271,inten||0.7,dist||14,1.8); L.position.set(x,y,z); worldRoot.add(L);
+  cullableLights.push(L);
+  return L;
 }
 
 /* ---------- shared props usable by any map ---------- */
@@ -2571,6 +2579,7 @@ function buildBlacksire(){
     const head=new THREE.Mesh(new THREE.BoxGeometry(1.2,.34,.35),steel);head.position.set(0,6.8,-.2);g.add(head);
     const L=new THREE.SpotLight(0xc9e5ff,1.9,32,.56,.7,1.2);L.position.set(0,6.6,-.25);
     L.target.position.set(0,0,-12);g.add(L);g.add(L.target);
+    cullableLights.push(L);
     g.position.set(x,SY,z);g.rotation.y=rot||0;worldRoot.add(g);
     addCollider(x-.25,x+.25,z-.25,z+.25,SY+7,SY);
   }
@@ -2700,7 +2709,7 @@ function buildBlacksire(){
     const head=new THREE.Mesh(new THREE.SphereGeometry(.38,9,7),specimenMat);
     head.position.y=1.9;specimen.add(head);
     specimen.position.set(x,0,-25);specimen.rotation.z=rand(-.12,.12);worldRoot.add(specimen);
-    const eye=new THREE.PointLight(0xd42838,.35,4,2);eye.position.set(x,1.8,-24.6);worldRoot.add(eye);
+    const eye=new THREE.PointLight(0xd42838,.35,4,2);eye.position.set(x,1.8,-24.6);worldRoot.add(eye);cullableLights.push(eye);
   }
   signBoard('Specimen Storage',-19,3.75,-29.78,0,8);
   signBoard('Specimen Storage',19,3.75,-29.78,0,8);
@@ -2727,6 +2736,7 @@ function buildBlacksire(){
   for(const p of [[-27,-9],[27,-9],[-27,-28],[27,-28],[-6,-18],[6,-18]]){
     const lamp=bx(.5,.28,.5,p[0],4.25,p[1],redGlow,false);
     const L=new THREE.PointLight(0xe52336,.28,10,2);L.position.set(p[0],4,p[1]);worldRoot.add(L);
+    cullableLights.push(L);
     emergency.push({lamp,L});
   }
 
@@ -2791,7 +2801,7 @@ function clearWorld(){
   scene.remove(worldRoot);
   worldRoot=new THREE.Group(); scene.add(worldRoot);
   colliders.length=0; blockers.length=0; platforms.length=0; stairBases.length=0;
-  flames.length=0; jumpPads.length=0; interactables.length=0;
+  flames.length=0; jumpPads.length=0; interactables.length=0; cullableLights.length=0;
   window.__ash=null;
   window.__storm=null;
   if(typeof papGlow!=='undefined') papGlow=null;
@@ -4668,6 +4678,7 @@ function addPerkMachine(key,x,z,y0,rot){
   // PlaneGeometry faces +Z by default, so turn the label around to match it.
   lbl.position.set(0,0.62,-0.54); lbl.rotation.y=Math.PI; g.add(lbl);
   const L=new THREE.PointLight(P.col,1.1,9,2); L.position.set(0,1.6,-1.0); g.add(L);
+  cullableLights.push(L);
   g.position.set(x,y,z); g.rotation.y=R; worldRoot.add(g);
   addYawCollider(x,z,1.46,1.02,R,y+2.40,y,0.02);
   interactables.push({x:x-0.9*Math.sin(R),y:y+1.2,z:z-0.9*Math.cos(R),r:2.6,kind:'perk',key,
@@ -6207,6 +6218,18 @@ function pollPad(dt){
 let last=performance.now()/1000, fpsAcc=0, fpsN=0;
 const fwd=new THREE.Vector3(),rgt=new THREE.Vector3();
 
+let nextLightCull=0;
+const _lightPos=new THREE.Vector3();
+function updateLightCulling(){
+  if(cullableLights.length<=CULLABLE_LIGHT_CAP||game.time<nextLightCull) return;
+  nextLightCull=game.time+0.15;
+  const ranked=cullableLights.map(L=>{
+    L.getWorldPosition(_lightPos);
+    return {L,d:_lightPos.distanceToSquared(player.pos)};
+  });
+  ranked.sort((a,b)=>a.d-b.d);
+  for(let i=0;i<ranked.length;i++) ranked[i].L.visible=i<CULLABLE_LIGHT_CAP;
+}
 function loop(){
   requestAnimationFrame(loop);
   const now=performance.now()/1000;
@@ -6219,6 +6242,7 @@ function loop(){
     updatePlayer(dt);
     updateRounds(dt);
     updateZombies(dt);
+    updateLightCulling();
     stepParts(dt); stepProjectiles(dt); stepBooms(dt); stepBolts(dt);
     stepDrops(dt); stepBox(dt); stepPap(dt); updateInteract();
   }
