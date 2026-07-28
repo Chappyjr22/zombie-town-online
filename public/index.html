@@ -915,7 +915,8 @@ function wallSeg(ax,az,bx2,bz,h,mat,y0){
   // door headers do not block, and upper storeys do not seal the ground floor
   addCollider(cx-w/2,cx+w/2,cz-d/2,cz+d/2,base+h,base);
 }
-// wall with gaps: gaps = [{c, w, sill, head}]  sill>0 makes a window
+// wall with gaps: gaps = [{c, w, sill, head, pane}]  sill>0 preserves the lower wall;
+  // pane:false leaves the opening above it clear for upper-floor doorways.
 function wallRun(ax,az,bx2,bz,h,mat,gaps,y0){
   const horiz=Math.abs(bx2-ax)>Math.abs(bz-az);
   const s=horiz?ax:az, e=horiz?bx2:bz, base=y0||0;
@@ -928,13 +929,15 @@ function wallRun(ax,az,bx2,bz,h,mat,gaps,y0){
     if(h>head){ horiz?wallSeg(a,az,b,bz,h-head,mat,base+head):wallSeg(ax,a,bx2,b,h-head,mat,base+head); }
     if(g.sill){
       horiz?wallSeg(a,az,b,bz,g.sill,mat,base):wallSeg(ax,a,bx2,b,g.sill,mat,base);
-      const wh=Math.max(.2,head-g.sill),wy=base+g.sill+wh/2;
-      const pane=new THREE.Mesh(new THREE.BoxGeometry(horiz?g.w*.92:.07,wh,horiz?.07:g.w*.92),M.glassBroken);
-      pane.position.set(horiz?g.c:ax,wy,horiz?az:g.c);worldRoot.add(pane);
-      const mullion=new THREE.Mesh(new THREE.BoxGeometry(horiz?.075:.09,wh,horiz?.09:.075),M.dark);
-      mullion.position.copy(pane.position);worldRoot.add(mullion);
-      const crossbar=new THREE.Mesh(new THREE.BoxGeometry(horiz?g.w*.92:.09,.075,horiz?.09:g.w*.92),M.dark);
-      crossbar.position.copy(pane.position);worldRoot.add(crossbar);
+      if(g.pane!==false){
+        const wh=Math.max(.2,head-g.sill),wy=base+g.sill+wh/2;
+        const pane=new THREE.Mesh(new THREE.BoxGeometry(horiz?g.w*.92:.07,wh,horiz?.07:g.w*.92),M.glassBroken);
+        pane.position.set(horiz?g.c:ax,wy,horiz?az:g.c);worldRoot.add(pane);
+        const mullion=new THREE.Mesh(new THREE.BoxGeometry(horiz?.075:.09,wh,horiz?.09:.075),M.dark);
+        mullion.position.copy(pane.position);worldRoot.add(mullion);
+        const crossbar=new THREE.Mesh(new THREE.BoxGeometry(horiz?g.w*.92:.09,.075,horiz?.09:g.w*.92),M.dark);
+        crossbar.position.copy(pane.position);worldRoot.add(crossbar);
+      }
       if(g.boards!==false){
         for(let i=0;i<3;i++){
           const yy=base+g.sill+0.35+i*0.5;
@@ -1314,7 +1317,7 @@ function buildTown(){
   wallRun(x1,z1,x2,z1,h,M.brick,[{c:-22,w:3.0,sill:0.9}]);
   wallRun(x1,z2,x2,z2,h,M.brick,[{c:-20,w:3.4}]);
   wallRun(x1,z1,x1,z2,h,M.brick,[{c:-14,w:2.6,sill:1.0}]);
-  wallRun(x2,z1,x2,z2,h,M.brick,[{c:-16,w:3.4},{c:-10.5,w:3.2,sill:4.0,head:6.4,boards:false}]);
+  wallRun(x2,z1,x2,z2,h,M.brick,[{c:-16,w:3.4},{c:-10.5,w:3.2,sill:4.0,head:6.4,boards:false,pane:false}]);
   roofSlab(x1,z1,x2,z2,h);
   floorSlab(x1+0.2,z1+0.2,x2-0.2,z2-0.2,0.04,M.plank);
   // second floor covers the north half, staircase on the west wall
@@ -1367,7 +1370,6 @@ function buildTown(){
   // bar counter and stools
   bx(6.0,1.1,0.9,-22,0.6,-9,M.wood);
   for(let i=0;i<4;i++){cyl(0.22,0.22,0.75,-24.5+i*1.7,0.42,-10.4,M.metal,true);}
-  bx(5.0,2.4,0.4,-22,1.6,-7.4,M.dark,false);
   bx(3.0,0.9,0.9,-20.5,0.5,-19.5,M.wood);
   bx(2.2,0.75,2.2,-17,0.4,-19,M.wood);
   roomLight(-22,3.2,-12,0xffb066,0.85,20);
