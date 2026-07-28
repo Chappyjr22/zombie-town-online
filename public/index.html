@@ -5228,10 +5228,13 @@ function doBuy(){
    Cloudflare Durable Objects own rooms. The host simulates zombies and rounds,
    validates combat requests, and broadcasts shared world state to the room. */
 const net={
-  ws:null,code:'',id:'',host:false,connected:false,manualClose:false,
+  ws:null,code:'',id:'',host:false,connected:false,manualClose:false,token:'',reconnectAttempts:0,
   players:new Map(),remotes:new Map(),nextState:0,nextWorld:0,zombieSeq:1,activeGame:false,
   pausedByHost:false
 };
+function netTokenKey(code){ return 'town:token:'+code; }
+function netLoadToken(code){ try{return sessionStorage.getItem(netTokenKey(code))||'';}catch(e){return '';} }
+function netSaveToken(code,token){ try{sessionStorage.setItem(netTokenKey(code),token);}catch(e){} }
 function safeNetName(v){
   return String(v||'Survivor').replace(/[^\w .'-]/g,'').trim().slice(0,18)||'Survivor';
 }
@@ -5615,7 +5618,8 @@ function renderRoster(){
 function netHandle(msg){
   let m; try{m=JSON.parse(msg);}catch(e){return;}
   if(m.type==='welcome'){
-    net.id=m.id; net.host=!!m.host; net.connected=true; net.players.clear();
+    net.id=m.id; net.host=!!m.host; net.connected=true; net.reconnectAttempts=0; net.players.clear();
+    if(m.token){net.token=m.token; netSaveToken(net.code,m.token);}
     for(const p of m.players||[]){net.players.set(p.id,p);makeRemotePlayer(p);}
     net.players.set(net.id,{id:net.id,name:m.name||safeNetName(el('netName').value),host:net.host});
     showScreen('lobby'); renderRoster();
@@ -5668,9 +5672,10 @@ async function netCreate(){
     el('netCode').value=j.code; netConnect(j.code);
   }catch(e){setNetStatus(e.message||'Could not create room');}
 }
-async function netConnect(raw){
+async function netConnect(raw,isRetry){
   const code=String(raw||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
   if(code.length!==6){setNetStatus('Enter a six-character room code');sfxDeny();return;}
+  if(!isRetry) net.reconnectAttempts=0;
   const name=safeNetName(el('netName').value);
   try{localStorage.setItem('town:netname',name);}catch(e){}
   setNetStatus('Checking room '+code);
@@ -5680,22 +5685,38 @@ async function netConnect(raw){
     if(!check.ok||!info.exists) throw new Error('Room not found');
     if(info.players>=4) throw new Error('Room is full');
   }catch(e){setNetStatus(e.message||'Could not reach room');sfxDeny();return;}
-  netDisconnect(false); net.code=code; net.manualClose=false; setNetStatus('Connecting to '+code);
+  const token=netLoadToken(code);
+  netDisconnect(false); net.code=code; net.manualClose=false; net.token=token;
+  setNetStatus('Connecting to '+code);
   const proto=location.protocol==='https:'?'wss:':'ws:';
-  const ws=new WebSocket(proto+'//'+location.host+'/api/rooms/'+code+'/ws?name='+encodeURIComponent(name));
+  const tokenParam=token?('&token='+encodeURIComponent(token)):'';
+  const ws=new WebSocket(proto+'//'+location.host+'/api/rooms/'+code+'/ws?name='+encodeURIComponent(name)+tokenParam);
   net.ws=ws;
   ws.onmessage=e=>netHandle(e.data);
   ws.onerror=()=>setNetStatus('Connection failed');
   ws.onclose=e=>{
     if(net.ws!==ws) return;
     const manual=net.manualClose; net.connected=false; net.ws=null;
-    if(!manual){setNetStatus('Disconnected from room');toast('Online room disconnected');}
+    if(!manual){
+      setNetStatus('Disconnected from room');toast('Online room disconnected');
+      netAttemptReconnect(code);
+    }
   };
+}
+function netAttemptReconnect(code){
+  if(net.manualClose||net.reconnectAttempts>=5) return;
+  net.reconnectAttempts++;
+  setNetStatus('Reconnecting… ('+net.reconnectAttempts+'/5)');
+  setTimeout(()=>{
+    if(net.manualClose||net.connected) return;
+    netConnect(code,true);
+  },1500);
 }
 function netDisconnect(showMenu){
   net.manualClose=true;
   if(net.ws) try{net.ws.close(1000,'Left room');}catch(e){}
   net.ws=null; net.connected=false; net.activeGame=false; net.host=false; net.id=''; net.code='';
+  net.token='';
   net.nextState=0; net.nextWorld=0; net.zombieSeq=1; net.pausedByHost=false;
   net.players.clear(); clearRemotePlayers();
   el('netbadge').style.opacity=0;

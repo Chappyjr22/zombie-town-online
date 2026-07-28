@@ -6,6 +6,7 @@ const MAX_PLAYERS = 4;
 const RATE_LIMIT_WINDOW_MS = 1000;
 const RATE_LIMIT_MAX_MESSAGES = 40;
 const RATE_LIMIT_KICK_MULTIPLIER = 4;
+const RECONNECT_TTL_MS = 2 * 60 * 1000;
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -45,11 +46,20 @@ function normalizeYaw(value) {
   return Number.isFinite(yaw) ? Math.atan2(Math.sin(yaw), Math.cos(yaw)) : 0;
 }
 
+function cleanToken(value) {
+  const token = String(value || "");
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token) ? token : "";
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const clientIp = request.headers.get("CF-Connecting-IP") || "unknown";
 
     if (request.method === "POST" && url.pathname === "/api/rooms") {
+      const { success } = await env.ROOM_API_LIMITER.limit({ key: clientIp });
+      if (!success) return json({ error: "Too many requests" }, 429);
+
       for (let attempt = 0; attempt < 8; attempt++) {
         const code = roomCode();
         const stub = env.GAME_ROOMS.getByName(code);
@@ -72,6 +82,8 @@ export default {
       }
 
       if (request.method === "GET") {
+        const { success } = await env.ROOM_API_LIMITER.limit({ key: clientIp });
+        if (!success) return json({ error: "Too many requests" }, 429);
         return stub.fetch("https://room.internal/status");
       }
     }
@@ -151,19 +163,30 @@ export class GameRoom extends DurableObject {
     const existing = this.sockets();
     if (existing.length >= MAX_PLAYERS) return new Response("Room is full", { status: 429 });
 
+    const requestedToken = cleanToken(url.searchParams.get("token"));
+    let reconnect = null;
+    if (requestedToken) {
+      const saved = await this.ctx.storage.get(`identity:${requestedToken}`);
+      await this.ctx.storage.delete(`identity:${requestedToken}`);
+      if (saved && Date.now() - saved.savedAt < RECONNECT_TTL_MS) reconnect = saved;
+    }
+
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
-    const id = crypto.randomUUID();
+    const id = reconnect ? reconnect.id : crypto.randomUUID();
     const name = cleanName(url.searchParams.get("name"));
-    const host = existing.length === 0;
-    const player = { id, name, host, state: null };
+    const host = reconnect
+      ? reconnect.host && !existing.some((socket) => this.attachment(socket).host)
+      : existing.length === 0;
+    const token = crypto.randomUUID();
+    const player = { id, name, host, state: null, token };
 
     this.ctx.acceptWebSocket(server, ["player"]);
     server.serializeAttachment(player);
 
     const players = existing.map((ws) => this.attachment(ws));
     const room = (await this.ctx.storage.get("room")) || { active: false, map: null, paused: false };
-    this.send(server, { type: "welcome", id, name, host, players, room });
+    this.send(server, { type: "welcome", id, name, host, token, players, room });
     this.broadcast({ type: "player_joined", player: { id, name, host } }, server);
 
     return new Response(null, { status: 101, webSocket: client });
@@ -337,6 +360,15 @@ export class GameRoom extends DurableObject {
 
     this.broadcast({ type: "player_left", id: player.id }, ws);
 
+    if (player.token) {
+      await this.ctx.storage.put(`identity:${player.token}`, {
+        id: player.id,
+        name: player.name,
+        host: player.host,
+        savedAt: Date.now(),
+      });
+    }
+
     if (player.host) {
       const next = this.sockets().find((socket) => socket !== ws);
       if (next) {
@@ -345,7 +377,8 @@ export class GameRoom extends DurableObject {
         next.serializeAttachment(replacement);
         this.broadcast({ type: "role", id: replacement.id, host: true });
       } else {
-        await this.ctx.storage.deleteAll();
+        await this.ctx.storage.put("room", { active: false, map: null, paused: false });
+        await this.ctx.storage.setAlarm(Date.now() + RECONNECT_TTL_MS);
       }
     }
   }
@@ -355,6 +388,12 @@ export class GameRoom extends DurableObject {
       ws.close(1011, "WebSocket error");
     } catch {
       // The socket is already closed.
+    }
+  }
+
+  async alarm() {
+    if (this.sockets().length === 0) {
+      await this.ctx.storage.deleteAll();
     }
   }
 }
