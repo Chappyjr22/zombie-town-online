@@ -3976,14 +3976,18 @@ GEO.torso=mergeGeos([
   pc(BG(.34,.045,.23),0, 0,.075,0),                               // belt
   pc(BG(.10,.14,.02),3, .07,.34,.115),                           // torn flap
 ]);
+// Same idea as the torso lathe: one continuously-tapered profile instead of a
+// sphere-cylinder-sphere "capsule" stack, so each joint blends into the next
+// segment instead of bulging out past it. Free (built once, shared by every zombie).
+function limbTaper(rNear,rBulge,rFar,len,bulgeAt){
+  const t=bulgeAt===undefined?.4:bulgeAt;
+  return LG([[rNear*.95,0],[rNear,len*.1],[rBulge,len*t],[rFar*1.05,len*.85],[rFar,len]]);
+}
 GEO.uarm=mergeGeos([
-  pc(SG(.062,8,6),0, 0,0,0),
-  pc(CG(.055,.046,L_UA,8),0, 0,L_UA/2,0),
-  pc(SG(.050,8,6),0, 0,L_UA,0),
+  pc(limbTaper(.058,.060,.048,L_UA),0, 0,0,0),
 ]);
 GEO.farm=mergeGeos([
-  pc(CG(.046,.038,L_FA*.82,8),1, 0,L_FA*.41,0),
-  pc(SG(.041,8,6),1, 0,L_FA*.82,0),
+  pc(limbTaper(.044,.042,.034,L_FA*.85),1, 0,0,0),
   pc(BG(.072,.10,.042),1, 0,L_FA*.90,.012),                       // palm
   pc(BG(.020,.075,.030),1, -.021,L_FA*.99,.024, .35),             // fingers
   pc(BG(.020,.075,.030),1, 0,L_FA*1.00,.026, .35),
@@ -3991,13 +3995,10 @@ GEO.farm=mergeGeos([
   pc(BG(.026,.055,.026),1, -.034,L_FA*.90,.008, .1,0,.5),         // thumb
 ]);
 GEO.thigh=mergeGeos([
-  pc(SG(.088,8,6),6, 0,0,0),
-  pc(CG(.082,.062,L_TH,10),6, 0,L_TH/2,0, 0,0,0, 1,1,.92),
-  pc(SG(.064,8,6),6, 0,L_TH,0),
+  pc(limbTaper(.084,.086,.062,L_TH),6, 0,0,0, 0,0,0, 1,1,.92),
 ]);
 GEO.shin=mergeGeos([
-  pc(CG(.060,.044,L_SH*.88,8),6, 0,L_SH*.44,0),
-  pc(SG(.048,8,6),6, 0,L_SH*.88,0),
+  pc(limbTaper(.058,.052,.044,L_SH*.92),6, 0,0,0),
   pc(BG(.095,.075,.115),3, 0,L_SH*.955,.012),                     // ankle / shoe heel
   pc(BG(.098,.058,.155),3, 0,L_SH*.99,.088),                      // shoe toe
 ]);
