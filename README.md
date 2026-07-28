@@ -27,6 +27,7 @@ The shared multiplayer milestone is implemented:
 - Two-handed weapon poses with fire-time yaw and pitch correction
 - Quick-knife melee and crouching with synchronized first-person and survivor animations
 - Layered footsteps, recorded zombie vocals, attack snarls, hurt reactions, death sounds, and War Machine impact audio
+- Recorded bullet impacts, map-specific ambience, interaction feedback, and distinct power-up cues
 
 ## Current features
 
@@ -159,3 +160,14 @@ Reload and weapon-handling recordings come from Pixabay under the [Pixabay Conte
 - [Holster Pistol](https://pixabay.com/sound-effects/film-special-effects-holster-pistol-7132/) by nioczkus
 
 Mystery Box crate sounds use Minetest's `default_chest_open.ogg` and `default_chest_close.ogg`, mixed by sofar from CC0 and CC BY 3.0 recordings documented in the [Minetest default asset credits](https://github.com/minetest-game/default#sounds). The cycling and reveal cues use “Dream Harps” by limetoe and “Magic mallet” by Hotlavaman, both CC0 recordings documented by [Happy Onlife](https://github.com/happyonlife/hol#licencing).
+
+
+The map ambience recordings are sourced from CC0 FreeSound recordings preserved in Nicky Case's open game repositories:
+
+- Town: “Night City Ambience” by amszala, from [Coming Out Simulator](https://github.com/ncase/cos)
+- Nuketown: [“Nature ambient” by michorvath](https://freesound.org/people/michorvath/sounds/427601/), from [Adventures With Anxiety](https://github.com/ncase/anxiety)
+- BLACKSIRE: “Room Ambience” by gchase, from [Coming Out Simulator](https://github.com/ncase/cos)
+
+Bullet-impact recordings use the CC0 “Punch” recording credited in [Coming Out Simulator](https://github.com/ncase/cos) plus CC0 metal recordings by Iwan Gabovitch and Ogrebane from the [Minetest default asset library](https://github.com/minetest-game/default#sounds).
+
+Purchase, pickup, denial, and unique power-up cues use Kenney's CC0 [Impact Sounds](https://kenney.nl/assets/impact-sounds), [RPG Audio](https://kenney.nl/assets/rpg-audio), [Interface Sounds](https://kenney.nl/assets/interface-sounds), [Sci-Fi Sounds](https://kenney.nl/assets/sci-fi-sounds), and [Music Jingles](https://kenney.nl/assets/music-jingles), with the exact source mapping documented by [Ironband](https://github.com/chrislingxi/ironband/blob/main/ATTRIBUTION.md).

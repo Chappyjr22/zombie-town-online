@@ -2909,7 +2909,18 @@ const playerSampleFiles={
   boxOpen:['/audio/mystery-box-chest-open.ogg'],
   boxRoll:['/audio/mystery-box-dream-harp.ogg'],
   boxReveal:['/audio/mystery-box-magic-mallet.ogg'],
-  boxClose:['/audio/mystery-box-chest-close.ogg']
+  boxClose:['/audio/mystery-box-chest-close.ogg'],
+  impactFlesh:['/audio/impact-flesh.ogg'],
+  impactHard:['/audio/impact-metal-1.ogg','/audio/impact-metal-2.ogg','/audio/impact-metal-3.ogg','/audio/impact-metal-4.ogg'],
+  interactBuy:['/audio/interact-buy.mp3'],
+  interactPickup:['/audio/interact-pickup.mp3'],
+  interactDeny:['/audio/interact-deny.mp3'],
+  powerInstakill:['/audio/power-instakill.mp3'],
+  powerNuke:['/audio/power-nuke.mp3'],
+  powerFireSale:['/audio/power-firesale.mp3'],
+  ambienceTown:['/audio/ambience-town.ogg'],
+  ambienceNuketown:['/audio/ambience-nuketown.mp3'],
+  ambienceBlacksire:['/audio/ambience-blacksire.ogg']
 };
 const playerSamples={},playerSampleLast={};
 for(const kind in playerSampleFiles){playerSamples[kind]=[];playerSampleLast[kind]=-1;}
@@ -2958,7 +2969,10 @@ function loadPlayerSamples(){
   for(const kind in playerSampleFiles){
     playerSampleFiles[kind].forEach((url,i)=>{
       fetch(url).then(r=>{if(!r.ok)throw new Error('audio '+r.status);return r.arrayBuffer();})
-        .then(b=>AC.decodeAudioData(b)).then(buf=>{playerSamples[kind][i]=buf;}).catch(()=>{});
+        .then(b=>AC.decodeAudioData(b)).then(buf=>{
+          playerSamples[kind][i]=buf;
+          if(kind===mapAmbienceKind(currentMap)&&game.running) startMapAmbience();
+        }).catch(()=>{});
     });
   }
 }
@@ -2971,7 +2985,7 @@ function playPlayerSample(kind,volume,rate,delay,maxDuration){
   playerSampleLast[kind]=pick;
   const buf=ready[pick],t=AC.currentTime+(delay||0),src=AC.createBufferSource(),
     hp=AC.createBiquadFilter(),lp=AC.createBiquadFilter(),g=AC.createGain();
-  const reload=kind.indexOf('reload')===0,mechanical=reload||kind==='handle'||kind.indexOf('box')===0;
+  const reload=kind.indexOf('reload')===0,mechanical=reload||kind==='handle'||kind.indexOf('box')===0||kind.indexOf('impact')===0||kind.indexOf('interact')===0;
   src.buffer=buf;src.playbackRate.value=clamp((rate||1)*rand(.97,1.03),reload?.58:.78,reload?3.35:1.25);
   hp.type='highpass';hp.frequency.value=kind==='hurt'?82:(kind==='pap'?48:(mechanical?58:75));
   lp.type='lowpass';lp.frequency.value=kind==='hurt'?6100:(kind==='pap'?6800:(mechanical?7200:7300));
@@ -2982,6 +2996,35 @@ function playPlayerSample(kind,volume,rate,delay,maxDuration){
   src.connect(hp);hp.connect(lp);lp.connect(g);g.connect(master);
   src.start(t);src.stop(t+dur+.02);
   return true;
+}
+let mapAmbienceSource=null,mapAmbienceGain=null,mapAmbienceMap='';
+function mapAmbienceKind(id){
+  return id==='nuketown'?'ambienceNuketown':(id==='blacksire'?'ambienceBlacksire':'ambienceTown');
+}
+function stopMapAmbience(){
+  if(mapAmbienceSource){
+    try{mapAmbienceSource.stop();}catch(e){}
+    try{mapAmbienceSource.disconnect();}catch(e){}
+  }
+  if(mapAmbienceGain){try{mapAmbienceGain.disconnect();}catch(e){}}
+  mapAmbienceSource=null;mapAmbienceGain=null;mapAmbienceMap='';
+}
+function startMapAmbience(){
+  if(!AC||!master||!game.running) return;
+  const kind=mapAmbienceKind(currentMap),buf=(playerSamples[kind]||[]).find(Boolean);
+  if(!buf) return;
+  if(mapAmbienceSource&&mapAmbienceMap===currentMap) return;
+  stopMapAmbience();
+  const t=AC.currentTime,src=AC.createBufferSource(),hp=AC.createBiquadFilter(),
+    lp=AC.createBiquadFilter(),g=AC.createGain();
+  const cfg=currentMap==='blacksire'?[48,2700,.060]:(currentMap==='nuketown'?[70,5400,.044]:[62,4300,.052]);
+  src.buffer=buf;src.loop=true;
+  hp.type='highpass';hp.frequency.value=cfg[0];
+  lp.type='lowpass';lp.frequency.value=cfg[1];lp.Q.value=.45;
+  g.gain.setValueAtTime(.0008,t);g.gain.linearRampToValueAtTime(cfg[2],t+.8);
+  src.connect(hp);hp.connect(lp);lp.connect(g);g.connect(master);src.start(t);
+  mapAmbienceSource=src;mapAmbienceGain=g;mapAmbienceMap=currentMap;
+  src.onended=()=>{if(mapAmbienceSource===src){mapAmbienceSource=null;mapAmbienceGain=null;mapAmbienceMap='';}};
 }
 function playZombieSample(key,dist){
   const buf=zombieSamples[key];
@@ -3253,8 +3296,15 @@ function sfxRound(){
     o.connect(g);g.connect(master);o.start(t);o.stop(t+2.65);
   }
 }
-function sfxBuy(){ sfxTone(520,880,.16,.22,'square'); setTimeout(()=>sfxTone(880,1320,.18,.18,'square'),90); }
-function sfxDeny(){ sfxTone(200,120,.22,.22,'square'); }
+function sfxBuy(kind){
+  const sample=(kind==='wall'||kind==='ammo')?'interactPickup':'interactBuy';
+  if(playPlayerSample(sample,sample==='interactPickup'?.24:.28,1,0,.9)) return;
+  sfxTone(520,880,.16,.22,'square'); setTimeout(()=>sfxTone(880,1320,.18,.18,'square'),90);
+}
+function sfxDeny(){
+  if(playPlayerSample('interactDeny',.25,.86,0,.55)) return;
+  sfxTone(200,120,.22,.22,'square');
+}
 function sfxPerk(){
   if(playPlayerSample('drink',.50,.97,.07,2.1)){
     sfxClick(1850,.045,.11);
@@ -3308,7 +3358,24 @@ function sfxBoxReveal(wonder){
 function sfxBoxClose(){
   if(!playPlayerSample('boxClose',.34,1,0,.78))sfxClick(360,.08,.18);
 }
-function sfxPowerup(){ sfxTone(700,1400,.3,.2,'sine'); setTimeout(()=>sfxTone(1000,1900,.35,.16,'sine'),120); }
+let lastImpactSample=-99;
+function sfxImpact(kind){
+  if(!AC||AC.currentTime-lastImpactSample<.055) return;
+  lastImpactSample=AC.currentTime;
+  const flesh=kind==='flesh';
+  if(playPlayerSample(flesh?'impactFlesh':'impactHard',flesh?.24:.20,flesh?.96:1.05,0,flesh?.42:.48)) return;
+  sfxClick(flesh?480:1500,.045,flesh?.15:.12);
+}
+function sfxPowerup(kind){
+  const sample=kind==='maxammo'?'interactPickup':
+    (kind==='doublepoints'?'interactBuy':
+    (kind==='instakill'?'powerInstakill':
+    (kind==='nuke'?'powerNuke':'powerFireSale')));
+  const cfg={maxammo:[.34,.92,.75],doublepoints:[.35,1.04,.95],instakill:[.38,.88,.8],
+    nuke:[.42,.80,1.05],firesale:[.38,1.02,1.35]}[kind]||[.34,1,.9];
+  if(playPlayerSample(sample,cfg[0],cfg[1],0,cfg[2])) return;
+  sfxTone(700,1400,.3,.2,'sine'); setTimeout(()=>sfxTone(1000,1900,.35,.16,'sine'),120);
+}
 
 /* ---------- gun materials ---------- */
 const GM=[
@@ -4723,6 +4790,7 @@ function hitscan(org,dir,d){
     const part=h.object.userData.part;
     const mult=part==='head'?3.0:(part==='torso'?1.0:0.72);
     spray(h.point.x,h.point.y,h.point.z,dir.x,dir.y,dir.z,part==='head'?9:5,bloodMat,1.6);
+    sfxImpact('flesh');
     const before=z.dead;
     damageZombie(z,d.dmg*mult*dmgMult()*packMul(curGun()),part,dir,d.cls==='sniper'?.16:.09);
     hitAny=true;
@@ -4733,6 +4801,7 @@ function hitscan(org,dir,d){
   if(!hitAny&&hw.length&&wall<d.range){
     const h=hw[0];
     spray(h.point.x,h.point.y,h.point.z,h.face?h.face.normal.x:0,.4,h.face?h.face.normal.z:0,4,sparkMat,1.2);
+    sfxImpact('hard');
   }
 }
 function thunderBlast(org,dir){
@@ -5466,7 +5535,7 @@ function stepDrops(dt){
   for(const k in buffs) if(buffs[k]>0) buffs[k]=Math.max(0,buffs[k]-dt);
 }
 function applyCollectedDrop(k,collector){
-  sfxPowerup(); toast(DROPS[k].name);
+  sfxPowerup(k); toast(DROPS[k].name);
   if(k==='maxammo'){ for(const g of player.guns){g.res=resOf(g); g.ammo=magOf(g);} }
   else if(k==='nuke'){
     if(!net.connected||net.host){
@@ -5708,7 +5777,7 @@ function doBuy(){
   const c=it.cost();
   if(player.points<c){ sfxDeny(); toast('Not enough points'); return; }
   if(net.connected&&(it.kind==='box'||it.kind==='revive')){it.buy();return;}
-  player.points-=c; it.buy(); sfxBuy(); updHUD();
+  player.points-=c; it.buy(); sfxBuy(it.kind); updHUD();
 }
 
 
@@ -5904,6 +5973,7 @@ function handleSharedGameEvent(e){
     if(id===net.id) reviveLocal();
     else if(p) updateRemoteState(id,p.state||{});
     const reviver=net.players.get(String(e.reviver||''));
+    if(String(e.reviver||'')===net.id) sfxBuy('revive');
     if(id!==net.id) toast((reviver?reviver.name:'A teammate')+' revived '+(p?p.name:'a survivor'));
   } else if(e.type==='team_wipe'){
     toast('All survivors are down');
@@ -6422,7 +6492,7 @@ function exitGame(){
   try{ window.open('','_self'); window.close(); }catch(e){}
 }
 function quitToMenu(){
-  game.running=false; player.firing=false; player.ads=false;
+  game.running=false; player.firing=false; player.ads=false; stopMapAmbience();
   if(document.exitPointerLock) document.exitPointerLock();
   if(net.connected||net.ws) netDisconnect(false);
   bestLine(); showScreen('menu');
@@ -6530,6 +6600,7 @@ function startGame(mapId){
   const crouchButton=el('crouchBtn');if(crouchButton)crouchButton.classList.remove('on');
   renderPerks(); updHUD();
   game.running=true; last=performance.now()/1000;
+  startMapAmbience();
   rebuildRemotePlayers();
   for(const p of net.players.values())if(p.id!==net.id&&p.state)updateRemoteState(p.id,p.state);
   if(!net.connected||net.host) startRound();
