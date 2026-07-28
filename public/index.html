@@ -3017,7 +3017,8 @@ function startMapAmbience(){
   stopMapAmbience();
   const t=AC.currentTime,src=AC.createBufferSource(),hp=AC.createBiquadFilter(),
     lp=AC.createBiquadFilter(),g=AC.createGain();
-  const cfg=currentMap==='blacksire'?[48,2700,.060]:(currentMap==='nuketown'?[70,5400,.044]:[62,4300,.052]);
+  // Source recordings are naturally quiet, so normalize each map bed to a clearly audible background level.
+  const cfg=currentMap==='blacksire'?[48,4200,1.75]:(currentMap==='nuketown'?[62,6200,.80]:[45,6200,.72]);
   src.buffer=buf;src.loop=true;
   hp.type='highpass';hp.frequency.value=cfg[0];
   lp.type='lowpass';lp.frequency.value=cfg[1];lp.Q.value=.45;
@@ -3297,8 +3298,13 @@ function sfxRound(){
   }
 }
 function sfxBuy(kind){
-  const sample=(kind==='wall'||kind==='ammo')?'interactPickup':'interactBuy';
-  if(playPlayerSample(sample,sample==='interactPickup'?.24:.28,1,0,.9)) return;
+  let played=false;
+  if(kind==='wall'||kind==='ammo'){
+    // A purchase cue plus weapon handling makes wall guns and ammo unmistakable.
+    played=playPlayerSample('interactBuy',.62,1,0,.9)||played;
+    played=playPlayerSample('interactPickup',.72,1.02,.055,.42)||played;
+  }else played=playPlayerSample('interactBuy',.58,1,0,.9);
+  if(played) return;
   sfxTone(520,880,.16,.22,'square'); setTimeout(()=>sfxTone(880,1320,.18,.18,'square'),90);
 }
 function sfxDeny(){
@@ -6578,7 +6584,7 @@ bindToggle('oGore',()=>SET.gore=!SET.gore);
 function startGame(mapId){
   initAudio();
   loadMap(mapId||currentMap);
-  if(AC&&AC.state==='suspended') AC.resume();
+  if(AC&&AC.state==='suspended') AC.resume().then(()=>{if(game.running)startMapAmbience();}).catch(()=>{});
   for(let i=zombies.length-1;i>=0;i--) removeZombie(zombies[i]);
   for(const p of parts) scene.remove(p.m); parts.length=0;
   for(const d of drops){scene.remove(d.m);scene.remove(d.L);} drops.length=0;
