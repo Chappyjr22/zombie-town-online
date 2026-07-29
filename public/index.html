@@ -2720,7 +2720,7 @@ function buildLastStop(){
 
   // Station facade and ticket hall shell. Wide authored openings are the only paid entries.
   wallRun(-24,30,24,30,7.4,stone,[{c:0,w:6.2}]);
-  wallRun(-24,16,24,16,7.4,stone,[{c:-13,w:4.4},{c:0,w:7.2},{c:13,w:4.4}]);
+  wallRun(-24,16,24,16,7.4,stone,[{c:-13,w:4.4},{c:0,w:7.2}]);
   wallRun(-24,16,-24,30,7.4,stone,[]);
   wallRun(24,16,24,30,7.4,stone,[]);
   wallRun(-24,30,-24,50,3.2,stoneDark,[]);
@@ -2869,10 +2869,10 @@ function buildLastStop(){
   [-32,-16,0,16,32].forEach((x,i)=>signBoard('PLATFORM '+(i+1),x,3.15,-4.28,Math.PI,5));
 
   // West service passage and east maintenance yard are separate paid objectives.
-  wallRun(-49,-25,-31,-25,5.0,stoneDark,[{c:-40,w:4.5}]);
+  wallRun(-49,-25,-31,-25,5.0,stoneDark,[]);
   wallRun(-49,3,-31,3,5.0,stoneDark,[{c:-40,w:4.5}]);
   wallRun(-49,-25,-49,3,5.0,stoneDark,[]);
-  wallRun(-31,-25,-31,3,5.0,stoneDark,[{c:-11,w:4.5}]);
+  wallRun(-31,-25,-31,3,5.0,stoneDark,[]);
   floorSlab(-48.7,-24.7,-31.3,2.7,.04,M.tile);
   signBoard('Service Tunnels',-40,4.15,2.74,Math.PI,8);
   addMapGate('service','Clear service passage',1250,-40,0,3,4.3,2.6,.72,0,M.plank,'debris');
