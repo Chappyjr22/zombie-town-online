@@ -4607,11 +4607,14 @@ for(const id in DEFS){
    and muzzle sockets so first-person arms, remote players, Pack-a-Punch, and
    Mystery Box previews all continue to share one weapon root. */
 const SOURCED_WEAPONS={
-  m1911:{file:'Pistol_1',y:.015},
-  m4a1:{file:'AssaultRifle2_1',y:.025},
-  mp5:{file:'SubmachineGun_1',y:.020},
-  rem870:{file:'Shotgun_2',y:.020},
-  dsr50:{file:'SniperRifle_1',y:.030}
+  // Imported receivers are taller than the procedural silhouettes they
+  // replace. `hipDrop` only affects the relaxed view, never ADS, while the
+  // optic sockets keep red-dot housings seated on the imported top rails.
+  m1911:{file:'Pistol_1',y:.015,hipDrop:.022,opticY:.105,opticZ:-.040},
+  m4a1:{file:'AssaultRifle2_1',y:.025,hipDrop:.072,opticY:.255,opticZ:-.120,permanentDot:true},
+  mp5:{file:'SubmachineGun_1',y:.020,hipDrop:.060,opticY:.195,opticZ:-.080},
+  rem870:{file:'Shotgun_2',y:.020,hipDrop:.058,opticY:.085,opticZ:-.100},
+  dsr50:{file:'SniperRifle_1',y:.030,hipDrop:.070}
 };
 const SOURCE_WEAPON_PATH='/models/quaternius/';
 const SOURCE_PACK_COLOR_1=new THREE.Color(0x755fc0),SOURCE_PACK_COLOR_2=new THREE.Color(0x9e78f0);
@@ -4665,6 +4668,18 @@ function loadSourcedWeapon(id){
       const root=new THREE.Group();root.userData.sourcedWeapon=true;root.add(object);
       const fallback=d.mesh.children[0];if(fallback)fallback.visible=false;
       d.mesh.add(root);d.sourcedModel=root;d.sourcedPack=-1;
+      d.sourceViewDrop=cfg.hipDrop||0;
+      // Guns that already advertised a red dot used to get that geometry
+      // from the hidden procedural mesh. Restore a real circular optic
+      // housing for the imported model, and realign Pack-a-Punch optics for
+      // the other sourced guns instead of leaving them inside the receiver.
+      if(cfg.permanentDot&&!d.packDot){
+        d.packDot=new THREE.Mesh(PACK_DOT,GM);
+        d.mesh.add(d.packDot);
+        d.sourceDotPermanent=true;
+      }
+      if(d.packDot&&cfg.opticY!==undefined)
+        d.packDot.position.set(0,cfg.opticY,cfg.opticZ||0);
       updateSourcedPack(d,0);
     },undefined,err=>console.warn('Quaternius weapon failed to load: '+id,err));
   },undefined,err=>console.warn('Quaternius materials failed to load: '+id,err));
@@ -5161,15 +5176,12 @@ function gripCorrection(frame,hand,want){
   const qWant=new THREE.Quaternion().setFromRotationMatrix(gripBasis(want.dir,want.face));
   return qWant.multiply(qRig.invert());
 }
-/* Hand size and arm length have to be set independently. The old procedural
-   hands put their wrist 0.087 behind the fist centre, so that is the palm
-   these gun models were drawn around, and at life size the rig's is nearly
-   twice that - big enough to bury the wrist below the frame. But shrinking
-   the whole model to fit leaves the arms too short to span a shoulder at
-   the camera out to a rifle's fore-end, which folds the support arm up
-   short of the weapon. So the model keeps enough scale for the reach and
-   the hand bones are scaled down on their own to match the weapons. */
-const FP_ARM_SCALE=.8, FP_PALM_TARGET=.087;
+/* Hand size and arm length have to be set independently. The Soldier's palm
+   is about .155 units at first-person scale. Forcing it to the old .087
+   procedural anchor made both hands visibly miniature and distorted the
+   wrist skinning. Keep nearly all of the natural hand size while retaining
+   enough arm reach for rifle fore-ends. */
+const FP_ARM_SCALE=.8, FP_PALM_TARGET=.135;
 /* One rigged instance per arm. A single shared body cannot serve both grips:
    its shoulders move together, but a rifle's fore-end sits ~0.4 ahead of its
    trigger grip, so any one placement leaves the support arm folded up short
@@ -5184,10 +5196,10 @@ function makeFPArm(asset,side,geo){
   model.userData.fpArm=true;
   model.scale.setScalar(asset.scale*FP_ARM_SCALE);
   model.updateMatrixWorld(true);
-  // Size the hand to the weapons before measuring anything else off it.
-  // Scaling the bone scales its whole subtree, so the fingers come with it.
+  // Keep the correction mild so skinning around the wrist stays natural.
   const hand=model.getObjectByName('mixamorig'+side+'Hand');
-  hand.scale.setScalar(FP_PALM_TARGET/measureHandFrame(model,side).palmLen);
+  const naturalPalm=measureHandFrame(model,side).palmLen;
+  hand.scale.setScalar(clamp(FP_PALM_TARGET/naturalPalm,.82,1.05));
   model.updateMatrixWorld(true);
   const body=model.getObjectByName('vanguard_Mesh'),visor=model.getObjectByName('vanguard_visor');
   body.geometry=geo; body.frustumCulled=false;
@@ -5213,17 +5225,25 @@ function loadFPArms(){
   }).catch(err=>{console.warn('First-person Soldier arms unavailable; using procedural arms.',err);fpArms=null;});
 }
 const _fpHandR=new THREE.Vector3(),_fpHandL=new THREE.Vector3(),
-  _fpParentQ=new THREE.Quaternion(),_fpWantQ=new THREE.Quaternion();
+  _fpParentQ=new THREE.Quaternion(),_fpWantQ=new THREE.Quaternion(),
+  _fpAnchorQ=new THREE.Quaternion(),_fpGripDir=new THREE.Vector3(),
+  _fpBackDir=new THREE.Vector3(),_fpAnchorEuler=new THREE.Euler();
+function fpAnchorRotation(anchor){
+  return _fpAnchorQ.setFromEuler(_fpAnchorEuler.set(
+    anchor[3]||0,anchor[4]||0,anchor[5]||0));
+}
 /* The two-bone IK places the wrist but says nothing about how the hand is
    rolled around it, so the palm ends up facing wherever the arm chain's rest
    rotations happen to leave it. Orient the hand explicitly against the gun's
    own frame instead: cancel the forearm's actual world rotation, then apply
    the weapon's world rotation times the measured grip correction. */
-function aimFPHand(bone,mesh,gripQ){
+function aimFPHand(bone,mesh,gripQ,anchor){
   bone.parent.updateMatrixWorld(true);
   bone.parent.getWorldQuaternion(_fpParentQ);
   mesh.getWorldQuaternion(_fpWantQ);
-  _fpWantQ.multiply(gripQ);
+  // HANDS already stores a tuned local rotation per grip. The rigged
+  // replacement must honor it just like the procedural arm meshes did.
+  _fpWantQ.multiply(fpAnchorRotation(anchor)).multiply(gripQ);
   bone.quaternion.copy(_fpParentQ.invert().multiply(_fpWantQ));
 }
 /* HANDS anchors mark where the old procedural hand mesh sat, and that mesh
@@ -5235,8 +5255,9 @@ function aimFPHand(bone,mesh,gripQ){
    against d.mesh, so bones measure the same as the anchors do and the
    weapon's view scale must not be applied again. */
 function fistTarget(out,anchor,arm,grip){
+  _fpGripDir.copy(grip.dir).applyQuaternion(fpAnchorRotation(anchor));
   return out.set(anchor[0],anchor[1],anchor[2])
-    .addScaledVector(grip.dir,-arm.palmLen);
+    .addScaledVector(_fpGripDir,-arm.palmLen);
 }
 /* Place an arm on a weapon: put the wrist on the grip, then set the shoulder
    a comfortable arm's length back along the direction the old procedural arm
@@ -5247,7 +5268,8 @@ const _fpWrist=new THREE.Vector3();
 function placeFPArm(arm,anchor,back,grip){
   fistTarget(_fpWrist,anchor,arm,grip);
   const reach=(fpArms.upperLen+fpArms.foreLen)*.85;
-  arm.offset.copy(_fpWrist).addScaledVector(back,reach).sub(arm.native);
+  _fpBackDir.copy(back).applyQuaternion(fpAnchorRotation(anchor));
+  arm.offset.copy(_fpWrist).addScaledVector(_fpBackDir,reach).sub(arm.native);
   arm.model.position.copy(arm.offset);
   arm.model.updateMatrixWorld(true);
 }
@@ -5268,7 +5290,7 @@ function poseFPArm(arm,d,anchor,grip,out,side,smooth){
     .add(_fpShoulder).lerp(out,.5);
   poseRemoteArm(d.mesh,arm.upper,arm.fore,fpArms.upperLen*d.viewScale,fpArms.foreLen*d.viewScale,
     _fpShoulder,_fpElbow,out,REMOTE_ARM_AXIS,smooth);
-  aimFPHand(arm.hand,d.mesh,arm.grip);
+  aimFPHand(arm.hand,d.mesh,arm.grip,anchor);
 }
 function updateFPArms(d,dt){
   if(!fpArms){loadFPArms();return;}
@@ -8167,7 +8189,7 @@ function updateWeaponView(dt){
   const want=lv>=2?GM_P2:(lv===1?GM_P1:GM);
   if(body.material!==want) body.material=want;
   updateSourcedPack(d,lv);
-  if(d.packDot) d.packDot.visible=lv>=1;
+  if(d.packDot) d.packDot.visible=!!d.sourceDotPermanent||lv>=1;
   d.adsMix=lerp(d.adsMix||0,player.ads?1:0,1-Math.pow(0.00008,dt));
   _pos.copy(d.hip).lerp(d.adsPos,d.adsMix);
   const sp=Math.hypot(player.vel.x,player.vel.z);
@@ -8185,7 +8207,7 @@ function updateWeaponView(dt){
   d.mesh.position.set(
     _pos.x+swayX-d.sprintMix*0.235+spX,
     _pos.y+swayY-player.kick*0.18-d.reloadMix*0.09-swap*0.35-d.sprintMix*0.055+
-      spY-(player.crouchMix||0)*.035,
+      spY-(player.crouchMix||0)*.035-(d.sourceViewDrop||0)*(1-d.adsMix),
     _pos.z+player.kick*0.28+d.sprintMix*0.070);
   d.mesh.rotation.set(
     lerp(0.02,0,d.adsMix)-player.kick*0.9+d.sprintMix*0.42+d.reloadMix*0.35+
