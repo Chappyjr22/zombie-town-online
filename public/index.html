@@ -5038,6 +5038,30 @@ function stepParts(dt){
 }
 
 /* ---------- projectiles, explosions, lightning ---------- */
+// WebGL bakes the active light count into each material's compiled shader.
+// Spawning a fresh THREE.PointLight per shot/explosion (and removing it
+// after) changes that count on almost every frame, forcing every PBR
+// material in the scene to recompile - a multi-second stall the first time
+// (and any time) a new light-count combination is hit. Keep a fixed pool of
+// lights permanently in the scene (intensity 0 when idle) instead, mirroring
+// the existing reused muzzleLight/shotLight pattern for hitscan weapons.
+const DYNAMIC_LIGHT_POOL_SIZE=14;
+const dynamicLightPool=[];
+for(let i=0;i<DYNAMIC_LIGHT_POOL_SIZE;i++){
+  const L=new THREE.PointLight(0xffffff,0,10,2);
+  scene.add(L);
+  dynamicLightPool.push(L);
+}
+let dynamicLightCursor=0;
+function acquireDynamicLight(color,intensity,distance,decay){
+  const L=dynamicLightPool[dynamicLightCursor];
+  dynamicLightCursor=(dynamicLightCursor+1)%dynamicLightPool.length;
+  L.color.setHex(color); L.intensity=intensity; L.distance=distance;
+  if(decay!==undefined) L.decay=decay;
+  return L;
+}
+function releaseDynamicLight(L){ L.intensity=0; }
+
 const projectiles=[], booms=[], bolts=[];
 const projGeo=new THREE.SphereGeometry(.13,8,6);
 function spawnProj(kind,org,dir,d,mul){
@@ -5045,8 +5069,8 @@ function spawnProj(kind,org,dir,d,mul){
   const m=new THREE.Mesh(projGeo,new THREE.MeshBasicMaterial({color:col}));
   m.position.copy(org); m.scale.setScalar(kind==='nade'?1.2:1);
   scene.add(m);
-  const L=new THREE.PointLight(col,kind==='nade'?0.4:1.4,kind==='nade'?5:9,2);
-  L.position.copy(org); scene.add(L);
+  const L=acquireDynamicLight(col,kind==='nade'?0.4:1.4,kind==='nade'?5:9,2);
+  L.position.copy(org);
   projectiles.push({m,L,kind,d,mul:mul||1,v:dir.clone().multiplyScalar(kind==='nade'?30:60),life:4,grav:kind==='nade'?18:0});
 }
 function stepProjectiles(dt){
@@ -5092,7 +5116,7 @@ function stepProjectiles(dt){
       // struck zombie gets the full wonder-weapon hit, while nearby zombies
       // receive the weapon's area damage.
       explode(impact,(p.d.splash||0)*(p.mul||1)*dmgMult(),p.d.splashR||2.5,p.kind,hitZombie);
-      scene.remove(p.m); scene.remove(p.L); p.m.material.dispose(); projectiles.splice(i,1);
+      scene.remove(p.m); releaseDynamicLight(p.L); p.m.material.dispose(); projectiles.splice(i,1);
     }
   }
 }
@@ -5102,7 +5126,7 @@ function explode(pos,dmg,radius,kind,exclude){
     new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.52,
       blending:THREE.AdditiveBlending,depthWrite:false}));
   m.position.copy(pos); m.scale.setScalar(.4); scene.add(m);
-  const L=new THREE.PointLight(col,7,radius*5,2); L.position.copy(pos); scene.add(L);
+  const L=acquireDynamicLight(col,7,radius*5,2); L.position.copy(pos);
   booms.push({m,L,t:0,r:radius});
   spray(pos.x,pos.y,pos.z,0,1,0,16,kind==='nade'?emberMat:plasmaMat,2.2);
   const blastDist=Math.hypot(player.pos.x-pos.x,player.y+player.eye-pos.y,player.pos.z-pos.z);
@@ -5129,7 +5153,7 @@ function stepBooms(dt){
     b.m.scale.setScalar(.4+t*b.r);
     b.m.material.opacity=Math.max(0,.52*(1-t));
     b.L.intensity=Math.max(0,7*(1-t));
-    if(t>=1){scene.remove(b.m); scene.remove(b.L); b.m.material.dispose(); b.m.geometry.dispose(); booms.splice(i,1);}
+    if(t>=1){scene.remove(b.m); releaseDynamicLight(b.L); b.m.material.dispose(); b.m.geometry.dispose(); booms.splice(i,1);}
   }
 }
 function makeBolt(points,col){
@@ -5380,8 +5404,8 @@ function thunderBlast(org,dir){
   const m=new THREE.Mesh(new THREE.SphereGeometry(1,10,8),
     new THREE.MeshBasicMaterial({color:0x8fd8ff,transparent:true,opacity:.4,wireframe:true}));
   m.position.copy(org).add(dir.clone().multiplyScalar(3)); scene.add(m);
-  booms.push({m,L:new THREE.PointLight(0x8fd8ff,4,30,2),t:0,r:12});
-  booms[booms.length-1].L.position.copy(m.position); scene.add(booms[booms.length-1].L);
+  const tL=acquireDynamicLight(0x8fd8ff,4,30,2); tL.position.copy(m.position);
+  booms.push({m,L:tL,t:0,r:12});
   player.kick=0.22;
 }
 function lightningShot(org,dir,d){
