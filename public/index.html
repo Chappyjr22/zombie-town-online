@@ -101,7 +101,7 @@
     background:rgba(232,163,61,.09);padding-left:26px;}
   .mitem small{display:block;font-size:9px;letter-spacing:.18em;opacity:.45;color:var(--bone);margin-top:2px;}
   .maps{display:flex;gap:16px;justify-content:center;margin:22px auto 8px;flex-wrap:wrap;}
-  #mapsel .card{max-width:920px;}
+  #mapsel .card{max-width:1160px;}
   .mapcard{pointer-events:auto;cursor:pointer;width:270px;text-align:left;border:1px solid rgba(230,224,210,.16);
     padding:0 0 14px;background:rgba(10,12,18,.4);transition:.12s;}
   .mapcard:hover,.mapcard.sel{border-color:var(--amber);background:rgba(232,163,61,.10);transform:translateY(-2px);}
@@ -128,6 +128,12 @@
   .mapart.blacksire i:nth-child(2){right:14px;width:66px;height:43px;box-shadow:-17px -20px 0 -15px #222d37;}
   .mapart.blacksire b{position:absolute;left:50%;bottom:0;margin-left:-19px;width:38px;height:30px;background:#090c11;border:2px solid #653039;}
   .mapart.blacksire u{position:absolute;left:50%;top:7px;margin-left:-2px;width:4px;height:43px;background:#8797a6;box-shadow:0 0 8px #bddef5;}
+  .mapart.laststop{background:linear-gradient(180deg,#0b1117 0%,#243342 53%,#11161b 54%,#080a0c 100%);}
+  .mapart.laststop i{position:absolute;bottom:13px;background:#55575a;border-top:2px solid #a48142;}
+  .mapart.laststop i:nth-child(1){left:12px;width:112px;height:43px;box-shadow:0 -13px 0 -7px #77736b;}
+  .mapart.laststop i:nth-child(2){right:13px;width:79px;height:31px;background:#472027;}
+  .mapart.laststop b{position:absolute;left:50%;bottom:10px;margin-left:-25px;width:50px;height:18px;background:#151a1e;border:2px solid #b58e43;}
+  .mapart.laststop u{position:absolute;left:14px;right:14px;bottom:7px;height:3px;background:#59616a;box-shadow:0 -8px 0 #2a3036;}
   .best{font-size:11px;letter-spacing:.22em;opacity:.5;text-transform:uppercase;margin-top:14px;}
   .best b{color:var(--amber);}
   h2.sec{font-size:22px;letter-spacing:.30em;text-transform:uppercase;margin-bottom:4px;}
@@ -339,7 +345,7 @@
 <div class="screen gone" id="mapsel">
   <div class="card">
     <h2 class="sec">Choose a map</h2>
-    <div class="sub">Three very different problems</div>
+    <div class="sub">Four very different problems</div>
     <div class="maps">
       <div class="mapcard" data-act="map:town">
         <div class="mapart town"><i></i><i></i><i></i><b></b></div>
@@ -355,6 +361,11 @@
         <div class="mapart blacksire"><i></i><i></i><b></b><u></u></div>
         <h4>Blacksire <em>Storm</em></h4>
         <p>A classified military research compound split between a rain-lashed checkpoint and the containment lab below. Loop through barracks, garage, communications, generator rooms, test cells, and a lockdown zone that gets meaner every fourth round.</p>
+      </div>
+      <div class="mapcard" data-act="map:laststop">
+        <div class="mapart laststop"><i></i><i></i><b></b><u></u></div>
+        <h4>Last Stop <em>Rain</em></h4>
+        <p>A ruined central railway terminal with paid doors, two power circuits, detailed platforms and trains, a maintenance yard, service tunnels, and Pack-a-Punch sealed inside the armored rail vault.</p>
       </div>
     </div>
     <div class="btn" data-act="back">Back</div>
@@ -2530,6 +2541,408 @@ function buildNuketown(){
   worldRoot.add(pts); window.__ash={pts,arr:p2,n};
 }
 
+/* ============ SHARED MAP PROGRESSION ============
+   Paid routes are registered as real meshes with fitted collision. The host owns
+   multiplayer changes, while compact snapshots keep reconnecting players and late
+   joiners on the same set of opened routes and powered switches. */
+const mapProgress={gates:new Map(),switches:new Map(),required:[],power:false};
+function resetMapProgress(){
+  mapProgress.gates.clear();mapProgress.switches.clear();mapProgress.required.length=0;mapProgress.power=false;
+}
+function mapGateReady(g){
+  return !g.requires||g.requires.every(id=>mapProgress.switches.get(id)?.active);
+}
+function addMapGate(id,label,cost,x,y,z,w,h,d,rot,mat,style,requires,moveDelta){
+  const R=rot||0,g=new THREE.Group(),items=[];
+  if(style==='debris'){
+    for(let i=0;i<5;i++){
+      const yy=.38+i*.43,ang=(i%2?-.10:.08);
+      items.push(pc(PROP_BOX,i===2?1:0,0,yy,0,0,0,ang,w*(i===0?.82:.98),.22,d));
+    }
+    for(const q of [[-.34*w,.42,.08],[.31*w,.55,-.06],[0,.92,.04]])
+      items.push(pc(PROP_BOX,1,q[0],q[1],q[2],0,0,rand(-.08,.08),Math.min(1.4,w*.26),.78,d*1.25));
+  }else if(style==='turnstile'){
+    for(let i=0;i<4;i++){
+      const xx=lerp(-w*.42,w*.42,i/3);
+      items.push(pc(PROP_BOX,0,xx,h*.50,0,0,0,0,.13,h,d));
+      items.push(pc(PROP_BOX,1,xx,h*.58,-d*.38,Math.PI/2,0,(i%2?.35:-.35),.11,w*.22,.11));
+    }
+    items.push(pc(PROP_BOX,0,0,h-.10,0,0,0,0,w,.20,d));
+  }else{
+    const rows=Math.max(4,Math.round(h/.36));
+    for(let i=0;i<rows;i++)items.push(pc(PROP_BOX,i%4===0?1:0,0,(i+.5)*h/rows,0,0,0,0,w,h/rows-.035,d));
+    items.push(pc(PROP_BOX,1,-w*.47,h*.5,-d*.58,0,0,0,.10,h,d*.18));
+    items.push(pc(PROP_BOX,1,w*.47,h*.5,-d*.58,0,0,0,.10,h,d*.18));
+  }
+  const mesh=new THREE.Mesh(mergeGeos(items),[mat,M.rust]);mesh.castShadow=mesh.receiveShadow=true;g.add(mesh);
+  const sign=signTexture(label,cost);
+  const plate=new THREE.Mesh(new THREE.PlaneGeometry(Math.min(w*.72,4.2),.72),
+    new THREE.MeshBasicMaterial({map:sign,transparent:true}));
+  plate.position.set(0,Math.min(h-.55,2.15),-d*.55-.012);plate.rotation.y=Math.PI;g.add(plate);
+  g.position.set(x,y,z);g.rotation.y=R;worldRoot.add(g);
+  const col={x,z,halfW:w/2+.025,halfD:d/2+.025,rot:R,oriented:true,top:y+h,bot:y};
+  colliders.push(col);blockers.push(mesh);
+  const gate={id,label,cost,g,mesh,col,open:false,requires:requires||null,
+    moveDelta:moveDelta?new THREE.Vector3(moveDelta[0],moveDelta[1],moveDelta[2]):null,
+    base:g.position.clone()};
+  mapProgress.gates.set(id,gate);
+  interactables.push({
+    x:x-.8*Math.sin(R),y:y+Math.min(1.4,h*.45),z:z-.8*Math.cos(R),r:3.0,kind:'mapgate',
+    label(){return mapGateReady(gate)?label:('Restore station power');},
+    cost(){return mapGateReady(gate)?cost:0;},
+    can(){return !gate.open;},
+    buy(){
+      if(!mapGateReady(gate)){toast('Restore both station circuits first');sfxDeny();return;}
+      if(net.connected)netGameRequest({type:'map_gate',id});
+      else openMapGate(id,false);
+    }
+  });
+  return gate;
+}
+function signTexture(label,cost){
+  return tex(320,80,(c,w,h)=>{
+    c.fillStyle='rgba(10,12,16,.93)';c.fillRect(0,0,w,h);
+    c.strokeStyle='#d7aa4b';c.lineWidth=4;c.strokeRect(4,4,w-8,h-8);
+    c.fillStyle='#eee4cb';c.font='bold 25px Arial';c.textAlign='center';c.textBaseline='middle';
+    c.fillText(label.toUpperCase(),w/2,h*.38);
+    c.fillStyle='#e8a33d';c.font='bold 19px Arial';c.fillText(String(cost),w/2,h*.73);
+  });
+}
+function openMapGate(id,silent){
+  const gate=mapProgress.gates.get(id);if(!gate||gate.open)return false;
+  gate.open=true;
+  const ci=colliders.indexOf(gate.col);if(ci>=0)colliders.splice(ci,1);
+  const bi=blockers.indexOf(gate.mesh);if(bi>=0)blockers.splice(bi,1);
+  if(gate.moveDelta)gate.g.position.copy(gate.base).add(gate.moveDelta);
+  else gate.g.visible=false;
+  if(!silent){toast(gate.label);sfxBuy('door');}
+  return true;
+}
+function addMapSwitch(id,label,x,y,z,rot,mat){
+  const R=rot||0,g=new THREE.Group(),shell=new THREE.Mesh(mergeGeos([
+    pc(PROP_BOX,0,0,.82,0,0,0,0,1.35,1.64,.70),
+    pc(PROP_BOX,1,0,1.43,-.22,-.18,0,0,1.12,.52,.12),
+    pc(PROP_BOX,1,-.42,.56,-.38,0,0,0,.12,.42,.10),
+    pc(PROP_BOX,1,.42,.56,-.38,0,0,0,.12,.42,.10)
+  ]),[mat,M.metal]);
+  shell.castShadow=shell.receiveShadow=true;g.add(shell);blockers.push(shell);
+  const screenMat=phong({color:0x4b1212,emissive:0xe52b2b,emissiveIntensity:.72,shininess:75});
+  const screen=new THREE.Mesh(new THREE.BoxGeometry(.76,.30,.08),screenMat);screen.position.set(0,1.44,-.42);g.add(screen);
+  const lever=new THREE.Mesh(new THREE.CylinderGeometry(.07,.08,.55,10),M.chrome);
+  lever.rotation.z=.72;lever.position.set(.05,.88,-.48);g.add(lever);
+  const tag=new THREE.Mesh(new THREE.PlaneGeometry(1.16,.34),new THREE.MeshBasicMaterial({
+    map:tex(256,64,(c,w,h)=>{c.fillStyle='#11151a';c.fillRect(0,0,w,h);c.fillStyle='#e6d9bd';
+      c.font='bold 23px Arial';c.textAlign='center';c.textBaseline='middle';c.fillText(label.toUpperCase(),w/2,h/2);})
+  }));
+  tag.position.set(0,.28,-.40);tag.rotation.y=Math.PI;g.add(tag);
+  g.position.set(x,y,z);g.rotation.y=R;worldRoot.add(g);
+  addYawCollider(x,z,1.38,.76,R,y+1.72,y,.02);
+  const sw={id,label,g,screenMat,active:false};mapProgress.switches.set(id,sw);mapProgress.required.push(id);
+  interactables.push({
+    x:x-.85*Math.sin(R),y:y+1,z:z-.85*Math.cos(R),r:2.8,kind:'mapswitch',
+    label(){return 'Activate '+label;},cost(){return 0;},can(){return !sw.active;},
+    buy(){if(net.connected)netGameRequest({type:'map_switch',id});else activateMapSwitch(id,false);}
+  });
+}
+function activateMapSwitch(id,silent){
+  const sw=mapProgress.switches.get(id);if(!sw||sw.active)return false;
+  sw.active=true;sw.screenMat.color.setHex(0x174c27);sw.screenMat.emissive.setHex(0x46e878);sw.screenMat.emissiveIntensity=1.05;
+  const powered=mapProgress.required.length>0&&mapProgress.required.every(k=>mapProgress.switches.get(k)?.active);
+  if(powered&&!mapProgress.power){
+    mapProgress.power=true;
+    if(!silent){banner('STATION POWER','Vault and rail systems online');sfxTone(90,420,.72,.20,'sawtooth');}
+  }else if(!silent){toast(sw.label+' active');sfxBuy('switch');}
+  return true;
+}
+function mapProgressSnapshot(){
+  if(!mapProgress.gates.size&&!mapProgress.switches.size)return null;
+  return {g:Array.from(mapProgress.gates.values()).filter(g=>g.open).map(g=>g.id),
+    s:Array.from(mapProgress.switches.values()).filter(s=>s.active).map(s=>s.id)};
+}
+function applyMapProgressSnapshot(p){
+  if(!p)return;
+  for(const id of p.s||[])activateMapSwitch(String(id),true);
+  for(const id of p.g||[])openMapGate(String(id),true);
+}
+function hostOpenMapGate(playerId,id){
+  const gate=mapProgress.gates.get(String(id||''));if(!gate||gate.open||!mapGateReady(gate))return;
+  const event={type:'map_gate',id:gate.id,owner:playerId,cost:gate.cost};
+  netHostBroadcast(event);handleSharedGameEvent(event);
+}
+function hostActivateMapSwitch(playerId,id){
+  const sw=mapProgress.switches.get(String(id||''));if(!sw||sw.active)return;
+  const event={type:'map_switch',id:sw.id,owner:playerId};
+  netHostBroadcast(event);handleSharedGameEvent(event);
+}
+
+/* ============ LAST STOP ============
+   A rain-darkened railway terminal built in readable sections. Most detail is
+   merged or instanced so the full map stays near Town's rendering cost even
+   though the station contains many more authored props. */
+function buildLastStop(){
+  const stone=phong({color:0x5c5b59,roughness:.78});
+  const stoneDark=phong({color:0x34383b,roughness:.72});
+  const brass=phong({color:0x8d6b32,shininess:88,specular:0xe1c177});
+  const railMat=phong({color:0x24292d,shininess:52,specular:0x7b848b});
+  const trainRed=phong({color:0x5c1820,shininess:48,specular:0x8f5d62});
+  const trainBlue=phong({color:0x263e50,shininess:45,specular:0x607c8e});
+  const cream=phong({color:0xb9ad91,shininess:18,specular:0x514b40});
+  const wet=phong({map:T.concrete,color:0x3d4246,shininess:38,specular:0x697780});
+  const glow=phong({color:0xd7b46a,emissive:0xf0a43a,emissiveIntensity:.72,shininess:90});
+  const greenGlow=phong({color:0x174b36,emissive:0x36e69b,emissiveIntensity:.75,shininess:72});
+  BND=52;
+  scene.background=new THREE.Color(0x0b1117);
+  scene.fog=new THREE.Fog(0x0b1117,26,118);mapFog={near:26,far:118};
+  torch.intensity=.92;
+  SPAWN_AT.set(0,0,41);SPAWN_YAW=Math.PI;
+  SPAWNS=[
+    [-18,47],[18,47],[-21,39],[21,39],[-12,34],[12,34],
+    [-19,27,0,'front'],[19,27,0,'front'],[-10,20,0,'front'],[10,20,0,'front'],
+    [-27,12,0,['turnstiles','cafe']],[27,12,0,['turnstiles','cafe']],
+    [-19,7,0,['turnstiles','cafe']],[19,7,0,['turnstiles','cafe']],
+    [-43,-3,0,'platforms'],[43,-3,0,'platforms'],[-42,-23,0,'platforms'],[42,-23,0,'platforms'],
+    [-46,-20,0,'service'],[46,-34,0,'yard'],[-10,-45,0,'vault'],[10,-45,0,'vault']
+  ];
+  BOX_SPOTS=[
+    [-16,23,0,-Math.PI/2],[25,10,0,Math.PI/2],[-34,-10,0,-Math.PI/2],
+    [37,-27,0,Math.PI/2],[13,-39,0,Math.PI]
+  ];
+  mannequins=[];nukeSign=null;nukeClock=null;
+
+  worldRoot.add(new THREE.HemisphereLight(0x52667b,0x080b0e,.62));
+  const moon=new THREE.DirectionalLight(0xa8bed8,.36);moon.position.set(-36,52,24);worldRoot.add(moon);sunShadow(moon,58);
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(280,280),wet);
+  ground.receiveShadow=true;ground.rotation.x=-Math.PI/2;worldRoot.add(ground);blockers.push(ground);
+
+  // Outer rail-yard fencing and masonry hide the hard map boundary behind believable structure.
+  fenceRun(-51,-50,51,-50);fenceRun(-51,50,51,50);
+  fenceRun(-51,-50,-51,50);fenceRun(51,-50,51,50);
+
+  // Station facade and ticket hall shell. Wide authored openings are the only paid entries.
+  wallRun(-24,30,24,30,7.4,stone,[{c:0,w:6.2}]);
+  wallRun(-24,16,24,16,7.4,stone,[{c:-13,w:4.4},{c:0,w:7.2},{c:13,w:4.4}]);
+  wallRun(-24,16,-24,30,7.4,stone,[]);
+  wallRun(24,16,24,30,7.4,stone,[]);
+  wallRun(-24,30,-24,50,3.2,stoneDark,[]);
+  wallRun(24,30,24,50,3.2,stoneDark,[{c:35,w:4.4}]);
+  floorSlab(-23.7,16.3,23.7,29.7,.04,M.tile);
+  bx(49,.48,15,0,7.65,23,stoneDark,false);
+  for(const x of [-20,-16,-12,12,16,20]){
+    cyl(.36,.44,7.2,x,3.6,30.4,stone,true);
+    const cap=new THREE.Mesh(new THREE.BoxGeometry(1.0,.30,.72),brass);cap.position.set(x,7.15,30.4);worldRoot.add(cap);
+  }
+  signBoard('LAST STOP // CENTRAL TERMINAL',0,6.05,30.58,Math.PI,15);
+  const clockFace=new THREE.Mesh(new THREE.CircleGeometry(1.42,28),new THREE.MeshBasicMaterial({
+    map:tex(256,256,(c,w,h)=>{c.fillStyle='#e2dac4';c.beginPath();c.arc(w/2,h/2,w*.47,0,TAU);c.fill();
+      c.strokeStyle='#211d18';c.lineWidth=7;c.stroke();c.fillStyle='#211d18';
+      for(let i=0;i<12;i++){const a=i*TAU/12-Math.PI/2;c.beginPath();c.arc(w/2+Math.cos(a)*w*.37,h/2+Math.sin(a)*h*.37,5,0,TAU);c.fill();}
+      c.lineWidth=8;c.beginPath();c.moveTo(w/2,h/2);c.lineTo(w*.51,h*.25);c.stroke();
+      c.lineWidth=6;c.beginPath();c.moveTo(w/2,h/2);c.lineTo(w*.69,h*.55);c.stroke();})
+  }));
+  clockFace.position.set(0,9.15,30.64);clockFace.rotation.y=Math.PI;worldRoot.add(clockFace);
+
+  // Plaza furniture is instanced to keep the detailed arrival area inexpensive.
+  const benchGeo=mergeGeos([
+    ...[-.25,-.08,.09,.26].map(z=>pc(PROP_BOX,0,0,.53,z,0,0,0,2.2,.10,.12)),
+    ...[.73,.91,1.09].map(y=>pc(PROP_BOX,0,0,y,-.31,-.12,0,0,2.2,.10,.11)),
+    pc(PROP_BOX,1,-.82,.36,0,0,0,0,.10,.70,.62),pc(PROP_BOX,1,.82,.36,0,0,0,0,.10,.70,.62)
+  ]);
+  const benches=new THREE.InstancedMesh(benchGeo,[M.plank,M.metal],10),bm=new THREE.Matrix4(),bq=new THREE.Quaternion();
+  [[-14,37,0],[14,37,Math.PI],[-17,43,0],[17,43,Math.PI],[-8,33,0],[8,33,Math.PI],
+   [-18,19,Math.PI/2],[18,19,-Math.PI/2],[-15,-7,0],[15,-7,Math.PI]].forEach((p,i)=>{
+    bq.setFromEuler(new THREE.Euler(0,p[2],0));bm.compose(new THREE.Vector3(p[0],0,p[1]),bq,new THREE.Vector3(1,1,1));benches.setMatrixAt(i,bm);
+    addYawCollider(p[0],p[1],2.22,.82,p[2],1.16,0,.02);
+  });
+  benches.castShadow=benches.receiveShadow=true;worldRoot.add(benches);
+  streetLamp(-20,42,0);streetLamp(20,42,Math.PI);streetLamp(-20,33,0);streetLamp(20,33,Math.PI);
+  car(-12,45,Math.PI/2,0x27384e);car(13,46,-Math.PI/2,0x5d2024);
+  phoneBooth(-21,35,Math.PI/2);fireBarrel(21,38,0);
+
+  addMapGate('front','Open terminal doors',750,0,0,30,5.9,3.7,.40,0,stoneDark,'shutter');
+
+  // Ticket windows, queue rails, departure board, luggage, and the café establish the interior.
+  const ticketParts=[];
+  for(let i=0;i<7;i++){
+    const x=-18+i*6;
+    ticketParts.push(pc(PROP_BOX,0,x,1.05,18.0,0,0,0,4.7,2.1,.55));
+    ticketParts.push(pc(PROP_BOX,1,x,2.45,17.68,0,0,0,4.7,.18,.18));
+  }
+  const ticketBank=new THREE.Mesh(mergeGeos(ticketParts),[M.wood,brass]);worldRoot.add(ticketBank);blockers.push(ticketBank);
+  addCollider(-21,21,17.65,18.35,2.6,0);
+  for(const x of [-18,-12,-6,0,6,12,18]){
+    const pane=new THREE.Mesh(new THREE.PlaneGeometry(3.8,1.15),M.glassBroken);pane.position.set(x,1.55,17.64);worldRoot.add(pane);
+  }
+  signBoard('Tickets & Departures',0,4.95,17.60,0,12);
+  const boardMat=new THREE.MeshBasicMaterial({map:tex(512,256,(c,w,h)=>{
+    c.fillStyle='#111a18';c.fillRect(0,0,w,h);c.fillStyle='#e7c45f';c.font='bold 28px monospace';c.fillText('DEPARTURES',24,38);
+    c.font='20px monospace';const rows=['12:04  GREYWATER  DELAYED','12:18  NORTH LINE  CANCELLED','12:31  BLACK RIDGE  LAST CALL','--:--  LAST STOP   BOARDING'];
+    rows.forEach((r,i)=>c.fillText(r,24,82+i*38));}),transparent:true});
+  const board=new THREE.Mesh(new THREE.PlaneGeometry(8.6,4.0),boardMat);board.position.set(0,4.45,29.77);board.rotation.y=Math.PI;worldRoot.add(board);
+
+  // Repeated luggage uses one draw call and deliberately has no broad collision.
+  const luggageGeo=mergeGeos([
+    pc(PROP_BOX,0,0,.32,0,0,0,0,.62,.64,.32),pc(PROP_BOX,1,0,.70,0,0,0,0,.26,.30,.05),
+    pc(PROP_BOX,1,0,.70,.04,0,0,0,.30,.06,.06,.06)
+  ]);
+  const luggage=new THREE.InstancedMesh(luggageGeo,[phong({color:0x55402e}),brass],52),lm=new THREE.Matrix4(),lq=new THREE.Quaternion();
+  for(let i=0;i<52;i++){
+    const region=i<24?[rand(-20,20),rand(19,28)]:[rand(-39,39),rand(-18,2)];
+    lq.setFromEuler(new THREE.Euler(0,rand(0,TAU),0));const sc=rand(.75,1.25);
+    lm.compose(new THREE.Vector3(region[0],0,region[1]),lq,new THREE.Vector3(sc,sc,sc));luggage.setMatrixAt(i,lm);
+  }
+  luggage.castShadow=true;worldRoot.add(luggage);
+
+  addMapGate('turnstiles','Open concourse',1000,0,0,16,6.7,2.3,.55,0,brass,'turnstile');
+  addMapGate('cafe','Clear café passage',1250,-13,0,16,4.1,2.5,.72,0,M.plank,'debris');
+
+  // Concourse shell and café. The paid central and side routes reconnect before the platforms.
+  wallRun(-30,4,30,4,6.4,stoneDark,[{c:0,w:7.0}]);
+  wallRun(-30,4,-30,16,6.4,stoneDark,[]);
+  wallRun(30,4,30,16,6.4,stoneDark,[]);
+  bx(61,.42,13,0,6.62,10,stoneDark,false);
+  floorSlab(-29.7,4.3,29.7,15.7,.04,M.concrete);
+  signBoard('Platforms 1 - 4',0,5.05,4.24,0,10);
+  signBoard('Café & Services',-23,4.8,15.75,Math.PI,8);
+  bx(12,1.15,2.2,-22,.58,10,M.wood);
+  bx(9,.18,1.15,-22,1.25,8.45,brass,false);
+  for(let i=0;i<6;i++){
+    cyl(.25,.28,.78,-26+i*1.65,.39,7.65,M.metal,true);
+    cyl(.28,.28,.11,-26+i*1.65,.82,7.65,M.plank,false);
+  }
+  for(const x of [-18,-9,0,9,18])roomLight(x,5.7,10,0xffd9a0,.58,13);
+  addMapGate('platforms','Open platform access',1250,0,0,4,6.5,3.4,.50,0,railMat,'shutter');
+
+  // Four long platforms, rails, sleepers, canopies, signs, and detailed rolling stock.
+  for(const z of [1,-7,-15,-23]){
+    bx(82,.34,4.8,0,.17,z,M.concrete);
+    const line=new THREE.Mesh(new THREE.PlaneGeometry(80,.20),new THREE.MeshBasicMaterial({color:0xe1b733}));
+    line.rotation.x=-Math.PI/2;line.position.set(0,.355,z+2.12);worldRoot.add(line);
+  }
+  const sleeperGeo=new THREE.BoxGeometry(3.9,.16,.24),sleepers=new THREE.InstancedMesh(sleeperGeo,M.wood,88);
+  for(let i=0;i<88;i++){
+    const lane=i%2,z=lane?-19:-11,x=-40+Math.floor(i/2)*1.86;
+    lm.compose(new THREE.Vector3(x,.08,z),new THREE.Quaternion(),new THREE.Vector3(1,1,1));sleepers.setMatrixAt(i,lm);
+  }
+  sleepers.receiveShadow=true;worldRoot.add(sleepers);
+  for(const z of [-17.7,-16.3,-9.7,-8.3])bx(82,.16,.15,0,.23,z,railMat,false);
+
+  const trainBox=new THREE.BoxGeometry(1,1,1),trainBodyGeo=mergeGeos([
+    pc(trainBox,0,0,1.58,0,0,0,0,3.05,2.88,8.80),
+    pc(trainBox,1,0,3.10,0,0,0,0,3.18,.20,8.95),
+    pc(trainBox,1,0,.32,0,0,0,0,3.18,.30,8.95),
+    pc(trainBox,2,0,1.08,-4.50,0,0,0,2.25,1.30,.16),
+    pc(trainBox,2,0,1.08,4.50,0,0,0,2.25,1.30,.16)
+  ]);
+  const trainWindowGeo=mergeGeos((()=>{
+    const a=[];for(const side of [-1,1])for(let i=0;i<5;i++)a.push(pc(trainBox,0,side*1.535,2.12,-3.25+i*1.62,0,0,0,.055,.78,1.10));
+    return a;
+  })());
+  const trainDetailGeo=mergeGeos([
+    pc(trainBox,0,-1.56,.58,0,0,0,0,.08,.12,8.3),pc(trainBox,0,1.56,.58,0,0,0,0,.08,.12,8.3),
+    pc(trainBox,1,-1.57,1.25,-1.65,0,0,0,.06,2.10,.07,.055),pc(trainBox,1,1.57,1.25,-1.65,0,0,0,.06,2.10,.07,.055),
+    pc(trainBox,1,-1.57,1.25,1.65,0,0,0,.06,2.10,.07,.055),pc(trainBox,1,1.57,1.25,1.65,0,0,0,.06,2.10,.07,.055),
+    pc(PROP_SPHERE,2,-.72,1.06,-4.58,0,0,0,.23,.23,.10),pc(PROP_SPHERE,2,.72,1.06,-4.58,0,0,0,.23,.23,.10)
+  ]);
+  const wheelGeo=mergeGeos((()=>{
+    const a=[];for(const side of [-1,1])for(const zz of [-3.05,3.05])
+      a.push(pc(new THREE.CylinderGeometry(.43,.43,.22,12),0,side*1.60,.43,zz,0,0,Math.PI/2));
+    return a;
+  })());
+  function trainCar(x,z,rot,col,solid){
+    const g=new THREE.Group(),paint=phong({color:col,shininess:48,specular:0x81909a});
+    const body=new THREE.Mesh(trainBodyGeo,[paint,cream,railMat]);body.castShadow=body.receiveShadow=true;g.add(body);blockers.push(body);
+    const windows=new THREE.Mesh(trainWindowGeo,M.glassBroken);g.add(windows);
+    const details=new THREE.Mesh(trainDetailGeo,[brass,railMat,M.headlight]);g.add(details);
+    const wheels=new THREE.Mesh(wheelGeo,M.dark);g.add(wheels);
+    g.position.set(x,0,z);g.rotation.y=rot||0;worldRoot.add(g);
+    if(solid!==false)addYawCollider(x,z,3.18,9.0,rot||0,3.25,0,.02);
+    return g;
+  }
+  for(const x of [-27,-18,-9,18,27])trainCar(x,-13,Math.PI/2,x<0?0x5b1d25:0x2c465b,true);
+  trainCar(-27,-21,Math.PI/2,0x414a50,true);trainCar(27,-21,Math.PI/2,0x414a50,true);
+  for(const x of [-36,-18,0,18,36]){
+    const post=bx(.22,5.8,.22,x,2.9,-4.5,railMat,false);
+    bx(8,.16,.18,x,5.55,-4.5,railMat,false);
+    const lamp=new THREE.Mesh(new THREE.BoxGeometry(2.6,.16,.48),glow);lamp.position.set(x,5.25,-4.5);worldRoot.add(lamp);
+    if(x%36===0)roomLight(x,4.9,-4.5,0xffc36c,.62,12);
+  }
+  [-32,-16,0,16,32].forEach((x,i)=>signBoard('PLATFORM '+(i+1),x,3.15,-4.28,Math.PI,5));
+
+  // West service passage and east maintenance yard are separate paid objectives.
+  wallRun(-49,-25,-31,-25,5.0,stoneDark,[{c:-40,w:4.5}]);
+  wallRun(-49,3,-31,3,5.0,stoneDark,[{c:-40,w:4.5}]);
+  wallRun(-49,-25,-49,3,5.0,stoneDark,[]);
+  wallRun(-31,-25,-31,3,5.0,stoneDark,[{c:-11,w:4.5}]);
+  floorSlab(-48.7,-24.7,-31.3,2.7,.04,M.tile);
+  signBoard('Service Tunnels',-40,4.15,2.74,Math.PI,8);
+  addMapGate('service','Clear service passage',1250,-40,0,3,4.3,2.6,.72,0,M.plank,'debris');
+
+  wallRun(31,-38,49,-38,5.0,railMat,[{c:40,w:5.0}]);
+  wallRun(31,-2,49,-2,5.0,railMat,[]);
+  wallRun(49,-38,49,-2,5.0,railMat,[]);
+  wallRun(31,-38,31,-2,5.0,railMat,[{c:-20,w:4.6}]);
+  floorSlab(31.3,-37.7,48.7,-2.3,.04,M.concrete);
+  signBoard('Maintenance Yard',40,4.15,-2.25,Math.PI,8);
+  addMapGate('yard','Open maintenance yard',1500,31,0,-20,4.5,3.1,.48,Math.PI/2,railMat,'shutter');
+
+  // Service pipes, lockers, tools, and work benches are batched into a few meshes.
+  for(const z of [-20,-13,-6]){
+    bx(14,.20,.22,-40,3.65,z,railMat,false);
+    for(const x of [-46,-40,-34])cyl(.12,.12,3.5,x,1.78,z,brass,false);
+  }
+  for(const z of [-33,-26,-19,-12,-5])bx(7,1.45,1.4,43,.73,z,stoneDark);
+  for(const x of [35,39,43,47])bx(1.3,2.3,.8,x,1.15,-35.5,railMat);
+  addMapSwitch('signal','Signal breaker',-46,0,-21,Math.PI/2,stoneDark);
+  addMapSwitch('yardpower','Yard generator',46,0,-34,-Math.PI/2,railMat);
+
+  // Armored freight vault is a compact final room with two exits and a powered gate.
+  wallRun(-14,-47,14,-47,5.4,stoneDark,[]);
+  wallRun(-14,-31,14,-31,5.4,stoneDark,[{c:0,w:5.2}]);
+  wallRun(-14,-47,-14,-31,5.4,stoneDark,[]);
+  wallRun(14,-47,14,-31,5.4,stoneDark,[]);
+  floorSlab(-13.7,-46.7,13.7,-31.3,.04,M.tile);
+  bx(29,.50,17,0,5.65,-39,stoneDark,false);
+  signBoard('Armored Rail Vault',0,4.45,-31.26,Math.PI,10);
+  addMapGate('vault','Unlock Pack-a-Punch vault',1750,0,0,-31,5.0,3.5,.62,0,brass,'shutter',['signal','yardpower']);
+  addPackAPunch(0,-43,0,0);
+  for(const p of [[-10,-44],[10,-44],[-10,-35],[10,-35]])crate(p[0],p[1],1.4,0,0);
+  for(const x of [-9,-3,3,9])roomLight(x,4.7,-39,0xa96bff,.52,11);
+
+  // Powered rail-car shortcut moves aside instead of vanishing.
+  const shortcutCar=trainCar(40,-42,0,0x3f474c,false);
+  const shortcutMesh=shortcutCar.children[0],sbi=blockers.indexOf(shortcutMesh);if(sbi>=0)blockers.splice(sbi,1);
+  worldRoot.remove(shortcutCar);
+  const moveGate=addMapGate('railcar','Move maintenance railcar',1500,40,0,-39,4.2,3.3,8.8,0,railMat,'shutter',
+    ['signal','yardpower'],[0,0,-10]);
+  const placeholder=moveGate.mesh,pbi=blockers.indexOf(placeholder);if(pbi>=0)blockers.splice(pbi,1);
+  moveGate.g.clear();moveGate.g.add(shortcutCar);shortcutCar.position.set(0,0,0);shortcutCar.rotation.set(0,0,0);
+  moveGate.mesh=shortcutCar.children[0];blockers.push(moveGate.mesh);
+  addMapGate('return','Open plaza shortcut',1000,24,0,35,4.2,3.0,.48,Math.PI/2,stoneDark,'shutter',['signal','yardpower']);
+
+  // Gameplay distribution rewards every newly purchased section.
+  addWallBuy('m14',-23.78,2.0,25,Math.PI/2);
+  addWallBuy('olympia',23.78,2.0,25,-Math.PI/2);
+  addWallBuy('mp5',-29.78,2.0,10,Math.PI/2);
+  addWallBuy('ak74u',29.78,2.0,10,-Math.PI/2);
+  addWallBuy('galil',-30.78,2.0,-18,-Math.PI/2);
+  addWallBuy('rem870',30.78,2.0,-27,Math.PI/2);
+  addAmmoBuy('m4a1',13.78,2.0,-39,Math.PI/2,400);
+  addPerkMachine('revive',-19,27,0,0);
+  addPerkMachine('stamin',20,13,0,Math.PI);
+  addPerkMachine('dtap',-43,-5,0,-Math.PI/2);
+  addPerkMachine('jugg',25,-18,0,Math.PI/2);
+  addPerkMachine('speed',45,-10,0,Math.PI);
+  addPerkMachine('mule',-10,-34,0,0);
+
+  // Restrained rain and drifting station dust add atmosphere without Town-sized fire counts.
+  const n=420,rg=new THREE.BufferGeometry(),arr=new Float32Array(n*3);
+  for(let i=0;i<n;i++){arr[i*3]=rand(-BND,BND);arr[i*3+1]=rand(0,28);arr[i*3+2]=rand(-BND,BND);}
+  rg.setAttribute('position',new THREE.BufferAttribute(arr,3));
+  const rain=new THREE.Points(rg,new THREE.PointsMaterial({color:0xaec5d8,size:.065,transparent:true,opacity:.40}));
+  worldRoot.add(rain);window.__ash={pts:rain,arr,n,speed:12,wind:1.35,min:0,top:28};
+}
+
+
 /* ============ BLACKSIRE ============
    A storm-battered military research compound above a buried containment lab.
    The upper base sits five metres above the lab floor so the access ramp is a
@@ -2799,7 +3212,10 @@ const MAPS={
     build:buildNuketown},
   blacksire:{name:'Blacksire',time:'Storm',
     blurb:'A classified military research compound above a buried containment lab. Hold the checkpoint, loop through four surface buildings, descend to specimen storage, and survive containment lockdown.',
-    build:buildBlacksire}
+    build:buildBlacksire},
+  laststop:{name:'Last Stop',time:'Rain',
+    blurb:'A ruined central railway terminal with paid routes, two power circuits, detailed platforms and trains, service tunnels, a maintenance yard, and Pack-a-Punch inside the armored rail vault.',
+    build:buildLastStop}
 };
 let currentMap='town';
 function clearWorld(){
@@ -2822,6 +3238,7 @@ function clearWorld(){
   worldRoot=new THREE.Group(); scene.add(worldRoot);
   colliders.length=0; blockers.length=0; platforms.length=0; stairBases.length=0;
   flames.length=0; jumpPads.length=0; interactables.length=0; cullableLights.length=0;
+  resetMapProgress();
   streetLampMesh=null; streetLampCount=0;
   window.__ash=null;
   window.__storm=null;
@@ -3002,7 +3419,7 @@ function playPlayerSample(kind,volume,rate,delay,maxDuration){
 }
 let mapAmbienceSource=null,mapAmbienceGain=null,mapAmbienceMap='';
 function mapAmbienceKind(id){
-  return id==='nuketown'?'ambienceNuketown':(id==='blacksire'?'ambienceBlacksire':'ambienceTown');
+  return id==='nuketown'?'ambienceNuketown':((id==='blacksire'||id==='laststop')?'ambienceBlacksire':'ambienceTown');
 }
 function stopMapAmbience(){
   if(mapAmbienceSource){
@@ -3021,7 +3438,7 @@ function startMapAmbience(){
   const t=AC.currentTime,src=AC.createBufferSource(),hp=AC.createBiquadFilter(),
     lp=AC.createBiquadFilter(),g=AC.createGain();
   // Source recordings are naturally quiet, so normalize each map bed to a clearly audible background level.
-  const cfg=currentMap==='blacksire'?[48,4200,1.30]:(currentMap==='nuketown'?[62,6200,.60]:[80,4600,.20]);
+  const cfg=currentMap==='blacksire'?[48,4200,1.30]:(currentMap==='laststop'?[58,3900,.42]:(currentMap==='nuketown'?[62,6200,.60]:[80,4600,.20]));
   src.buffer=buf;src.loop=true;
   hp.type='highpass';hp.frequency.value=cfg[0];
   lp.type='lowpass';lp.frequency.value=cfg[1];lp.Q.value=.45;
@@ -5751,9 +6168,14 @@ function startRound(){
 }
 function spawnOne(){
   if(!SPAWNS.length) return;
+  const unlocked=SPAWNS.filter(s=>{
+    const req=s[3];if(!req)return true;
+    return Array.isArray(req)?req.some(id=>mapProgress.gates.get(id)?.open):mapProgress.gates.get(req)?.open;
+  });
+  const spawnPool=unlocked.length?unlocked:SPAWNS;
   let best=null,bd=-1;
   for(let i=0;i<7;i++){
-    const s=SPAWNS[randi(0,SPAWNS.length-1)];
+    const s=spawnPool[randi(0,spawnPool.length-1)];
     const d=Math.hypot(s[0]-player.pos.x,s[1]-player.pos.z);
     if(d>bd){bd=d;best=s;}
   }
@@ -5912,7 +6334,7 @@ function doBuy(){
   const it=game.focus; if(!it) return;
   const c=it.cost();
   if(player.points<c){ sfxDeny(); toast('Not enough points'); return; }
-  if(net.connected&&(it.kind==='box'||it.kind==='revive')){it.buy();return;}
+  if(net.connected&&(it.kind==='box'||it.kind==='revive'||it.kind==='mapgate'||it.kind==='mapswitch')){it.buy();return;}
   player.points-=c; it.buy(); sfxBuy(it.kind); updHUD();
 }
 
@@ -5971,7 +6393,8 @@ function netHostWorld(){
     roundTimer:+game.roundTimer.toFixed(2),kills:game.kills,z:live,
     drops:drops.map(d=>[d.netId,d.k,+d.m.position.x.toFixed(2),+d.m.position.z.toFixed(2),+d.life.toFixed(1)]),
     box:mbox.g?{state:mbox.state,weapon:mbox.gun?mbox.gun.id:(mbox.result?mbox.result.id:null),
-      owner:mbox.owner,t:+mbox.t.toFixed(2),spot:mbox.spot}:null});
+      owner:mbox.owner,t:+mbox.t.toFixed(2),spot:mbox.spot}:null,
+    progress:mapProgressSnapshot()});
 }
 function applySharedWorld(e){
   if(net.host||!Array.isArray(e.z)) return;
@@ -6021,6 +6444,7 @@ function applySharedWorld(e){
       else mbox.t=Math.max(mbox.t,+e.box.t||0);
     }
   }
+  applyMapProgressSnapshot(e.progress);
   updRoundHUD(); updHUD();
 }
 function netPlayerState(id){
@@ -6070,6 +6494,10 @@ function handleHostGameRequest(e,playerId){
     hostRollSharedBox(playerId,Array.isArray(e.held)?e.held:[]);
   } else if(e.type==='box_take'){
     hostTakeSharedBox(playerId);
+  } else if(e.type==='map_gate'){
+    hostOpenMapGate(playerId,String(e.id||''));
+  } else if(e.type==='map_switch'){
+    hostActivateMapSwitch(playerId,String(e.id||''));
   } else if(e.type==='round_call'&&game.toSpawn===0){
     startRound();
   } else if(e.type==='player_down'){
@@ -6098,6 +6526,11 @@ function handleSharedGameEvent(e){
     if(String(e.owner||'')===net.id){player.points=Math.max(0,player.points-(+e.cost||950));sfxBuy();updHUD();}
   } else if(e.type==='box_take'){
     finishSharedBox(e.weapon,String(e.owner||''));
+  } else if(e.type==='map_gate'){
+    if(String(e.owner||'')===net.id)player.points=Math.max(0,player.points-(+e.cost||0));
+    openMapGate(String(e.id||''),false);updHUD();
+  } else if(e.type==='map_switch'){
+    activateMapSwitch(String(e.id||''),false);
   } else if(e.type==='damage_result'){
     if(+e.points>0) addPoints(+e.points);
     showHit(!!e.killed); updHUD();
@@ -6372,7 +6805,7 @@ function netHandle(msg){
     handleHostGameRequest(m.event,m.playerId);
   } else if(m.type==='game'){
     handleSharedGameEvent(m.event);
-  } else if(m.type==='start'&&(m.map==='town'||m.map==='nuketown'||m.map==='blacksire')){
+  } else if(m.type==='start'&&(m.map==='town'||m.map==='nuketown'||m.map==='blacksire'||m.map==='laststop')){
     net.activeGame=true; net.pausedByHost=false; startGame(m.map); toast('Online room '+net.code);
   } else if(m.type==='error'){
     setNetStatus(m.message||'Room error'); sfxDeny();
