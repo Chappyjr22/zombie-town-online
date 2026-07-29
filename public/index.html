@@ -2757,7 +2757,11 @@ function buildLastStop(){
   ];
   BOX_SPOTS=[
     [-16,23,0,-Math.PI/2],[25,10,0,Math.PI/2],[-34,-10,0,-Math.PI/2],
-    [37,-27,0,Math.PI/2],[13,-39,0,Math.PI]
+    // Was [13,-39] - 0.78 units from the M4A1 ammo buy at the same wall
+    // (13.78,-39), so the crate and the chalk sign sat inside each other.
+    // Moved to the opposite (west) wall of the same vault; rotation mirrors
+    // to keep the lid opening into the room instead of into the wall.
+    [37,-27,0,Math.PI/2],[-13,-39,0,0]
   ];
   mannequins=[];nukeSign=null;nukeClock=null;
 
@@ -3050,7 +3054,11 @@ function buildLastStop(){
   addPerkMachine('dtap',-43,-5,0,-Math.PI/2,true);
   addPerkMachine('jugg',25,-18,0,Math.PI/2,true);
   addPerkMachine('speed',45,-10,0,Math.PI,true);
-  addPerkMachine('mule',32.7,35,0,Math.PI/2,true);
+  // Every other requires-power perk sits in a real destination room; this one
+  // was tucked inside the powered shortcut, a plain connector between the
+  // plaza and concourse with no floor space to spare - reachable in theory,
+  // but not a real perk room. Give it one alongside Pack-a-Punch instead.
+  addPerkMachine('mule',-6,-45.5,0,Math.PI,true);
 
   // Restrained rain and drifting station dust add atmosphere without Town-sized fire counts.
   const n=420,rg=new THREE.BufferGeometry(),arr=new Float32Array(n*3);
@@ -5158,7 +5166,7 @@ function bossTeamSize(){
   return Math.max(1,n);
 }
 function bossHpForRound(round){
-  const base=6000+Math.max(0,round-10)*550;
+  const base=20000+Math.max(0,round-10)*550;
   return Math.round(base*(1+(bossTeamSize()-1)*.45));
 }
 function setBossAction(z,name){
