@@ -487,6 +487,10 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { MTLLoader } from "three/addons/loaders/MTLLoader.js";
+import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
+import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
 /* ===================================================================
    TOWN - first person zombie survival
    Single file. Three.js r160 (vendored locally, no CDN). No build step.
@@ -4596,6 +4600,90 @@ for(const id in DEFS){
   }
   d.adsFov=d.scoped?28:(d.cls==='pistol'?58:52);
 }
+
+/* Quaternius Ultimate Gun Pack pilot.
+   The procedural weapons stay as instant-loading fallbacks. Five common guns
+   are replaced after their small OBJ+MTL pairs arrive, using the existing grip
+   and muzzle sockets so first-person arms, remote players, Pack-a-Punch, and
+   Mystery Box previews all continue to share one weapon root. */
+const SOURCED_WEAPONS={
+  m1911:{file:'Pistol_1',y:.015},
+  m4a1:{file:'AssaultRifle2_1',y:.025},
+  mp5:{file:'SubmachineGun_1',y:.020},
+  rem870:{file:'Shotgun_2',y:.020},
+  dsr50:{file:'SniperRifle_1',y:.030}
+};
+const SOURCE_WEAPON_PATH='/models/quaternius/';
+const SOURCE_PACK_COLOR_1=new THREE.Color(0x755fc0),SOURCE_PACK_COLOR_2=new THREE.Color(0x9e78f0);
+function rememberSourceMaterial(mat){
+  if(!mat||!mat.color||mat.userData.sourceColor)return;
+  mat.userData.sourceColor=mat.color.getHex();
+  mat.userData.sourceEmissive=mat.emissive?mat.emissive.getHex():0;
+  mat.userData.sourceEmissiveIntensity=mat.emissiveIntensity||0;
+}
+function updateSourcedPack(d,level){
+  if(!d.sourcedModel||d.sourcedPack===level)return;
+  d.sourcedPack=level;
+  d.sourcedModel.traverse(o=>{
+    if(!o.isMesh)return;
+    const mats=Array.isArray(o.material)?o.material:[o.material];
+    for(const mat of mats){
+      rememberSourceMaterial(mat);
+      mat.color.setHex(mat.userData.sourceColor);
+      if(level===1)mat.color.lerp(SOURCE_PACK_COLOR_1,.38);
+      else if(level>=2)mat.color.lerp(SOURCE_PACK_COLOR_2,.52);
+      if(mat.emissive){
+        mat.emissive.setHex(level>=2?0x4b188e:(level===1?0x28104f:mat.userData.sourceEmissive));
+        mat.emissiveIntensity=level>=2?.72:(level===1?.32:mat.userData.sourceEmissiveIntensity);
+      }
+      mat.needsUpdate=true;
+    }
+  });
+}
+function loadSourcedWeapon(id){
+  const cfg=SOURCED_WEAPONS[id],d=DEFS[id],hand=HANDS[id]&&HANDS[id][0];
+  if(!cfg||!d||!hand)return;
+  const mtlLoader=new MTLLoader();mtlLoader.setPath(SOURCE_WEAPON_PATH);
+  mtlLoader.load(cfg.file+'.mtl',materials=>{
+    materials.preload();
+    const objLoader=new OBJLoader();objLoader.setMaterials(materials);objLoader.setPath(SOURCE_WEAPON_PATH);
+    objLoader.load(cfg.file+'.obj',object=>{
+      const box=new THREE.Box3().setFromObject(object);
+      if(box.isEmpty()||box.max.x<=.001){console.warn(cfg.file+' has invalid geometry');return;}
+      // Source models point +X. Rotate that axis to the game's -Z muzzle axis,
+      // center their width, and map source origin to the existing trigger grip.
+      const scale=(hand[2]-d.muzzle[2])/box.max.x;
+      const centerZ=(box.min.z+box.max.z)*.5;
+      object.rotation.y=Math.PI/2;object.scale.setScalar(scale);
+      object.position.set(-centerZ*scale,hand[1]+cfg.y,hand[2]);
+      object.traverse(o=>{
+        if(!o.isMesh)return;
+        o.castShadow=true;o.receiveShadow=true;
+        const mats=Array.isArray(o.material)?o.material:[o.material];
+        for(const mat of mats)rememberSourceMaterial(mat);
+      });
+      const root=new THREE.Group();root.userData.sourcedWeapon=true;root.add(object);
+      const fallback=d.mesh.children[0];if(fallback)fallback.visible=false;
+      d.mesh.add(root);d.sourcedModel=root;d.sourcedPack=-1;
+      updateSourcedPack(d,0);
+    },undefined,err=>console.warn('Quaternius weapon failed to load: '+id,err));
+  },undefined,err=>console.warn('Quaternius materials failed to load: '+id,err));
+}
+for(const id in SOURCED_WEAPONS)loadSourcedWeapon(id);
+
+/* Clone a weapon for any world-space presentation. View-only Soldier arm rigs
+   are attached to the live first-person root, so explicitly remove them from
+   clones instead of allowing hands or sleeves to appear in the box or on a
+   second player's gun. */
+function cloneWeaponDisplay(mesh){
+  const clone=mesh.clone(true),remove=[];
+  clone.traverse(o=>{
+    if(o!==clone&&o.userData&&o.userData.fpArm)remove.push(o);
+    else if(o.userData&&o.userData.arm)o.visible=false;
+  });
+  for(const o of remove)if(o.parent)o.parent.remove(o);
+  return clone;
+}
 function makeCombatKnife(scale){
   const g=new THREE.Group();
   const handle=new THREE.Mesh(RB(.072,.075,.245),GM[11]);
@@ -4831,6 +4919,382 @@ T.zombieSkin=tex(96,96,(x,w,h)=>{
     x.arc(rand(0,w),rand(0,h),rand(1,4),0,TAU);x.fill();}
   grain(x,w,h,16);
 },1,1);
+/* ---------- remote player model (real rigged glTF) ----------
+   Loaded once and cloned (via SkeletonUtils, which correctly duplicates the
+   skinned mesh + skeleton) for each connected teammate. Legs/torso run the
+   model's own Idle/Walk/Run clips through an AnimationMixer; arms are then
+   overridden every frame by a world-space two-bone IK retarget of the
+   existing hand-tuned aim/recoil/melee target poses, so remote players keep
+   exactly the same responsive aiming they had with the old procedural body -
+   just on a real mesh instead of primitives. */
+const gltfLoader=new GLTFLoader();
+let playerModelAsset=null,playerModelLoading=null;
+// Matches every bone from the shoulder down (incl. finger sub-bones, which
+// all share the "Hand" name prefix) on either side - the set kept when
+// carving a sleeve-and-hand-only geometry out of the one continuous body
+// mesh for the first-person view, where the rest of the body would otherwise
+// loom into a camera sitting this close to it.
+// Shoulder is deliberately excluded: this rig's shoulder pauldron is modeled
+// big enough to reach across the chest, so keeping it produces a large slab
+// of armor floating with no torso behind it to anchor it visually.
+const ARM_BONE_RE=/^mixamorig(Left|Right)(ForeArm|Arm|Hand)/;
+// Left and right are carved into separate meshes sharing one skeleton, so a
+// one-handed weapon can simply hide the support arm.
+function buildArmOnlyGeometry(mesh,sideRe){
+  const geo=mesh.geometry,skel=mesh.skeleton;
+  const skinIndex=geo.getAttribute('skinIndex'),skinWeight=geo.getAttribute('skinWeight');
+  const armBone=new Uint8Array(skel.bones.length);
+  skel.bones.forEach((b,i)=>{if(ARM_BONE_RE.test(b.name)&&sideRe.test(b.name))armBone[i]=1;});
+  // skinIndex/skinWeight come off this loader as InterleavedBufferAttributes,
+  // which don't implement getComponent - read each of the 4 channels directly.
+  const wGet=[skinWeight.getX,skinWeight.getY,skinWeight.getZ,skinWeight.getW];
+  const iGet=[skinIndex.getX,skinIndex.getY,skinIndex.getZ,skinIndex.getW];
+  const n=geo.attributes.position.count,isArm=new Uint8Array(n);
+  for(let i=0;i<n;i++){
+    let bestW=-1,bestB=0;
+    for(let k=0;k<4;k++){
+      const w=wGet[k].call(skinWeight,i);
+      if(w>bestW){bestW=w;bestB=iGet[k].call(skinIndex,i);}
+    }
+    isArm[i]=armBone[bestB];
+  }
+  const src=geo.getIndex().array,kept=[];
+  for(let t=0;t<src.length;t+=3){
+    const a=src[t],b=src[t+1],c=src[t+2];
+    if(isArm[a]&&isArm[b]&&isArm[c])kept.push(a,b,c);
+  }
+  const armGeo=geo.clone();armGeo.setIndex(kept);
+  return armGeo;
+}
+const PLAYER_MODEL_REQUIRED=[
+  'mixamorigHead','mixamorigLeftArm','mixamorigLeftForeArm','mixamorigLeftHand',
+  'mixamorigRightArm','mixamorigRightForeArm','mixamorigRightHand'
+];
+const PLAYER_ARM_TRACK_RE=/mixamorig(?:Left|Right)(?:Shoulder|Arm|ForeArm|Hand)/i;
+function playerLocomotionClips(clips){
+  return ['Idle','Walk','Run'].map(name=>{
+    const src=THREE.AnimationClip.findByName(clips,name);
+    if(!src)throw new Error('Soldier.glb is missing the '+name+' animation');
+    // Locomotion owns the body and legs. Tactical IK owns the complete arm
+    // chains, so the mixer cannot reset those bones immediately before IK.
+    return new THREE.AnimationClip(src.name,src.duration,
+      src.tracks.filter(track=>!PLAYER_ARM_TRACK_RE.test(track.name)));
+  });
+}
+function loadPlayerModelAsset(){
+  if(playerModelAsset) return Promise.resolve(playerModelAsset);
+  if(playerModelLoading) return playerModelLoading;
+  playerModelLoading=new Promise((resolve,reject)=>{
+    gltfLoader.load('/models/Soldier.glb',(gltf)=>{
+      try{
+        if(!gltf||!gltf.scene)throw new Error('Soldier.glb did not contain a scene');
+        for(const name of PLAYER_MODEL_REQUIRED){
+          if(!gltf.scene.getObjectByName(name))throw new Error('Soldier.glb is missing '+name);
+        }
+        const bodyMesh=gltf.scene.getObjectByName('vanguard_Mesh');
+        if(!bodyMesh||!bodyMesh.isSkinnedMesh||!bodyMesh.skeleton||
+          !bodyMesh.geometry.getAttribute('skinIndex')||!bodyMesh.geometry.getAttribute('skinWeight')||
+          !bodyMesh.geometry.getIndex())throw new Error('Soldier.glb has an incompatible body mesh');
+        const animations=playerLocomotionClips(gltf.animations||[]);
+        gltf.scene.updateMatrixWorld(true);
+        const headBone=gltf.scene.getObjectByName('mixamorigHead');
+        const p=new THREE.Vector3();headBone.getWorldPosition(p);
+        // Self-calibrate to the old head-joint height instead of trusting raw units.
+        const scale=p.y>0.01?1.72/p.y:1;
+        gltf.scene.scale.setScalar(scale);gltf.scene.updateMatrixWorld(true);
+        const armLen=(shoulderName,elbowName,handName)=>{
+          const a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3();
+          gltf.scene.getObjectByName(shoulderName).getWorldPosition(a);
+          gltf.scene.getObjectByName(elbowName).getWorldPosition(b);
+          gltf.scene.getObjectByName(handName).getWorldPosition(c);
+          return [a.distanceTo(b),b.distanceTo(c)];
+        };
+        const [upperLen,foreLen]=armLen('mixamorigLeftArm','mixamorigLeftForeArm','mixamorigLeftHand');
+        const armGeoR=buildArmOnlyGeometry(bodyMesh,/Right/);
+        const armGeoL=buildArmOnlyGeometry(bodyMesh,/Left/);
+        playerModelAsset={scene:gltf.scene,animations,scale,upperLen,foreLen,armGeoR,armGeoL};
+        playerModelLoading=null;
+        resolve(playerModelAsset);
+      }catch(err){
+        playerModelLoading=null;
+        reject(err);
+      }
+    },undefined,(err)=>{playerModelLoading=null;reject(err);});
+  });
+  return playerModelLoading;
+}
+/* World-space analytic two-bone IK. Existing target vectors are expressed in
+   refFrame-local space (as they always were); refFrame stays a plain
+   THREE.Group wrapping the model so all the old hand-tuned numbers keep
+   working unchanged. restAxis is the bone's own local rest direction toward
+   its child (this rig points +Y, not the -Y a primitive-cylinder joint
+   would) - required because these bones carry non-identity rest rotations,
+   so the old local-quaternion shortcut can't be reused directly. */
+const _ikShoulder=new THREE.Vector3(),_ikElbowHint=new THREE.Vector3(),_ikHand=new THREE.Vector3(),
+  _ikReach=new THREE.Vector3(),_ikReachDir=new THREE.Vector3(),_ikBend=new THREE.Vector3(),
+  _ikElbow=new THREE.Vector3(),_ikTarget=new THREE.Vector3(),_ikUpperDir=new THREE.Vector3(),
+  _ikForeDir=new THREE.Vector3(),_ikParentQ=new THREE.Quaternion(),_ikDesiredQ=new THREE.Quaternion();
+function poseRemoteArm(refFrame,upperBone,foreBone,upperLen,foreLen,shoulderLocal,elbowHintLocal,handLocal,restAxis,smooth){
+  // Read the animated shoulder itself. A hard-coded shoulder coordinate drifts
+  // whenever the spine, crouch, or locomotion clip moves its parent chain.
+  const shoulder=upperBone.getWorldPosition(_ikShoulder);
+  const elbowHint=refFrame.localToWorld(_ikElbowHint.copy(elbowHintLocal));
+  const hand=refFrame.localToWorld(_ikHand.copy(handLocal));
+  const reach=_ikReach.subVectors(hand,shoulder);
+  const reachDir=_ikReachDir.copy(reach).normalize();
+  const dist=clamp(reach.length(),.001,upperLen+foreLen-.001);
+  const along=(upperLen*upperLen-foreLen*foreLen+dist*dist)/(2*dist);
+  const bendHeight=Math.sqrt(Math.max(0,upperLen*upperLen-along*along));
+  const bend=_ikBend.subVectors(elbowHint,shoulder);
+  bend.addScaledVector(reachDir,-bend.dot(reachDir));
+  if(bend.lengthSq()<.0001)bend.set(1,0,0);
+  bend.normalize();
+  const elbow=_ikElbow.copy(shoulder).addScaledVector(reachDir,along).addScaledVector(bend,bendHeight);
+  const upperDir=_ikUpperDir.subVectors(elbow,shoulder).normalize();
+  upperBone.parent.getWorldQuaternion(_ikParentQ);
+  _ikDesiredQ.setFromUnitVectors(restAxis,upperDir);
+  upperBone.quaternion.slerp(_ikParentQ.invert().multiply(_ikDesiredQ),smooth);
+  upperBone.updateMatrixWorld(true);
+  const target=_ikTarget.copy(shoulder).addScaledVector(reachDir,dist);
+  const foreDir=_ikForeDir.subVectors(target,elbow).normalize();
+  foreBone.parent.getWorldQuaternion(_ikParentQ);
+  _ikDesiredQ.setFromUnitVectors(restAxis,foreDir);
+  foreBone.quaternion.slerp(_ikParentQ.invert().multiply(_ikDesiredQ),smooth);
+}
+const REMOTE_ARM_AXIS=new THREE.Vector3(0,1,0);
+const ARM_L_SHOULDER=new THREE.Vector3(-.255,1.49,0),ARM_R_SHOULDER=new THREE.Vector3(.255,1.49,0);
+const _remoteElbowL=new THREE.Vector3(),_remoteHandL=new THREE.Vector3(),
+  _remoteElbowR=new THREE.Vector3(),_remoteHandR=new THREE.Vector3();
+// The hand bone's bind-pose world orientation isn't aligned with "character
+// forward" (it inherits whatever the arm chain's rest rotations produce), so
+// a flat local tilt on the weapon doesn't correct for that base mismatch.
+// Cancel the hand's actual world rotation each frame, then apply the desired
+// world-space orientation instead. WEAPON_GRIP_Q is a fixed correction for
+// the weapon mesh's own modeled axes vs. this rig's hand/socket convention -
+// calibrated once by eye, not derived from the model.
+const _wpHandQ=new THREE.Quaternion(),_wpDesiredQ=new THREE.Quaternion(),_wpTiltQ=new THREE.Quaternion();
+const _wpTiltAxis=new THREE.Vector3(1,0,0);
+const WEAPON_GRIP_Q=new THREE.Quaternion().setFromEuler(new THREE.Euler(0,-Math.PI/2,0));
+
+/* ---------- first-person arms (the local player's own view) ----------
+   Reuses the same model asset and IK solver as the remote players, but
+   there is only ever one instance, it's carved down to arms+hands only
+   (see buildArmOnlyGeometry), and it's reparented to whichever weapon's
+   d.mesh is currently active so it inherits that weapon's sway/ADS/recoil/
+   reload transform for free instead of needing its own. The old procedural
+   ARM_* meshes stay in place underneath (mbox.preview and remote weapon
+   clones still depend on their userData.arm tagging) but get hidden on
+   whichever d.mesh this takes over. */
+let fpArms=null;
+const FP_FINGERS=['Index','Middle','Ring','Pinky'];
+/* Everything about how a hand sits on a weapon is derived from the rig
+   itself rather than guessed as Euler angles, which is what left the palm
+   facing the player and the fingers splayed instead of closed.
+
+   measureHandFrame reads three real directions out of the bind pose: along
+   the palm (wrist->knuckles), across it (toward the thumb), and the way the
+   palm faces. The last one can't be assumed from a cross product's handed-
+   ness, so it's resolved by asking which way the fingertips actually travel
+   when the knuckles rotate: a curl has to carry them toward the wrist, and
+   the sign that does is the palm side by definition. */
+function measureHandFrame(model,side){
+  const p=n=>{const o=model.getObjectByName('mixamorig'+side+'Hand'+(n||''));
+    return o?o.getWorldPosition(new THREE.Vector3()):null;};
+  const wrist=p(),knuckle=p('Middle1'),thumb=p('Thumb1'),tip=p('Index4'),base=p('Index1');
+  const dir=knuckle.clone().sub(wrist).normalize();
+  const across=thumb.clone().sub(wrist).normalize();
+  across.addScaledVector(dir,-across.dot(dir)).normalize();
+  // Rotating the knuckle about `across` sweeps the fingertip; for small
+  // angles it moves along (across x lever). Keep whichever sign closes the
+  // hand instead of bending it back.
+  const lever=tip.clone().sub(base);
+  const sweep=new THREE.Vector3().crossVectors(across,lever);
+  const sign=sweep.dot(wrist.clone().sub(tip))>0?1:-1;
+  const axis=across.multiplyScalar(sign);
+  const face=new THREE.Vector3().crossVectors(axis,dir).normalize();
+  const palmLen=wrist.distanceTo(p('Middle2'));
+  return {dir,axis,face,palmLen};
+}
+/* The rig ships with open, relaxed hands and nothing here ever animates the
+   fingers, so one curl at load is enough to read as a grip. Each joint turns
+   about its own copy of the measured curl axis; the thumb takes less so it
+   lies along the frame rather than folding into the palm. */
+function curlHand(model,side,frame){
+  const axis=frame.axis,bones=[];
+  for(const f of FP_FINGERS) for(let j=1;j<=3;j++)
+    bones.push([model.getObjectByName('mixamorig'+side+'Hand'+f+j),j===1?.55:.80]);
+  for(let j=1;j<=3;j++)
+    bones.push([model.getObjectByName('mixamorig'+side+'HandThumb'+j),.34]);
+  // Read every axis in the rest pose first: rotating a parent would
+  // otherwise drag its children's frames out from under the measurement.
+  const local=bones.map(([b])=>b?axis.clone().applyQuaternion(
+    b.getWorldQuaternion(new THREE.Quaternion()).invert()).normalize():null);
+  bones.forEach(([b,ang],i)=>{
+    if(b) b.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(local[i],ang));
+  });
+}
+const FP_TRIGGER_DIR=new THREE.Vector3(0,-.552,.834).normalize();
+const FP_SUPPORT_DIR=new THREE.Vector3(-.32,-.58,.75).normalize();
+/* How each hand should sit on the weapon, in gun-local space: `dir` runs
+   wrist->knuckles, `face` is the way the open palm points (so the fingers
+   close toward it). Both are read off the old procedural hand meshes rather
+   than guessed, since those were already tuned to grip these exact weapons:
+   each was modelled with its origin at the fist centre and its wrist offset
+   to W, giving dir = -W, while the finger geometry shows which way the palm
+   turns - forward of the palm on the trigger hand (wrapping a near-vertical
+   pistol grip), below it on the support hand (wrapping the fore-end). */
+const FP_GRIP_R={dir:new THREE.Vector3(0,.973,-.229),face:new THREE.Vector3(0,-.229,-.973)};
+const FP_GRIP_L={dir:new THREE.Vector3(.699,.386,-.602),face:new THREE.Vector3(.292,-.923,-.252)};
+function gripBasis(dir,face){
+  const d=dir.clone().normalize();
+  const f=face.clone().addScaledVector(d,-face.dot(d)).normalize();
+  return new THREE.Matrix4().makeBasis(d,f,new THREE.Vector3().crossVectors(d,f));
+}
+// Rotation carrying the rig's own measured hand frame onto the desired one,
+// so the hand can be aimed straight at the weapon without any of the bone's
+// bind-pose rotation leaking through.
+function gripCorrection(frame,hand,want){
+  const inv=hand.getWorldQuaternion(new THREE.Quaternion()).invert();
+  const rig=gripBasis(frame.dir.clone().applyQuaternion(inv),
+                      frame.face.clone().applyQuaternion(inv));
+  const qRig=new THREE.Quaternion().setFromRotationMatrix(rig);
+  const qWant=new THREE.Quaternion().setFromRotationMatrix(gripBasis(want.dir,want.face));
+  return qWant.multiply(qRig.invert());
+}
+/* Hand size and arm length have to be set independently. The old procedural
+   hands put their wrist 0.087 behind the fist centre, so that is the palm
+   these gun models were drawn around, and at life size the rig's is nearly
+   twice that - big enough to bury the wrist below the frame. But shrinking
+   the whole model to fit leaves the arms too short to span a shoulder at
+   the camera out to a rifle's fore-end, which folds the support arm up
+   short of the weapon. So the model keeps enough scale for the reach and
+   the hand bones are scaled down on their own to match the weapons. */
+const FP_ARM_SCALE=.8, FP_PALM_TARGET=.087;
+/* One rigged instance per arm. A single shared body cannot serve both grips:
+   its shoulders move together, but a rifle's fore-end sits ~0.4 ahead of its
+   trigger grip, so any one placement leaves the support arm folded up short
+   of the weapon. The procedural arms this replaces had the same freedom -
+   each was simply drawn back from its own grip, with no torso tying them
+   together - so each side gets its own instance and its own placement, and
+   both reach their grips exactly. */
+function makeFPArm(asset,side,geo){
+  const model=SkeletonUtils.clone(asset.scene);
+  // View-only rigs must never survive a weapon clone used by the Mystery Box
+  // or a remote player. cloneWeaponDisplay strips any child with this tag.
+  model.userData.fpArm=true;
+  model.scale.setScalar(asset.scale*FP_ARM_SCALE);
+  model.updateMatrixWorld(true);
+  // Size the hand to the weapons before measuring anything else off it.
+  // Scaling the bone scales its whole subtree, so the fingers come with it.
+  const hand=model.getObjectByName('mixamorig'+side+'Hand');
+  hand.scale.setScalar(FP_PALM_TARGET/measureHandFrame(model,side).palmLen);
+  model.updateMatrixWorld(true);
+  const body=model.getObjectByName('vanguard_Mesh'),visor=model.getObjectByName('vanguard_visor');
+  body.geometry=geo; body.frustumCulled=false;
+  if(visor) visor.visible=false;
+  const upper=model.getObjectByName('mixamorig'+side+'Arm');
+  const frame=measureHandFrame(model,side);
+  const arm={model,hand,upper,fore:model.getObjectByName('mixamorig'+side+'ForeArm'),
+    // Shoulder in the model's own space, before it is placed on a weapon.
+    native:upper.getWorldPosition(new THREE.Vector3()),
+    palmLen:frame.palmLen,offset:new THREE.Vector3(),
+    grip:gripCorrection(frame,hand,side==='Right'?FP_GRIP_R:FP_GRIP_L)};
+  curlHand(model,side,frame);
+  return arm;
+}
+function loadFPArms(){
+  if(fpArms) return;
+  fpArms={ready:false,R:null,L:null,upperLen:.28,foreLen:.26,weaponId:null};
+  loadPlayerModelAsset().then(asset=>{
+    fpArms.R=makeFPArm(asset,'Right',asset.armGeoR);
+    fpArms.L=makeFPArm(asset,'Left',asset.armGeoL);
+    fpArms.upperLen=asset.upperLen*FP_ARM_SCALE;fpArms.foreLen=asset.foreLen*FP_ARM_SCALE;
+    fpArms.ready=true;
+  }).catch(err=>{console.warn('First-person Soldier arms unavailable; using procedural arms.',err);fpArms=null;});
+}
+const _fpHandR=new THREE.Vector3(),_fpHandL=new THREE.Vector3(),
+  _fpParentQ=new THREE.Quaternion(),_fpWantQ=new THREE.Quaternion();
+/* The two-bone IK places the wrist but says nothing about how the hand is
+   rolled around it, so the palm ends up facing wherever the arm chain's rest
+   rotations happen to leave it. Orient the hand explicitly against the gun's
+   own frame instead: cancel the forearm's actual world rotation, then apply
+   the weapon's world rotation times the measured grip correction. */
+function aimFPHand(bone,mesh,gripQ){
+  bone.parent.updateMatrixWorld(true);
+  bone.parent.getWorldQuaternion(_fpParentQ);
+  mesh.getWorldQuaternion(_fpWantQ);
+  _fpWantQ.multiply(gripQ);
+  bone.quaternion.copy(_fpParentQ.invert().multiply(_fpWantQ));
+}
+/* HANDS anchors mark where the old procedural hand mesh sat, and that mesh
+   was modelled with its origin mid-fist. This rig's wrist bone is at the
+   actual wrist with the palm still to come, so aiming the wrist at an anchor
+   leaves the fist a palm-length off the weapon - closed around nothing.
+   Walk the target back along the palm to seat the fist on the grip instead.
+   Every length here is in gun-local units: the model's own scale is set
+   against d.mesh, so bones measure the same as the anchors do and the
+   weapon's view scale must not be applied again. */
+function fistTarget(out,anchor,arm,grip){
+  return out.set(anchor[0],anchor[1],anchor[2])
+    .addScaledVector(grip.dir,-arm.palmLen);
+}
+/* Place an arm on a weapon: put the wrist on the grip, then set the shoulder
+   a comfortable arm's length back along the direction the old procedural arm
+   ran (wrist->shoulder), which lands it low and near the lens so the upper
+   arm falls outside the frame. Short of full extension so the elbow keeps a
+   natural bend and the IK has room to move. */
+const _fpWrist=new THREE.Vector3();
+function placeFPArm(arm,anchor,back,grip){
+  fistTarget(_fpWrist,anchor,arm,grip);
+  const reach=(fpArms.upperLen+fpArms.foreLen)*.85;
+  arm.offset.copy(_fpWrist).addScaledVector(back,reach).sub(arm.native);
+  arm.model.position.copy(arm.offset);
+  arm.model.updateMatrixWorld(true);
+}
+/* Bend one arm to its grip. The elbow hint has to be genuinely perpendicular
+   to that arm's own shoulder->wrist line: a fixed world-space offset lands
+   nearly parallel to it for some grip angles, which starves poseRemoteArm's
+   bend math of a perpendicular component and leaves it picking an arbitrary
+   axis, visibly missing a target that is well within reach. */
+const _fpShoulder=new THREE.Vector3(),_fpElbow=new THREE.Vector3(),_fpAxis=new THREE.Vector3(),
+  _fpSideAxis=new THREE.Vector3(1,0,0);
+function poseFPArm(arm,d,anchor,grip,out,side,smooth){
+  fistTarget(out,anchor,arm,grip);
+  _fpShoulder.copy(arm.native).add(arm.offset);
+  _fpAxis.copy(out).sub(_fpShoulder).normalize();
+  _fpElbow.crossVectors(_fpAxis,REMOTE_ARM_AXIS);
+  if(_fpElbow.lengthSq()<.01)_fpElbow.crossVectors(_fpAxis,_fpSideAxis);
+  _fpElbow.normalize().multiplyScalar(side*.18).addScaledVector(REMOTE_ARM_AXIS,-.05)
+    .add(_fpShoulder).lerp(out,.5);
+  poseRemoteArm(d.mesh,arm.upper,arm.fore,fpArms.upperLen*d.viewScale,fpArms.foreLen*d.viewScale,
+    _fpShoulder,_fpElbow,out,REMOTE_ARM_AXIS,smooth);
+  aimFPHand(arm.hand,d.mesh,arm.grip);
+}
+function updateFPArms(d,dt){
+  if(!fpArms){loadFPArms();return;}
+  if(!fpArms.ready) return;
+  const id=d.id,H=HANDS[id];
+  const handR=H&&H[0]?H[0]:[0,-.08,.10,.28];
+  // A pistol is fired one-handed here - no support arm to place, and none
+  // drawn, which also keeps the second sleeve out of an already busy frame.
+  const handL=(d.cls==='pistol'||!H||!H[1])?null:H[1];
+  if(fpArms.weaponId!==id){
+    fpArms.weaponId=id;
+    d.mesh.traverse(o=>{if(o.userData&&o.userData.arm)o.visible=false;});
+    if(fpArms.R.model.parent) fpArms.R.model.parent.remove(fpArms.R.model);
+    d.mesh.add(fpArms.R.model);
+    placeFPArm(fpArms.R,handR,FP_TRIGGER_DIR,FP_GRIP_R);
+    if(fpArms.L.model.parent) fpArms.L.model.parent.remove(fpArms.L.model);
+    if(handL){
+      d.mesh.add(fpArms.L.model);
+      placeFPArm(fpArms.L,handL,FP_SUPPORT_DIR,FP_GRIP_L);
+    }
+  }
+  const smooth=Math.min(1,dt*13);
+  d.mesh.updateMatrixWorld(true);
+  poseFPArm(fpArms.R,d,handR,FP_GRIP_R,_fpHandR,1,smooth);
+  if(handL) poseFPArm(fpArms.L,d,handL,FP_GRIP_L,_fpHandL,-1,smooth);
+}
 function makeZombie(round){
   const skin=new THREE.Color().setHSL(rand(.20,.28),rand(.10,.22),rand(.30,.46));
   const cloth=new THREE.Color().setHSL(rand(0,1),.16,rand(.11,.26));
@@ -5795,7 +6259,7 @@ function stepBox(dt){
       const cand=(mbox.pool&&mbox.pool.length)?mbox.pool:boxPool();
       const d=cand.length?cand[randi(0,cand.length-1)].d:mbox.result;
       mbox.gun=d;
-      mbox.preview=d.mesh.clone(); mbox.preview.visible=true;
+      mbox.preview=cloneWeaponDisplay(d.mesh); mbox.preview.visible=true;
       mbox.preview.traverse(o=>{ if(o.userData&&o.userData.arm) o.visible=false; });
       mbox.preview.scale.setScalar(2.0);
       scene.add(mbox.preview);
@@ -5810,7 +6274,7 @@ function stepBox(dt){
       mbox.gun=d;
       if(WONDER.has(d.id)) game.boxDry=0; else game.boxDry=(game.boxDry||0)+1;
       if(mbox.preview) scene.remove(mbox.preview);
-      mbox.preview=d.mesh.clone(); mbox.preview.visible=true;
+      mbox.preview=cloneWeaponDisplay(d.mesh); mbox.preview.visible=true;
       mbox.preview.traverse(o=>{ if(o.userData&&o.userData.arm) o.visible=false; }); mbox.preview.scale.setScalar(2.0); scene.add(mbox.preview);
       sfxBoxReveal(WONDER.has(d.id));
     }
@@ -6594,33 +7058,6 @@ function netColor(id){
   let h=0; for(let i=0;i<id.length;i++) h=(h*31+id.charCodeAt(i))>>>0;
   return new THREE.Color().setHSL((h%360)/360,.62,.52);
 }
-function remoteJoint(parent,x,y,z,len,radius,mat){
-  const joint=new THREE.Group(); joint.position.set(x,y,z); parent.add(joint);
-  const mesh=new THREE.Mesh(new THREE.CylinderGeometry(radius*.86,radius,len,12),mat);
-  mesh.castShadow=true;
-  mesh.position.y=-len*.5; joint.add(mesh);
-  return joint;
-}
-function poseRemoteArm(upper,fore,shoulder,elbowHint,hand,smooth){
-  const down=new THREE.Vector3(0,-1,0),upperLen=.34,foreLen=.31;
-  const reach=hand.clone().sub(shoulder),reachDir=reach.clone().normalize();
-  const dist=clamp(reach.length(),.001,upperLen+foreLen-.001);
-  const along=(upperLen*upperLen-foreLen*foreLen+dist*dist)/(2*dist);
-  const bendHeight=Math.sqrt(Math.max(0,upperLen*upperLen-along*along));
-  const bend=elbowHint.clone().sub(shoulder);
-  bend.addScaledVector(reachDir,-bend.dot(reachDir));
-  if(bend.lengthSq()<.0001)bend.set(1,0,0);
-  bend.normalize();
-  const elbow=shoulder.clone().addScaledVector(reachDir,along).addScaledVector(bend,bendHeight);
-  const upperDir=elbow.clone().sub(shoulder).normalize();
-  const upperQ=new THREE.Quaternion().setFromUnitVectors(down,upperDir);
-  upper.quaternion.slerp(upperQ,smooth);
-  const target=shoulder.clone().addScaledVector(reachDir,dist);
-  const foreDir=target.sub(elbow).normalize();
-  const localDir=foreDir.applyQuaternion(upperQ.clone().invert());
-  const foreQ=new THREE.Quaternion().setFromUnitVectors(down,localDir);
-  fore.quaternion.slerp(foreQ,smooth);
-}
 function makeRemoteNameTag(name,col){
   const canvas=document.createElement('canvas'),w=512,h=96;
   canvas.width=w;canvas.height=h;
@@ -6641,47 +7078,32 @@ function makeRemoteNameTag(name,col){
   sprite.renderOrder=5;
   return sprite;
 }
+const PLAYER_MODEL_YAW_OFFSET=0;
+function makeRemoteFallback(col,mats){
+  const g=new THREE.Group();
+  const uniform=new THREE.MeshStandardMaterial({color:col.clone().multiplyScalar(.62),roughness:.88,metalness:.03});
+  const armor=new THREE.MeshStandardMaterial({color:col.clone().lerp(new THREE.Color(0x1a211b),.72),roughness:.74,metalness:.10});
+  const skin=new THREE.MeshStandardMaterial({color:0x9a7359,roughness:.86});
+  mats.push(uniform,armor,skin);
+  const part=(geo,mat,x,y,z,rx,ry,rz)=>{
+    const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.rotation.set(rx||0,ry||0,rz||0);
+    m.castShadow=true;m.receiveShadow=true;g.add(m);return m;
+  };
+  part(RB(.46,.62,.25),uniform,0,1.22,0);
+  part(RB(.51,.19,.28),armor,0,1.43,-.01);
+  part(new THREE.SphereGeometry(.17,10,8),skin,0,1.70,0);
+  part(RB(.31,.13,.22),armor,0,1.78,-.01);
+  part(RB(.16,.56,.16),uniform,-.12,.69,0,0,0,.035);
+  part(RB(.16,.56,.16),uniform,.12,.69,0,0,0,-.035);
+  part(RB(.15,.54,.15),uniform,-.30,1.22,-.04,0,0,-.18);
+  part(RB(.15,.54,.15),uniform,.30,1.22,-.04,0,0,.18);
+  return g;
+}
 function makeRemotePlayer(p){
   if(!p||p.id===net.id||net.remotes.has(p.id)) return;
   const g=new THREE.Group(),rig=new THREE.Group(),upper=new THREE.Group(),col=netColor(p.id);
   rig.add(upper);g.add(rig);
-  const uniform=new THREE.MeshPhongMaterial({color:0x9a9880,map:T.camo,shininess:5,specular:0x2a2e24});
-  const uniform2=new THREE.MeshPhongMaterial({color:0x626756,map:T.camo,shininess:4,specular:0x242820});
-  const vest=new THREE.MeshPhongMaterial({color:0x273025,shininess:7});
-  const dark=new THREE.MeshPhongMaterial({color:0x151812,shininess:12});
-  const skin=new THREE.MeshPhongMaterial({color:0xb98263,shininess:7});
-  const patch=new THREE.MeshPhongMaterial({color:col,emissive:col.clone().multiplyScalar(.12),shininess:20});
-  const add=(geo,mat,x,y,z,parent)=>{
-    const m=new THREE.Mesh(geo,mat);m.castShadow=true;m.position.set(x,y,z);(parent||upper).add(m);return m;
-  };
-  add(new THREE.CylinderGeometry(.19,.16,.54,9),uniform,0,1.29,0);
-  add(RB(.43,.45,.25),vest,0,1.31,-.015);
-  add(RB(.15,.13,.08),uniform2,-.12,1.20,-.16);
-  add(RB(.15,.13,.08),uniform2,.12,1.20,-.16);
-  add(RB(.10,.10,.04),patch,-.22,1.42,-.03);
-  add(RB(.34,.25,.16),uniform2,0,1.01,.02,rig);
-  add(RB(.34,.43,.16),vest,0,1.34,.19);
-  add(new THREE.CylinderGeometry(.055,.06,.12,8),skin,0,1.61,0);
-  const head=add(new THREE.SphereGeometry(.155,12,9),skin,0,1.75,-.01);
-  head.scale.set(1,.98,.94);
-  add(RB(.045,.055,.045),skin,0,1.72,-.15);
-  const helmet=add(new THREE.SphereGeometry(.18,12,8,0,TAU,0,Math.PI*.62),uniform2,0,1.84,0);
-  helmet.scale.y=.72;
-  add(new THREE.CylinderGeometry(.19,.19,.035,12),uniform2,0,1.80,-.005);
-  const armL=remoteJoint(upper,-.255,1.49,0,.34,.072,uniform);
-  const armR=remoteJoint(upper,.255,1.49,0,.34,.072,uniform);
-  const elbowL=remoteJoint(armL,0,-.34,0,.31,.058,uniform);
-  const elbowR=remoteJoint(armR,0,-.34,0,.31,.058,uniform);
-  const gloveL=add(new THREE.SphereGeometry(.064,12,8),dark,0,-.32,0,elbowL);
-  const gloveR=add(new THREE.SphereGeometry(.064,12,8),dark,0,-.32,0,elbowR);
-  gloveL.scale.set(.86,1.12,.78);gloveR.scale.copy(gloveL.scale);
-  const legL=remoteJoint(rig,-.13,1.00,0,.43,.087,uniform2);
-  const legR=remoteJoint(rig,.13,1.00,0,.43,.087,uniform2);
-  const kneeL=remoteJoint(legL,0,-.42,0,.39,.068,uniform);
-  const kneeR=remoteJoint(legR,0,-.42,0,.39,.068,uniform);
-  add(RB(.15,.11,.27),dark,0,-.40,-.06,kneeL);
-  add(RB(.15,.11,.27),dark,0,-.40,-.06,kneeR);
-  const weaponHolder=new THREE.Group();weaponHolder.position.set(.08,1.30,-.25);upper.add(weaponHolder);
+  const weaponHolder=new THREE.Group();
   const meleeKnife=makeCombatKnife(.58);meleeKnife.visible=false;upper.add(meleeKnife);
   const flash=new THREE.Mesh(new THREE.SphereGeometry(.075,7,5),new THREE.MeshBasicMaterial({
     color:0xffcf7a,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}));
@@ -6690,9 +7112,47 @@ function makeRemotePlayer(p){
   g.position.set(0,-20,0); g.visible=game.running; scene.add(g);
   const remote={g,rig,upper,target:new THREE.Vector3(),yaw:0,pitch:0,speed:0,sprint:false,ads:false,crouched:false,
     grounded:true,phase:rand(0,TAU),footStep:-1,recoil:0,meleeT:0,name:p.name||'Survivor',
-    mats:[uniform,uniform2,vest,dark,skin,patch,flash.material],weapon:'',weaponMesh:null,
-    weaponHolder,meleeKnife,flash,shotLight,nameTag,flashT:0,armL,armR,elbowL,elbowR,legL,legR,kneeL,kneeR,head};
+    mats:[flash.material],weapon:'',weaponMesh:null,
+    weaponHolder,meleeKnife,flash,shotLight,nameTag,flashT:0,
+    ready:false,model:null,fallback:null,mixer:null,idleAction:null,walkAction:null,runAction:null,
+    armL:null,foreL:null,armR:null,foreR:null,head:null,hand:null,upperLen:.28,foreLen:.26};
+  remote.fallback=makeRemoteFallback(col,remote.mats);upper.add(remote.fallback);
+  // Keep a useful fallback weapon pose while the rig loads or if its asset is unavailable.
+  upper.add(weaponHolder);weaponHolder.position.set(.11,1.32,-.16);weaponHolder.rotation.set(-.08,0,0);
   net.remotes.set(p.id,remote);
+  loadPlayerModelAsset().then(asset=>{
+    if(net.remotes.get(p.id)!==remote) return;   // left before the model finished loading
+    const model=SkeletonUtils.clone(asset.scene);
+    model.scale.setScalar(asset.scale);model.rotation.y=PLAYER_MODEL_YAW_OFFSET;
+    const tint=col.clone().lerp(new THREE.Color(0xffffff),.55);
+    model.traverse(o=>{
+      if(!o.isMesh) return;
+      o.castShadow=true;o.receiveShadow=true;
+      const src=Array.isArray(o.material)?o.material:[o.material];
+      const cloned=src.map(m=>{const c=m.clone();c.color.multiply(tint);remote.mats.push(c);return c;});
+      o.material=Array.isArray(o.material)?cloned:cloned[0];
+    });
+    upper.add(model);
+    remote.model=model;remote.fallback.visible=false;
+    remote.armL=model.getObjectByName('mixamorigLeftArm');remote.foreL=model.getObjectByName('mixamorigLeftForeArm');
+    remote.armR=model.getObjectByName('mixamorigRightArm');remote.foreR=model.getObjectByName('mixamorigRightForeArm');
+    remote.head=model.getObjectByName('mixamorigHead');
+    remote.hand=model.getObjectByName('mixamorigRightHand');
+    remote.upperLen=asset.upperLen;remote.foreLen=asset.foreLen;
+    upper.remove(weaponHolder);remote.hand.add(weaponHolder);
+    // Grip socket calibration: weaponHolder was authored as a torso-relative
+    // group; this is the fixed local offset that puts a weapon modeled for
+    // that old anchor into a plausible right-hand grip instead.
+    weaponHolder.position.set(-.02,.06,.16);   // rotation is computed every frame from the hand's actual world orientation
+    const clip=n=>THREE.AnimationClip.findByName(asset.animations,n);
+    remote.mixer=new THREE.AnimationMixer(model);
+    remote.idleAction=remote.mixer.clipAction(clip('Idle'));
+    remote.walkAction=remote.mixer.clipAction(clip('Walk'));
+    remote.runAction=remote.mixer.clipAction(clip('Run'));
+    for(const a of [remote.idleAction,remote.walkAction,remote.runAction]){a.play();a.weight=0;}
+    remote.idleAction.weight=1;
+    remote.ready=true;
+  }).catch(err=>console.warn('Soldier player model unavailable; keeping multiplayer fallback body.',err));
   setRemoteWeapon(remote,p.state&&p.state.weapon);
   if(p.state) updateRemoteState(p.id,p.state);
 }
@@ -6700,10 +7160,9 @@ function setRemoteWeapon(r,id){
   id=DEFS[id]?id:'m1911';
   if(r.weapon===id&&r.weaponMesh) return;
   if(r.weaponMesh) r.weaponHolder.remove(r.weaponMesh);
-  const d=DEFS[id],m=d.mesh.clone(true);
+  const d=DEFS[id],m=cloneWeaponDisplay(d.mesh);
   m.visible=true;
   if(m.children[1])m.children[1].visible=false;
-  m.traverse(o=>{if(o.userData&&o.userData.arm)o.visible=false;});
   const scale=(d.cls==='pistol'||d.cls==='knife'||d.id==='raygun'||d.id==='raygun2')?.72:.82;
   m.position.set(0,0,0);m.rotation.set(0,0,0);m.scale.setScalar(scale);
   r.weaponHolder.add(m);r.weapon=id;r.weaponMesh=m;
@@ -6735,9 +7194,14 @@ function remoteMelee(id,event){
 }
 function removeRemotePlayer(id){
   const r=net.remotes.get(id); if(!r) return;
+  if(r.mixer) r.mixer.stopAllAction();
   if(r.weaponMesh) r.weaponHolder.remove(r.weaponMesh);
   scene.remove(r.nameTag);
   r.nameTag.material.map.dispose();r.nameTag.material.dispose();
+  // r.model's geometry is shared (SkeletonUtils.clone shares buffers with the
+  // master asset and every other remote player's clone) - detach it before
+  // the disposal traversal below so it's never touched.
+  if(r.model) r.upper.remove(r.model);
   scene.remove(r.g);
   r.g.traverse(o=>{if(o.geometry)o.geometry.dispose();});
   r.mats.forEach(m=>m.dispose());
@@ -6934,60 +7398,73 @@ function netStep(dt){
       const dist=Math.hypot(r.g.position.x-player.pos.x,r.g.position.y-player.y,r.g.position.z-player.pos.z);
       if(dist<34) sfxFootstep(clamp((1-dist/34)*.28,.025,.28),r.sprint,remoteStep&1);
     }
-    const stride=Math.sin(r.phase)*.82*move*run*(crouch?.42:1),air=!r.grounded&&!down;
     const smooth=Math.min(1,dt*13);
-    r.legL.rotation.x=lerp(r.legL.rotation.x,air?.48:(crouch?.62:0)+stride,smooth);
-    r.legR.rotation.x=lerp(r.legR.rotation.x,air?.12:(crouch?.62:0)-stride,smooth);
-    r.kneeL.rotation.x=lerp(r.kneeL.rotation.x,air?-.75:(crouch?-1.08:Math.max(0,-stride)*.65),smooth);
-    r.kneeR.rotation.x=lerp(r.kneeR.rotation.x,air?-.45:(crouch?-1.08:Math.max(0,stride)*.65),smooth);
     // Keep the upper body compact and slightly forward, like a shouldered
-    // tactical stance, while the legs continue their independent locomotion.
+    // tactical stance, while the animated legs handle locomotion.
     r.upper.rotation.x=lerp(r.upper.rotation.x,down?0:(crouch?-.16:(r.sprint?-.11:-.075)),smooth);
     r.upper.rotation.y=lerp(r.upper.rotation.y,down?0:(r.sprint?.08:0),smooth);
     r.upper.rotation.z=lerp(r.upper.rotation.z,down?0:(r.sprint?-.045:-.012),smooth);
-    if(down){
-      poseRemoteArm(r.armL,r.elbowL,new THREE.Vector3(-.255,1.49,0),
-        new THREE.Vector3(-.36,1.24,.04),new THREE.Vector3(-.23,1.08,-.08),smooth);
-      poseRemoteArm(r.armR,r.elbowR,new THREE.Vector3(.255,1.49,0),
-        new THREE.Vector3(.37,1.28,-.02),new THREE.Vector3(.26,1.10,-.18),smooth);
-    }else if(r.meleeT>0){
-      r.meleeT=Math.max(0,r.meleeT-dt);
-      const mt=1-r.meleeT/.52,swing=Math.sin(clamp(mt,0,1)*Math.PI);
-      poseRemoteArm(r.armL,r.elbowL,new THREE.Vector3(-.255,1.49,0),
-        new THREE.Vector3(-.30,1.28,-.08),new THREE.Vector3(-.22,1.08,-.16),smooth);
-      const hand=new THREE.Vector3(.32-swing*.54,1.27+swing*.10,-.18-swing*.34);
-      poseRemoteArm(r.armR,r.elbowR,new THREE.Vector3(.255,1.49,0),
-        new THREE.Vector3(.36,1.35,-.10),hand,smooth);
-      r.meleeKnife.visible=true;r.meleeKnife.position.copy(hand);
-      r.meleeKnife.rotation.set(-.48+swing*.62,-.28+swing*1.18,-.72+swing*1.26);
-    }else{
-      r.meleeKnife.visible=false;
-      const wd=DEFS[r.weapon]||DEFS.m1911;
-      const compact=wd.cls==='pistol'||wd.cls==='knife'||wd.id==='raygun'||wd.id==='raygun2';
-      const lower=r.sprint?.14:0,lift=r.pitch*.16+(r.ads?.025:0)-lower-(crouch?.12:0);
-      const recoilZ=r.recoil*.045;
-      const supportZ=(compact?-.28:(wd.cls==='lmg'||wd.cls==='sniper'?-.56:-.49))+(r.sprint?.10:0);
-      // Support hand stays on the fore-end; firing hand stays at the pistol
-      // grip. Tucked elbows avoid the old straight-armed, floating-gun pose.
-      poseRemoteArm(r.armL,r.elbowL,new THREE.Vector3(-.255,1.49,0),
-        new THREE.Vector3(-.34,1.29+lift*.28,-.10),
-        new THREE.Vector3(-.035,1.255+lift,supportZ+recoilZ),smooth);
-      poseRemoteArm(r.armR,r.elbowR,new THREE.Vector3(.255,1.49,0),
-        new THREE.Vector3(.34,1.27+lift*.24,.055),
-        new THREE.Vector3(.105,1.215+lift,-.105+recoilZ*.35),smooth);
-    }
-    if(down)r.meleeKnife.visible=false;
     r.rig.position.y=lerp(r.rig.position.y,down?.10:(crouch?-.46:Math.abs(Math.sin(r.phase))*move*.035),smooth);
-    r.head.rotation.x=lerp(r.head.rotation.x,down?0:r.pitch*.28,smooth);
     r.recoil=lerp(r.recoil,0,Math.min(1,dt*18));
-    r.weaponHolder.rotation.x=lerp(r.weaponHolder.rotation.x,
-      r.pitch-r.recoil*.12-(r.sprint?.32:0),smooth);
-    r.weaponHolder.rotation.y=lerp(r.weaponHolder.rotation.y,r.sprint?.18:0,smooth);
-    r.weaponHolder.rotation.z=lerp(r.weaponHolder.rotation.z,r.sprint?-.20:-.035,smooth);
-    r.weaponHolder.position.y=lerp(r.weaponHolder.position.y,
-      1.30-(r.sprint?.14:0)-(crouch?.14:0)+(r.ads?.025:0)-(r.meleeT>0?.18:0),smooth);
-    r.weaponHolder.position.z=lerp(r.weaponHolder.position.z,
-      -.25+r.recoil*.07+(r.sprint?.06:0),smooth);
+    if(r.ready){
+      const moveW=down?0:clamp(r.speed/1.7,0,1),sprintW=(r.sprint&&!down)?clamp((r.speed-2.1)/2.1,0,1):0;
+      r.idleAction.weight=lerp(r.idleAction.weight,1-moveW,smooth);
+      r.walkAction.weight=lerp(r.walkAction.weight,moveW*(1-sprintW),smooth);
+      r.runAction.weight=lerp(r.runAction.weight,moveW*sprintW,smooth);
+      r.walkAction.timeScale=clamp(r.speed/1.9,.5,2.0);
+      r.runAction.timeScale=clamp(r.speed/4.2,.6,2.0);
+      r.mixer.update(dt);
+      r.hand.quaternion.set(0,0,0,1);   // cancel the clip's own wrist sway for a stable weapon grip
+      if(down){
+        _remoteElbowL.set(-.36,1.24,.04);_remoteHandL.set(-.23,1.08,-.08);
+        poseRemoteArm(r.upper,r.armL,r.foreL,r.upperLen,r.foreLen,ARM_L_SHOULDER,
+          _remoteElbowL,_remoteHandL,REMOTE_ARM_AXIS,smooth);
+        _remoteElbowR.set(.37,1.28,-.02);_remoteHandR.set(.26,1.10,-.18);
+        poseRemoteArm(r.upper,r.armR,r.foreR,r.upperLen,r.foreLen,ARM_R_SHOULDER,
+          _remoteElbowR,_remoteHandR,REMOTE_ARM_AXIS,smooth);
+      }else if(r.meleeT>0){
+        r.meleeT=Math.max(0,r.meleeT-dt);
+        const mt=1-r.meleeT/.52,swing=Math.sin(clamp(mt,0,1)*Math.PI);
+        _remoteElbowL.set(-.30,1.28,-.08);_remoteHandL.set(-.22,1.08,-.16);
+        poseRemoteArm(r.upper,r.armL,r.foreL,r.upperLen,r.foreLen,ARM_L_SHOULDER,
+          _remoteElbowL,_remoteHandL,REMOTE_ARM_AXIS,smooth);
+        _remoteElbowR.set(.36,1.35,-.10);
+        _remoteHandR.set(.32-swing*.54,1.27+swing*.10,-.18-swing*.34);
+        poseRemoteArm(r.upper,r.armR,r.foreR,r.upperLen,r.foreLen,ARM_R_SHOULDER,
+          _remoteElbowR,_remoteHandR,REMOTE_ARM_AXIS,smooth);
+        r.meleeKnife.visible=true;r.meleeKnife.position.copy(_remoteHandR);
+        r.meleeKnife.rotation.set(-.48+swing*.62,-.28+swing*1.18,-.72+swing*1.26);
+      }else{
+        r.meleeKnife.visible=false;
+        const wd=DEFS[r.weapon]||DEFS.m1911;
+        const compact=wd.cls==='pistol'||wd.cls==='knife'||wd.id==='raygun'||wd.id==='raygun2';
+        const lower=r.sprint?.14:0,lift=r.pitch*.16+(r.ads?.025:0)-lower-(crouch?.12:0);
+        const recoilZ=r.recoil*.045;
+        const supportZ=(compact?-.28:(wd.cls==='lmg'||wd.cls==='sniper'?-.56:-.49))+(r.sprint?.10:0);
+        // Support hand stays on the fore-end and the firing hand stays on the
+        // grip, raised into a compact shouldered tactical stance.
+        _remoteElbowL.set(-.34,1.46+lift*.28,-.10);
+        _remoteHandL.set(-.035,1.425+lift,supportZ+recoilZ);
+        poseRemoteArm(r.upper,r.armL,r.foreL,r.upperLen,r.foreLen,ARM_L_SHOULDER,
+          _remoteElbowL,_remoteHandL,REMOTE_ARM_AXIS,smooth);
+        _remoteElbowR.set(.34,1.44+lift*.24,.055);
+        _remoteHandR.set(.105,1.385+lift,-.105+recoilZ*.35);
+        poseRemoteArm(r.upper,r.armR,r.foreR,r.upperLen,r.foreLen,ARM_R_SHOULDER,
+          _remoteElbowR,_remoteHandR,REMOTE_ARM_AXIS,smooth);
+      }
+      if(down)r.meleeKnife.visible=false;
+      r.head.rotation.x=lerp(r.head.rotation.x,down?0:r.pitch*.28,smooth);
+      // The two-bone IK positions the hand but doesn't constrain muzzle tilt.
+      // Aim the weapon explicitly: cancel the hand bone's actual world
+      // rotation, then apply character-forward + pitch tilt + the fixed
+      // grip correction, so it points sensibly regardless of the arm chain's
+      // bind-pose orientation.
+      r.hand.getWorldQuaternion(_wpHandQ);
+      r.g.getWorldQuaternion(_wpDesiredQ);
+      _wpTiltQ.setFromAxisAngle(_wpTiltAxis,down?0:r.pitch-r.recoil*.12-(r.sprint?.32:0));
+      _wpDesiredQ.multiply(_wpTiltQ).multiply(WEAPON_GRIP_Q);
+      r.weaponHolder.quaternion.slerp(_wpHandQ.invert().multiply(_wpDesiredQ),smooth);
+    }
     if(r.flashT>0){
       r.flashT=Math.max(0,r.flashT-dt);
       r.flash.material.opacity=clamp(r.flashT*12,0,1); r.shotLight.intensity=clamp(r.flashT*45,0,4);
@@ -7689,6 +8166,7 @@ function updateWeaponView(dt){
   const body=d.mesh.children[0];
   const want=lv>=2?GM_P2:(lv===1?GM_P1:GM);
   if(body.material!==want) body.material=want;
+  updateSourcedPack(d,lv);
   if(d.packDot) d.packDot.visible=lv>=1;
   d.adsMix=lerp(d.adsMix||0,player.ads?1:0,1-Math.pow(0.00008,dt));
   _pos.copy(d.hip).lerp(d.adsPos,d.adsMix);
@@ -7714,6 +8192,7 @@ function updateWeaponView(dt){
       (player.crouchMix||0)*.035,
     lerp(-0.07,0,d.adsMix)+d.sprintMix*0.62,
     lerp(0.02,0,d.adsMix)-d.sprintMix*0.46+d.reloadMix*0.30+spR);
+  updateFPArms(d,dt);
   const fl=d.mesh.userData.flash;
   if(fl.material.opacity>0) fl.material.opacity=Math.max(0,fl.material.opacity-dt*22);
   muzzleLight.intensity=Math.max(0,muzzleLight.intensity-dt*70);
@@ -7819,7 +8298,6 @@ if(inviteCode){
   showScreen('online'); setNetStatus('Invite ready \u00b7 enter your name and join');
 } else showScreen('menu');
 loop();
-
 </script>
 </body>
 </html>
