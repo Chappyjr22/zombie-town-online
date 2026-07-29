@@ -4197,7 +4197,7 @@ def({id:'mp5',name:'Suomi KP-31',cls:'smg',mode:'auto',rpm:820,dmg:36,mag:30,res
   muzzle:[0,.006,-.400]});
 
 def({id:'ak74u',name:'AK-47',cls:'rifle',mode:'auto',rpm:740,dmg:46,mag:30,res:270,reload:2.4,
-  sightY:.094,spread:.034,adsSpread:.005,range:85,cost:1200,ammoCost:600,wall:true,tacticalGrip:true,
+  sightY:.094,spread:.034,adsSpread:.005,range:85,cost:1200,ammoCost:600,wall:true,
   parts:[].concat(
     [B(.068,.074,.320,0,.006,.040,14), C(.033,.033,.320,0,.026,.040,14),
      B(.060,.056,.220,0,-.010,-.230,13), B(.052,.030,.190,0,.036,-.220,13),
@@ -4722,8 +4722,10 @@ const SOURCED_WEAPONS={
     tacticalGrip:true,sightX:-.001,sightY:.076,hipDrop:.035},
   mp5:{file:'suomi-kp',length:.82,grip:[-.004,-.088,.132],support:[0,-.035,-.185],
     sightY:.055,hipDrop:.030},
-  ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[-.180,-.095,-.285],
-    tacticalGrip:true,sightX:.004,sightY:.044,hipDrop:.034},
+  // The AK's narrow wooden fore-end reads better with a traditional palm-up
+  // hold. Its sight coordinates come from the actual front-post geometry.
+  ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[-.003,-.052,-.190],
+    sightX:-.0026,sightY:.046,hipDrop:.034},
   rem870:{file:'shotgun',length:1.05,grip:[-.001,-.112,.455],support:[0,-.035,-.065],
     sightY:.045,hipDrop:.036},
   skorpion:{file:'grease-gun',length:.76,grip:[0,-.112,.178],support:[0,-.030,-.190],
