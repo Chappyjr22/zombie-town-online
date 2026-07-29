@@ -4614,8 +4614,8 @@ const SOURCED_WEAPONS={
   // grip is the source-model palm center. support is the natural fore-end hold.
   // length is the complete rendered length, not a gameplay range or stat.
   m1911:{file:'makarov',length:.30,grip:[.005,-.034,.008],sightY:.056,hipDrop:.018},
-  m4a1:{file:'m4a1',length:1.00,grip:[0,-.090,.075],support:[0,-.018,-.255],
-    sightY:.076,hipDrop:.035},
+  m4a1:{file:'m4a1',length:1.00,grip:[0,-.090,.075],support:[-.030,.018,-.255],
+    railGrip:true,sightX:-.001,sightY:.076,hipDrop:.035},
   mp5:{file:'suomi-kp',length:.82,grip:[-.004,-.088,.132],support:[0,-.035,-.185],
     sightY:.055,hipDrop:.030},
   rem870:{file:'shotgun',length:1.05,grip:[-.001,-.112,.455],support:[0,-.035,-.065],
@@ -4682,12 +4682,18 @@ function loadSourcedWeapon(id){
       H[1][1]=object.position.y+cfg.support[1]*scale;
       H[1][2]=object.position.z+cfg.support[2]*scale;
     }
+    d.sourceRailGrip=!!cfg.railGrip;
+    if(fpArms&&fpArms.weaponId===id)fpArms.weaponId=null;
     // Re-seat muzzle effects and iron-sight ADS on the actual imported mesh.
     const muzzle=[object.position.x,object.position.y,object.position.z+box.min.z*scale];
     d.muzzle=muzzle;d.mesh.userData.muzzle.set(muzzle[0],muzzle[1],muzzle[2]);
     d.mesh.userData.flash.position.set(muzzle[0],muzzle[1],muzzle[2]);
     d.sightY=object.position.y+cfg.sightY*scale;
     d.baseAdsY=-d.sightY;d.adsPos.y=d.baseAdsY;
+    if(cfg.sightX!==undefined){
+      const sightX=object.position.x+cfg.sightX*scale;
+      d.baseAdsX=-sightX;d.adsPos.x=d.baseAdsX;
+    }
     updateSourcedPack(d,0);
   },undefined,err=>console.warn('CC0 weapon failed to load: '+id,err));
 }
@@ -5167,6 +5173,13 @@ const FP_SUPPORT_DIR=new THREE.Vector3(-.32,-.58,.75).normalize();
    pistol grip), below it on the support hand (wrapping the fore-end). */
 const FP_GRIP_R={dir:new THREE.Vector3(0,.973,-.229),face:new THREE.Vector3(0,-.229,-.973)};
 const FP_GRIP_L={dir:new THREE.Vector3(.699,.386,-.602),face:new THREE.Vector3(.292,-.923,-.252)};
+// A rail hold is not the same pose as gripping a vertical fore-end. Seat the
+// left palm against the rifle's left rail, point the knuckles forward, and
+// let the thumb wrap over the top in a compact tactical C-clamp.
+const FP_RAIL_GRIP_L={
+  dir:new THREE.Vector3(.42,.10,-.90),
+  face:new THREE.Vector3(.86,-.48,-.18)
+};
 function gripBasis(dir,face){
   const d=dir.clone().normalize();
   const f=face.clone().addScaledVector(d,-face.dot(d)).normalize();
@@ -5187,6 +5200,11 @@ function gripCorrection(frame,hand,want){
    hand bones distorts the wrist skinning and is what made every grip look
    miniature even after the first correction. */
 const FP_ARM_SCALE=.8;
+const FP_CUFF_GEO=new THREE.CylinderGeometry(.047,.041,.075,14,1,false);
+const FP_CUFF_MAT=new THREE.MeshStandardMaterial({
+  color:0x1d252c,roughness:.88,metalness:.03
+});
+const FP_CUFF_AXIS=new THREE.Vector3(0,1,0);
 /* One rigged instance per arm. A single shared body cannot serve both grips:
    its shoulders move together, but a rifle's fore-end sits ~0.4 ahead of its
    trigger grip, so any one placement leaves the support arm folded up short
@@ -5207,11 +5225,14 @@ function makeFPArm(asset,side,geo){
   if(visor) visor.visible=false;
   const upper=model.getObjectByName('mixamorig'+side+'Arm');
   const frame=measureHandFrame(model,side);
-  const arm={model,hand,upper,fore:model.getObjectByName('mixamorig'+side+'ForeArm'),
+  const cuff=new THREE.Mesh(FP_CUFF_GEO,FP_CUFF_MAT);
+  cuff.userData.fpArm=true;cuff.castShadow=true;cuff.receiveShadow=true;cuff.visible=false;
+  const arm={model,hand,upper,fore:model.getObjectByName('mixamorig'+side+'ForeArm'),cuff,
     // Shoulder in the model's own space, before it is placed on a weapon.
     native:upper.getWorldPosition(new THREE.Vector3()),
     palmLen:frame.palmLen,offset:new THREE.Vector3(),
-    grip:gripCorrection(frame,hand,side==='Right'?FP_GRIP_R:FP_GRIP_L)};
+    grip:gripCorrection(frame,hand,side==='Right'?FP_GRIP_R:FP_GRIP_L),
+    railGrip:side==='Left'?gripCorrection(frame,hand,FP_RAIL_GRIP_L):null};
   curlHand(model,side,frame);
   return arm;
 }
@@ -5280,8 +5301,19 @@ function placeFPArm(arm,anchor,back,grip){
    bend math of a perpendicular component and leaves it picking an arbitrary
    axis, visibly missing a target that is well within reach. */
 const _fpShoulder=new THREE.Vector3(),_fpElbow=new THREE.Vector3(),_fpAxis=new THREE.Vector3(),
-  _fpSideAxis=new THREE.Vector3(1,0,0);
-function poseFPArm(arm,d,anchor,grip,out,side,smooth){
+  _fpSideAxis=new THREE.Vector3(1,0,0),_fpCuffHand=new THREE.Vector3(),
+  _fpCuffFore=new THREE.Vector3(),_fpCuffDir=new THREE.Vector3();
+function placeFPCuff(arm,mesh){
+  mesh.updateMatrixWorld(true);
+  arm.hand.getWorldPosition(_fpCuffHand);
+  arm.fore.getWorldPosition(_fpCuffFore);
+  mesh.worldToLocal(_fpCuffHand);mesh.worldToLocal(_fpCuffFore);
+  _fpCuffDir.copy(_fpCuffHand).sub(_fpCuffFore).normalize();
+  arm.cuff.position.copy(_fpCuffHand).addScaledVector(_fpCuffDir,-.035);
+  arm.cuff.quaternion.setFromUnitVectors(FP_CUFF_AXIS,_fpCuffDir);
+  arm.cuff.visible=true;
+}
+function poseFPArm(arm,d,anchor,grip,out,side,smooth,gripQ){
   fistTarget(out,anchor,arm,grip);
   _fpShoulder.copy(arm.native).add(arm.offset);
   _fpAxis.copy(out).sub(_fpShoulder).normalize();
@@ -5291,7 +5323,8 @@ function poseFPArm(arm,d,anchor,grip,out,side,smooth){
     .add(_fpShoulder).lerp(out,.5);
   poseRemoteArm(d.mesh,arm.upper,arm.fore,fpArms.upperLen*d.viewScale,fpArms.foreLen*d.viewScale,
     _fpShoulder,_fpElbow,out,REMOTE_ARM_AXIS,smooth);
-  aimFPHand(arm.hand,d.mesh,arm.grip,anchor);
+  aimFPHand(arm.hand,d.mesh,gripQ||arm.grip,anchor);
+  placeFPCuff(arm,d.mesh);
 }
 function updateFPArms(d,dt){
   if(!fpArms){loadFPArms();return;}
@@ -5303,6 +5336,8 @@ function updateFPArms(d,dt){
   if(d.cls==='pistol'){
     if(fpArms.R.model.parent)fpArms.R.model.parent.remove(fpArms.R.model);
     if(fpArms.L.model.parent)fpArms.L.model.parent.remove(fpArms.L.model);
+    if(fpArms.R.cuff.parent)fpArms.R.cuff.parent.remove(fpArms.R.cuff);
+    if(fpArms.L.cuff.parent)fpArms.L.cuff.parent.remove(fpArms.L.cuff);
     d.mesh.traverse(o=>{
       if(o.userData&&o.userData.arm)o.visible=o.userData.armSide==='right';
     });
@@ -5311,22 +5346,28 @@ function updateFPArms(d,dt){
   }
   const handR=H&&H[0]?H[0]:[0,-.08,.10,.28];
   const handL=(!H||!H[1])?null:H[1];
+  const supportGrip=d.sourceRailGrip?FP_RAIL_GRIP_L:FP_GRIP_L;
+  const supportGripQ=d.sourceRailGrip?fpArms.L.railGrip:fpArms.L.grip;
   if(fpArms.weaponId!==id){
     fpArms.weaponId=id;
     d.mesh.traverse(o=>{if(o.userData&&o.userData.arm)o.visible=false;});
     if(fpArms.R.model.parent) fpArms.R.model.parent.remove(fpArms.R.model);
     d.mesh.add(fpArms.R.model);
+    if(fpArms.R.cuff.parent)fpArms.R.cuff.parent.remove(fpArms.R.cuff);
+    d.mesh.add(fpArms.R.cuff);
     placeFPArm(fpArms.R,handR,FP_TRIGGER_DIR,FP_GRIP_R);
     if(fpArms.L.model.parent) fpArms.L.model.parent.remove(fpArms.L.model);
+    if(fpArms.L.cuff.parent)fpArms.L.cuff.parent.remove(fpArms.L.cuff);
     if(handL){
       d.mesh.add(fpArms.L.model);
-      placeFPArm(fpArms.L,handL,FP_SUPPORT_DIR,FP_GRIP_L);
+      d.mesh.add(fpArms.L.cuff);
+      placeFPArm(fpArms.L,handL,FP_SUPPORT_DIR,supportGrip);
     }
   }
   const smooth=Math.min(1,dt*13);
   d.mesh.updateMatrixWorld(true);
   poseFPArm(fpArms.R,d,handR,FP_GRIP_R,_fpHandR,1,smooth);
-  if(handL) poseFPArm(fpArms.L,d,handL,FP_GRIP_L,_fpHandL,-1,smooth);
+  if(handL) poseFPArm(fpArms.L,d,handL,supportGrip,_fpHandL,-1,smooth,supportGripQ);
 }
 function makeZombie(round){
   const skin=new THREE.Color().setHSL(rand(.20,.28),rand(.10,.22),rand(.30,.46));
