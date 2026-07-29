@@ -2651,6 +2651,9 @@ function openMapGate(id,silent){
   const bi=blockers.indexOf(gate.mesh);if(bi>=0)blockers.splice(bi,1);
   if(gate.moveDelta)gate.g.position.copy(gate.base).add(gate.moveDelta);
   else gate.g.visible=false;
+  // A powered shortcut can have a shutter at each end. Linked leaves share
+  // one purchase and one network event, then disappear together for all peers.
+  for(const linkedId of gate.linked||[])openMapGate(linkedId,true);
   if(!silent){toast(gate.label);sfxBuy('door');}
   return true;
 }
@@ -2776,7 +2779,10 @@ function buildLastStop(){
 
   // Station facade and ticket hall shell. Wide authored openings are the only paid entries.
   wallRun(-24,30,24,30,7.4,stone,[{c:0,w:6.2}]);
-  wallRun(-24,16,24,16,7.4,stone,[{c:-13,w:4.4},{c:0,w:7.2}]);
+  // Carry the ticket-hall divider all the way to the wider concourse shell.
+  // The old six-metre side wings were open, allowing both paid entries to be
+  // walked around even though the shutters themselves worked correctly.
+  wallRun(-30,16,30,16,7.4,stone,[{c:-13,w:4.4},{c:0,w:7.2}]);
   wallRun(-24,16,-24,30,7.4,stone,[]);
   wallRun(24,16,24,30,7.4,stone,[]);
   wallRun(-24,30,-24,50,3.2,stoneDark,[]);
@@ -2815,19 +2821,28 @@ function buildLastStop(){
   phoneBooth(-21,35,Math.PI/2);fireBarrel(21,38,0);
 
   addMapGate('front','Open terminal doors',750,0,0,30,5.9,3.7,.40,0,stoneDark,'shutter');
-  // The powered plaza door now enters a sealed station-control room instead
-  // of spilling into the exterior loop. It is a distinct post-power reward,
-  // so opening the terminal route cannot bypass it.
-  wallRun(24,31,34,31,4.6,stoneDark,[]);
+  // A real powered shortcut, not a dead room: the plaza vestibule feeds a
+  // narrow enclosed passage beside the station and exits on the platform
+  // side. Both shutters are linked and stay shut until both circuits are on.
+  wallRun(24,31,30,31,4.6,stoneDark,[]);
   wallRun(24,39,34,39,4.6,stoneDark,[]);
   wallRun(34,31,34,39,4.6,stoneDark,[]);
   floorSlab(24.3,31.3,33.7,38.7,.04,M.tile);
   bx(10.4,.38,8.4,29,4.79,35,stoneDark,false);
-  signBoard('Station Control',29,3.85,31.24,0,6.5);
+  wallRun(30,1,30,31,4.6,stoneDark,[]);
+  wallRun(34,1,34,31,4.6,stoneDark,[]);
+  floorSlab(30.3,1.3,33.7,30.9,.04,M.tile);
+  bx(4.4,.38,30,32,4.79,16,stoneDark,false);
+  signBoard('Powered Station Shortcut',29,3.85,31.24,0,7.5);
   bx(2.4,.12,.45,29,4.42,35,glow,false);
+  for(const z of [25,16,7])bx(2.4,.12,.45,32,4.42,z,glow,false);
   roomLight(29,4.05,35,0xffd49a,.78,13);
-  addMapGate('control','Open station control',1000,24,0,35,4.2,3.0,.48,Math.PI/2,
+  roomLight(32,4.05,16,0xffd49a,.72,15);
+  const controlGate=addMapGate('control','Open powered shortcut',1000,24,0,35,4.2,3.0,.48,Math.PI/2,
     stoneDark,'shutter',['signal','yardpower']);
+  const controlExit=addMapGate('controlExit','Open powered shortcut',1000,32,0,1,3.2,3.0,.48,0,
+    stoneDark,'shutter',['signal','yardpower']);
+  controlGate.linked=['controlExit'];controlExit.linked=['control'];
 
   // Ticket windows, queue rails, departure board, luggage, and the café establish the interior.
   // Three short kiosks instead of one wall-to-wall counter: it reads better
@@ -2869,9 +2884,11 @@ function buildLastStop(){
     ['gate:turnstiles']);
 
   // Concourse shell and café. The paid central and side routes reconnect before the platforms.
-  wallRun(-30,4,30,4,6.4,stoneDark,[{c:0,w:7.0}]);
-  wallRun(-30,4,-30,16,6.4,stoneDark,[]);
-  wallRun(30,4,30,16,6.4,stoneDark,[]);
+  // Overlap every concourse corner with visible masonry. Exact end-to-end
+  // joins left a diagonal collision seam that the recording exposed.
+  wallRun(-30.8,4,30.8,4,6.4,stoneDark,[{c:0,w:7.0}]);
+  wallRun(-30,3.4,-30,16.6,6.4,stoneDark,[]);
+  wallRun(30,3.4,30,16.6,6.4,stoneDark,[]);
   bx(61,.42,13,0,6.62,10,stoneDark,false);
   floorSlab(-29.7,4.3,29.7,15.7,.04,M.concrete);
   signBoard('Platforms 1 - 4',0,5.05,4.24,0,10);
@@ -2882,7 +2899,8 @@ function buildLastStop(){
     cyl(.25,.28,.78,-26+i*1.65,.39,7.65,M.metal,true);
     cyl(.28,.28,.11,-26+i*1.65,.82,7.65,M.plank,false);
   }
-  addMapGate('platforms','Open platform access',1250,0,0,4,6.5,3.4,.50,0,railMat,'shutter');
+  addMapGate('platforms','Open platform access',1250,0,0,4,6.5,3.4,.50,0,railMat,'shutter',
+    ['gate:turnstiles']);
 
   // Four long platforms, rails, sleepers, canopies, signs, and detailed rolling stock.
   for(const z of [1,-7,-15,-23]){
@@ -2946,21 +2964,23 @@ function buildLastStop(){
   [-32,-16,0,16,32].forEach((x,i)=>signBoard('PLATFORM '+(i+1),x,3.15,-4.28,Math.PI,5));
 
   // West service passage and east maintenance yard are separate paid objectives.
-  wallRun(-49,-25,-31,-25,5.0,stoneDark,[]);
-  wallRun(-49,3,-31,3,5.0,stoneDark,[{c:-40,w:4.5}]);
-  wallRun(-49,-25,-49,3,5.0,stoneDark,[]);
-  wallRun(-31,-25,-31,3,5.0,stoneDark,[]);
+  wallRun(-50,-25,-30,-25,5.0,stoneDark,[]);
+  wallRun(-50,3,-30,3,5.0,stoneDark,[{c:-40,w:4.5}]);
+  wallRun(-49,-26,-49,4,5.0,stoneDark,[]);
+  wallRun(-31,-26,-31,4,5.0,stoneDark,[]);
   floorSlab(-48.7,-24.7,-31.3,2.7,.04,M.tile);
   signBoard('Service Tunnels',-40,4.15,2.74,Math.PI,8);
-  addMapGate('service','Clear service passage',1250,-40,0,3,4.3,2.6,.72,0,M.plank,'debris');
+  addMapGate('service','Clear service passage',1250,-40,0,3,4.3,2.6,.72,0,M.plank,'debris',
+    ['gate:platforms']);
 
-  wallRun(31,-38,49,-38,5.0,railMat,[{c:40,w:5.0}]);
-  wallRun(31,-2,49,-2,5.0,railMat,[]);
-  wallRun(49,-38,49,-2,5.0,railMat,[]);
-  wallRun(31,-38,31,-2,5.0,railMat,[{c:-20,w:4.6}]);
+  wallRun(30,-38,50,-38,5.0,railMat,[{c:40,w:5.0}]);
+  wallRun(30,-2,50,-2,5.0,railMat,[]);
+  wallRun(49,-39,49,-1,5.0,railMat,[]);
+  wallRun(31,-39,31,-1,5.0,railMat,[{c:-20,w:4.6}]);
   floorSlab(31.3,-37.7,48.7,-2.3,.04,M.concrete);
   signBoard('Maintenance Yard',40,4.15,-2.25,Math.PI,8);
-  addMapGate('yard','Open maintenance yard',1500,31,0,-20,4.5,3.1,.48,Math.PI/2,railMat,'shutter');
+  addMapGate('yard','Open maintenance yard',1500,31,0,-20,4.5,3.1,.48,Math.PI/2,railMat,'shutter',
+    ['gate:platforms']);
   // The powered maintenance car has its own correctly gauged siding.
   const sidingSleepers=new THREE.InstancedMesh(new THREE.BoxGeometry(3.8,.14,.24),M.wood,10);
   for(let i=0;i<10;i++){
@@ -2983,10 +3003,10 @@ function buildLastStop(){
   addMapSwitch('yardpower','Yard generator',46,0,-34,-Math.PI/2,railMat);
 
   // Armored freight vault is a compact final room with two exits and a powered gate.
-  wallRun(-14,-47,14,-47,5.4,stoneDark,[]);
-  wallRun(-14,-31,14,-31,5.4,stoneDark,[{c:0,w:5.2}]);
-  wallRun(-14,-47,-14,-31,5.4,stoneDark,[]);
-  wallRun(14,-47,14,-31,5.4,stoneDark,[]);
+  wallRun(-15,-47,15,-47,5.4,stoneDark,[]);
+  wallRun(-15,-31,15,-31,5.4,stoneDark,[{c:0,w:5.2}]);
+  wallRun(-14,-48,-14,-30,5.4,stoneDark,[]);
+  wallRun(14,-48,14,-30,5.4,stoneDark,[]);
   floorSlab(-13.7,-46.7,13.7,-31.3,.04,M.tile);
   bx(29,.50,17,0,5.65,-39,stoneDark,false);
   signBoard('Armored Rail Vault',0,4.45,-31.26,Math.PI,10);
