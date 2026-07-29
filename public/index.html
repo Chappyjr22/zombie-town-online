@@ -5120,7 +5120,14 @@ const gltfLoader=new GLTFLoader();
 let playerModelAsset=null,playerModelLoading=null;
 const BOSS_MODEL_PATH='/models/boss-zombie/boss-zombie.glb';
 const BOSS_MODEL_SCALE=1.52;
-const BOSS_MODEL_YAW=Math.PI;
+// The zombie rig's own forward convention (see the "to world" transform
+// further down: p.x=x*cos(yaw)+zz*sin(yaw)) is a standard rotation.y matrix,
+// so local +Z is forward at yaw=0 - matching the movement equations, which
+// also move toward +Z at yaw=0. A model whose rest pose already faces its
+// own local +Z therefore needs no correction at all; this had +PI, turning
+// every boss to face exactly away from its direction of travel (reported
+// as "running at us backwards").
+const BOSS_MODEL_YAW=0;
 const BOSS_HIT_GEO=new THREE.SphereGeometry(1,10,8);
 const BOSS_HIT_MAT=new THREE.MeshBasicMaterial({visible:false});
 let bossModelAsset=null,bossModelLoading=null;
