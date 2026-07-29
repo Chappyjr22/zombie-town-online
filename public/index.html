@@ -53,6 +53,13 @@
   #top{left:50%;top:18px;transform:translateX(-50%);text-align:center;}
   #wavebig{font-size:24px;font-weight:700;letter-spacing:.2em;color:var(--blood);}
   #left{font-size:10px;opacity:.55;margin-top:1px;letter-spacing:.18em;}
+  #bossHud{position:absolute;left:50%;top:76px;transform:translateX(-50%);width:min(560px,64vw);
+    text-align:center;opacity:0;transition:opacity .18s;filter:drop-shadow(0 3px 8px #000);}
+  #bossName{font-size:12px;font-weight:700;letter-spacing:.34em;color:#e5d7bd;margin-bottom:5px;
+    text-shadow:0 2px 8px #000;}
+  #bossTrack{height:13px;padding:2px;background:rgba(5,6,8,.88);border:1px solid rgba(216,75,52,.72);}
+  #bossFill{height:100%;width:100%;background:linear-gradient(90deg,#75150f,#d43b27 58%,#ff7655);
+    box-shadow:0 0 12px rgba(221,56,37,.68);transition:width .10s linear;}
 
   #buffs{right:26px;top:20px;text-align:right;font-size:11px;line-height:1.9;letter-spacing:.16em;}
   .buff b{color:var(--amber);}
@@ -245,6 +252,7 @@
   body.touch #prompt{bottom:38%;font-size:max(12px,2.1vmin);}
   body.touch #banner{font-size:max(26px,5vmin);top:30%;}
   body.touch #toast{top:44%;font-size:max(11px,1.9vmin);}
+  body.touch #bossHud{top:66px;width:min(520px,78vw);}
   @media (max-width:760px){ #keys{display:none;} .card h1{font-size:30px;} .cols{grid-template-columns:1fr;} }
   @media (max-height:520px){
     .screen{align-items:flex-start;padding:14px;}
@@ -269,6 +277,10 @@
   <div class="panel" id="top">
     <div id="wavebig">ROUND 01</div>
     <div id="left">10 remaining</div>
+  </div>
+  <div id="bossHud">
+    <div id="bossName">THE BRUTE</div>
+    <div id="bossTrack"><div id="bossFill"></div></div>
   </div>
 
   <div class="panel" id="buffs"></div>
@@ -5098,6 +5110,110 @@ T.zombieSkin=tex(96,96,(x,w,h)=>{
    just on a real mesh instead of primitives. */
 const gltfLoader=new GLTFLoader();
 let playerModelAsset=null,playerModelLoading=null;
+const BOSS_MODEL_PATH='/models/boss-zombie/boss-zombie.glb';
+const BOSS_MODEL_SCALE=1.52;
+const BOSS_MODEL_YAW=Math.PI;
+const BOSS_HIT_GEO=new THREE.SphereGeometry(1,10,8);
+const BOSS_HIT_MAT=new THREE.MeshBasicMaterial({visible:false});
+let bossModelAsset=null,bossModelLoading=null;
+function inPlaceBossClip(src,name){
+  const tracks=src.tracks.map(track=>{
+    const t=track.clone();
+    if(name!=='BossDeath'&&/CityDeadOutfit:?Hips\.position$/i.test(t.name)&&t.values.length>=3){
+      const x=t.values[0],z=t.values[2];
+      for(let i=0;i<t.values.length;i+=3){t.values[i]=x;t.values[i+2]=z;}
+    }
+    return t;
+  });
+  return new THREE.AnimationClip(name,src.duration,tracks);
+}
+function loadBossModelAsset(){
+  if(bossModelAsset)return Promise.resolve(bossModelAsset);
+  if(bossModelLoading)return bossModelLoading;
+  bossModelLoading=new Promise((resolve,reject)=>{
+    gltfLoader.load(BOSS_MODEL_PATH,gltf=>{
+      try{
+        if(!gltf||!gltf.scene)throw new Error('Boss zombie GLB did not contain a scene');
+        let mesh=null;gltf.scene.traverse(o=>{if(!mesh&&o.isSkinnedMesh)mesh=o;});
+        if(!mesh)throw new Error('Boss zombie GLB is missing its skinned mesh');
+        const clips={};
+        for(const name of ['BossWalk','BossAttack','BossHit','BossDeath']){
+          const clip=THREE.AnimationClip.findByName(gltf.animations||[],name);
+          if(!clip)throw new Error('Boss zombie GLB is missing '+name);
+          clips[name]=inPlaceBossClip(clip,name);
+        }
+        bossModelAsset={scene:gltf.scene,clips};
+        bossModelLoading=null;resolve(bossModelAsset);
+      }catch(err){bossModelLoading=null;reject(err);}
+    },undefined,err=>{bossModelLoading=null;reject(err);});
+  });
+  return bossModelLoading;
+}
+function bossTeamSize(){
+  if(!net.connected)return 1;
+  let n=1;
+  for(const p of net.players.values()){
+    if(p.id!==net.id&&p.state&&p.state.map===currentMap)n++;
+  }
+  return Math.max(1,n);
+}
+function bossHpForRound(round){
+  const base=6000+Math.max(0,round-10)*550;
+  return Math.round(base*(1+(bossTeamSize()-1)*.45));
+}
+function setBossAction(z,name){
+  if(!z.bossActions||z.bossAction===name)return;
+  const next=z.bossActions[name];if(!next)return;
+  const previous=z.bossActions[z.bossAction];
+  if(previous)previous.fadeOut(.16);
+  next.reset().fadeIn(.16);
+  if(name==='walk')next.setLoop(THREE.LoopRepeat,Infinity).setEffectiveTimeScale(2.15);
+  else{
+    next.setLoop(THREE.LoopOnce,1);next.clampWhenFinished=true;
+    next.setEffectiveTimeScale(name==='attack'?4.0:(name==='death'?1.45:3.2));
+  }
+  next.play();z.bossAction=name;
+}
+function attachBossModel(z,asset){
+  if(z.removed||z.bossModel)return;
+  const model=SkeletonUtils.clone(asset.scene),mats=[];
+  model.scale.setScalar(BOSS_MODEL_SCALE);
+  model.position.set(z.pos.x,z.y,z.pos.z);model.rotation.y=z.yaw+BOSS_MODEL_YAW;
+  model.traverse(o=>{
+    if(!o.isMesh)return;
+    o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;
+    const src=Array.isArray(o.material)?o.material:[o.material];
+    const cloned=src.map(m=>{
+      const c=m.clone();c.transparent=true;mats.push(c);return c;
+    });
+    o.material=Array.isArray(o.material)?cloned:cloned[0];
+  });
+  z.grp.add(model);z.bossModel=model;z.bossMats=mats;
+  for(const m of z.fallbackMeshes)m.visible=false;
+  z.bossMixer=new THREE.AnimationMixer(model);z.bossActions={};
+  for(const [key,clipName] of [['walk','BossWalk'],['attack','BossAttack'],['hit','BossHit'],['death','BossDeath']])
+    z.bossActions[key]=z.bossMixer.clipAction(asset.clips[clipName]);
+  setBossAction(z,z.dead?'death':'walk');
+}
+function updateBossVisual(z,dt,moving){
+  if(z.bossModel){
+    z.bossModel.position.set(z.pos.x,z.y,z.pos.z);
+    z.bossModel.rotation.y=z.yaw+BOSS_MODEL_YAW;
+    if(z.dead)setBossAction(z,'death');
+    else if(game.time<(z.bossAttackUntil||0))setBossAction(z,'attack');
+    else setBossAction(z,'walk');
+    z.bossMixer.update(dt);
+    const flash=!z.dead&&game.time<(z.bossHitUntil||0);
+    for(const m of z.bossMats){
+      if(m.emissive){m.emissive.setHex(flash?0x5a0803:0x000000);m.emissiveIntensity=flash?1.15:0;}
+    }
+  }
+  const p=z.pts;
+  if(z.bossHeadHit)p[HEAD]&&z.bossHeadHit.position.set(p[HEAD].x,p[HEAD].y,p[HEAD].z);
+  if(z.bossTorsoHit&&p[CHEST]&&p[PELV]){
+    z.bossTorsoHit.position.set((p[CHEST].x+p[PELV].x)*.5,(p[CHEST].y+p[PELV].y)*.5,(p[CHEST].z+p[PELV].z)*.5);
+  }
+}
 // Matches every bone from the shoulder down (incl. finger sub-bones, which
 // all share the "Hand" name prefix) on either side - the set kept when
 // carving a sleeve-and-hand-only geometry out of the one continuous body
@@ -5525,7 +5641,7 @@ function updateFPArms(d,dt){
   poseFPArm(fpArms.R,d,handR,FP_GRIP_R,_fpHandR,1,smooth);
   if(handL) poseFPArm(fpArms.L,d,handL,supportGrip,_fpHandL,-1,smooth,supportGripQ);
 }
-function makeZombie(round){
+function makeZombie(round,isBoss){
   const skin=new THREE.Color().setHSL(rand(.20,.28),rand(.10,.22),rand(.30,.46));
   const cloth=new THREE.Color().setHSL(rand(0,1),.16,rand(.11,.26));
   const pants=new THREE.Color().setHSL(rand(0,1),.09,rand(.08,.19));
@@ -5560,10 +5676,32 @@ function makeZombie(round){
     else m.userData={z,part:b.part};
     grp.add(m); z.meshes.push(m); zombieMeshes.push(m);
   }
+  if(isBoss){
+    z.boss=true;z.scale=1.48;z.speed=clamp(1.42+round*.035,1.65,2.35);
+    z.hp=z.maxHp=bossHpForRound(round);
+    z.mats.cloth.color.setHex(0x351512);z.mats.pantsM.color.setHex(0x1a1718);
+    z.mats.skin.color.setHex(0x64705a);z.mats.eye.color.setHex(0xff6a35);
+    z.mats.eyeGlow.color.setHex(0xc51e0c);z.fallbackMeshes=z.meshes.slice();
+    // The detailed skinned model is visual-only. Two simple invisible volumes
+    // keep boss headshots precise without raycasting all 17.8k model vertices.
+    for(const m of z.fallbackMeshes){
+      const i=zombieMeshes.indexOf(m);if(i>=0)zombieMeshes.splice(i,1);
+    }
+    const headHit=new THREE.Mesh(BOSS_HIT_GEO,BOSS_HIT_MAT);
+    headHit.scale.set(.29,.33,.29);headHit.userData={z,part:'head'};
+    const torsoHit=new THREE.Mesh(BOSS_HIT_GEO,BOSS_HIT_MAT);
+    torsoHit.scale.set(.55,.75,.40);torsoHit.userData={z,part:'torso'};
+    grp.add(headHit,torsoHit);z.meshes.push(headHit,torsoHit);
+    z.bossHeadHit=headHit;z.bossTorsoHit=torsoHit;
+    zombieMeshes.push(headHit,torsoHit);
+    loadBossModelAsset().then(asset=>attachBossModel(z,asset))
+      .catch(err=>console.warn('Boss zombie model unavailable; using detailed procedural fallback.',err));
+  }
   return z;
 }
 const ZOMBIE_SHADOW_DIST=32; // only zombies within this range of the player bother casting a shadow
 function updateZombieShadowCasting(z){
+  if(z.bossModel)return;
   const near=Math.hypot(z.pos.x-player.pos.x,z.pos.z-player.pos.z)<ZOMBIE_SHADOW_DIST;
   if(z.castsShadow===near) return;
   z.castsShadow=near;
@@ -5571,7 +5709,10 @@ function updateZombieShadowCasting(z){
   if(z.torsoMesh) z.torsoMesh.castShadow=near;
 }
 function removeZombie(z){
+  z.removed=true;
   for(const m of z.meshes){const i=zombieMeshes.indexOf(m); if(i>=0) zombieMeshes.splice(i,1);}
+  if(z.bossMixer)z.bossMixer.stopAllAction();
+  if(z.bossMats)for(const m of z.bossMats)m.dispose();
   scene.remove(z.grp);
   Object.values(z.mats).forEach(m=>m.dispose());
   const i=zombies.indexOf(z); if(i>=0) zombies.splice(i,1);
@@ -5894,8 +6035,11 @@ function damageZombie(z,dmg,part,dir,impulse,noPoints,netMeta){
       dir:[dir.x,dir.y,dir.z],impulse:impulse||.09,noPoints:!!noPoints});
     return;
   }
-  if(buffs.instakill>0) dmg=999999;
+  // Bosses keep their encounter health through instant-kill and wonder-weapon
+  // effects. Those attacks still hurt them, but cannot erase the boss bar.
+  if(buffs.instakill>0&&!z.boss) dmg=999999;
   z.hp-=dmg;
+  if(z.boss)z.bossHitUntil=game.time+.11;
   if(!noPoints) addPoints(10*roundMult(z.round));
   if(z.hp<=0) killZombie(z,dir,part,impulse||0.09,!!(netMeta&&netMeta.noReward),!!(netMeta&&netMeta.silent));
   else{
@@ -5917,6 +6061,7 @@ function killZombie(z,dir,part,impulse,noReward,silentNet){
     return;
   }
   z.dead=true; z.deadAt=game.time; z.removeAt=game.time+10;
+  if(z.boss)setBossAction(z,'death');
   for(const m of z.meshes){const i=zombieMeshes.indexOf(m); if(i>=0) zombieMeshes.splice(i,1);}
   const tgt=part==='head'?[HEAD,CHEST]:(part==='torso'?[CHEST,PELV]:[PELV,CHEST]);
   for(const i of tgt){
@@ -6105,8 +6250,11 @@ function thunderBlast(org,dir){
   }
   for(const c of cone){
     const push=0.34*(1-c.dist/d.coneR)+0.16;
-    killZombie(c.z,c.to,'torso',push);
-    for(const p of c.z.pts){ p.px-=c.to.x*push*.7; p.py-=push*.5; p.pz-=c.to.z*push*.7; }
+    if(c.z.boss)damageZombie(c.z,Math.min(1400,c.z.maxHp*.18),'torso',c.to,.12);
+    else{
+      killZombie(c.z,c.to,'torso',push);
+      for(const p of c.z.pts){ p.px-=c.to.x*push*.7; p.py-=push*.5; p.pz-=c.to.z*push*.7; }
+    }
   }
   // visible shockwave
   const m=new THREE.Mesh(new THREE.SphereGeometry(1,10,8),
@@ -6848,7 +6996,8 @@ function applyCollectedDrop(k,collector){
       for(let i=zombies.length-1;i>=0;i--){
         const z=zombies[i]; if(z.dead) continue;
         const dir=new THREE.Vector3(z.pos.x-player.pos.x,-0.6,z.pos.z-player.pos.z).normalize();
-        killZombie(z,dir,'torso',0.22,!!net.connected,false);
+        if(z.boss)damageZombie(z,Math.min(1500,z.maxHp*.20),'torso',dir,.10,true);
+        else killZombie(z,dir,'torso',0.22,!!net.connected,false);
       }
       if(net.connected) netHostDirect(collector,{type:'damage_result',points:400,killed:false});
       else addPoints(400);
@@ -6866,7 +7015,7 @@ const ui={hp:el('hpfill'),ammo:el('ammo'),gunname:el('gunname'),reloading:el('re
   slots:el('slots'),pts:el('ptsval'),perks:el('perks'),wavebig:el('wavebig'),left:el('left'),
   mult:el('ptsmult'),invuln:el('invuln'),cross:el('cross'),reddot:el('reddot'),hit:el('hitmark'),vig:el('vig'),downed:el('downed'),
   scope:el('scope'),banner:el('banner'),toast:el('toast'),prompt:el('prompt'),buffs:el('buffs'),
-  flashWhite:0};
+  bossHud:el('bossHud'),bossFill:el('bossFill'),bossName:el('bossName'),flashWhite:0};
 const flashEl=document.createElement('div');
 flashEl.style.cssText='position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;mix-blend-mode:screen;';
 el('hud').appendChild(flashEl);
@@ -6903,23 +7052,28 @@ function updHUD(){
 
 /* ---------- rounds ---------- */
 const ROUND_GAP=150;
-const game={round:0,toSpawn:0,spawnTimer:0,roundTimer:0,running:false,time:0,kills:0,focus:null,wonderFound:false,boxDry:0,lockdown:0};
+const game={round:0,toSpawn:0,spawnTimer:0,roundTimer:0,running:false,time:0,kills:0,focus:null,wonderFound:false,boxDry:0,lockdown:0,bossPending:false};
 const roundCount=r=>10+(r-1)*2;                 // two more every round
 const roundMult=r=>1+(r-1)*0.15;                // and they are worth more
+const isBossRound=r=>r>0&&r%10===0;
 
 function startRound(){
   if(net.connected&&!net.host){netGameRequest({type:'round_call'});return;}
   game.round++;
-  game.toSpawn=roundCount(game.round); game.spawnTimer=0; game.roundTimer=ROUND_GAP;
+  const bossRound=isBossRound(game.round);
+  game.bossPending=bossRound;
+  // Boss rounds are intentionally focused: one Brute and ten regular zombies.
+  game.toSpawn=bossRound?11:roundCount(game.round); game.spawnTimer=0; game.roundTimer=ROUND_GAP;
   const lockdown=currentMap==='blacksire'&&game.round>1&&game.round%4===0;
   game.lockdown=lockdown?20:0;
-  banner(lockdown?'CONTAINMENT LOCKDOWN':'ROUND '+String(game.round).padStart(2,'0'),
-    lockdown?'Emergency protocol  \u00b7  accelerated breach':game.toSpawn+' of them');
+  banner(bossRound?'BOSS ROUND':(lockdown?'CONTAINMENT LOCKDOWN':'ROUND '+String(game.round).padStart(2,'0')),
+    bossRound?'The Brute  \u00b7  ten escorts':(lockdown?'Emergency protocol  \u00b7  accelerated breach':game.toSpawn+' of them'));
   if(typeof placeMannequins==='function') placeMannequins();
   sfxRound(); updHUD();
-  if(net.connected&&net.host) netHostBroadcast({type:'round_start',round:game.round,count:game.toSpawn,lockdown});
+  if(bossRound)loadBossModelAsset().catch(()=>{});
+  if(net.connected&&net.host) netHostBroadcast({type:'round_start',round:game.round,count:game.toSpawn,lockdown,boss:bossRound});
 }
-function spawnOne(){
+function spawnOne(asBoss){
   if(!SPAWNS.length) return;
   const unlocked=SPAWNS.filter(s=>{
     const req=s[3];if(!req)return true;
@@ -6932,7 +7086,7 @@ function spawnOne(){
     const d=Math.hypot(s[0]-player.pos.x,s[1]-player.pos.z);
     if(d>bd){bd=d;best=s;}
   }
-  const z=makeZombie(game.round);
+  const z=makeZombie(game.round,!!asBoss);
   if(net.connected&&net.host) z.netId=netZombieId();
   z.pos.set(best[0]+rand(-2.5,2.5),best[2]||0,best[1]+rand(-2.5,2.5));
   z.y=best[2]||0;
@@ -6940,6 +7094,7 @@ function spawnOne(){
   z.nextGroan=game.time+rand(1,7);
   poseAlive(z,0,false);
   for(const p of z.pts){p.px=p.x;p.py=p.y;p.pz=p.z;}
+  if(z.boss)updateBossVisual(z,0,false);
   zombies.push(z);
 }
 
@@ -7142,7 +7297,8 @@ function netHostWorld(){
     if(z.dead) continue;
     if(!z.netId) z.netId=netZombieId();
     live.push([z.netId,z.round,+z.pos.x.toFixed(2),+z.y.toFixed(2),+z.pos.z.toFixed(2),
-      +z.yaw.toFixed(3),Math.max(0,Math.round(z.hp)),z.maxHp]);
+      +z.yaw.toFixed(3),Math.max(0,Math.round(z.hp)),z.maxHp,z.boss?1:0,
+      z.boss&&game.time<(z.bossAttackUntil||0)?1:0]);
   }
   netHostBroadcast({type:'world',round:game.round,toSpawn:game.toSpawn,
     roundTimer:+game.roundTimer.toFixed(2),kills:game.kills,z:live,
@@ -7161,13 +7317,15 @@ function applySharedWorld(e){
     const id=String(a[0]); seen.add(id);
     let z=netZombie(id);
     if(!z){
-      z=makeZombie(Math.max(1,a[1]|0)); z.netId=id; z.pos.set(+a[2]||0,+a[3]||0,+a[4]||0);
+      z=makeZombie(Math.max(1,a[1]|0),!!a[8]); z.netId=id; z.pos.set(+a[2]||0,+a[3]||0,+a[4]||0);
       z.y=+a[3]||0; z.yaw=+a[5]||0; z.hp=+a[6]||1; z.maxHp=+a[7]||z.maxHp;
       poseAlive(z,game.time,false);
+      if(z.boss)updateBossVisual(z,0,false);
       for(const p of z.pts){p.px=p.x;p.py=p.y;p.pz=p.z;}
       zombies.push(z);
     }
     z.netSeen=game.time;
+    if(z.boss&&a[9])z.bossAttackUntil=game.time+.24;
     z.netTarget={x:+a[2]||0,y:+a[3]||0,z:+a[4]||0,yaw:+a[5]||0,hp:+a[6]||0};
   }
   for(let i=zombies.length-1;i>=0;i--){
@@ -7241,6 +7399,12 @@ function handleHostGameRequest(e,playerId){
     const z=netZombie(String(e.id||'')); if(!z||z.dead) return;
     const part=e.part==='head'?'head':'torso',d=Array.isArray(e.dir)?e.dir:[0,0,1];
     const dir=new THREE.Vector3(+d[0]||0,+d[1]||0,+d[2]||0).normalize();
+    if(z.boss){
+      const amount=Math.min(1400,z.maxHp*.18);
+      damageZombie(z,amount,part,dir,.12,true,{authoritative:true,noReward:true});
+      netHostDirect(playerId,{type:'damage_result',points:10*roundMult(z.round),killed:z.dead});
+      return;
+    }
     killZombie(z,dir,part,clamp(+e.impulse||.2,0,.8),true,false);
     netHostDirect(playerId,{type:'damage_result',points:(part==='head'?90:50)*roundMult(z.round),killed:true});
   } else if(e.type==='drop_collect'){
@@ -7306,8 +7470,10 @@ function handleSharedGameEvent(e){
     applySessionPause(!!e.paused);
   } else if(e.type==='round_start'){
     game.lockdown=e.lockdown?20:0;
-    banner(e.lockdown?'CONTAINMENT LOCKDOWN':'ROUND '+String(e.round|0).padStart(2,'0'),
-      e.lockdown?'Emergency protocol  \u00b7  accelerated breach':(e.count|0)+' of them'); sfxRound();
+    banner(e.boss?'BOSS ROUND':(e.lockdown?'CONTAINMENT LOCKDOWN':'ROUND '+String(e.round|0).padStart(2,'0')),
+      e.boss?'The Brute  \u00b7  ten escorts':(e.lockdown?'Emergency protocol  \u00b7  accelerated breach':(e.count|0)+' of them'));
+    if(e.boss)loadBossModelAsset().catch(()=>{});
+    sfxRound();
   }
 }
 function netColor(id){
@@ -7958,7 +8124,7 @@ function startGame(mapId){
   player.guns=[{def:DEFS.m1911,ammo:8,res:96,pack:0},{def:DEFS.m4a1,ammo:30,res:270,pack:0}];
   player.slot=1;
   for(const k in buffs) buffs[k]=0;
-  game.round=0; game.kills=0; game.wonderFound=false; game.boxDry=0; game.lockdown=0; game.time=performance.now()/1000;
+  game.round=0; game.kills=0; game.wonderFound=false; game.boxDry=0; game.lockdown=0; game.bossPending=false; game.time=performance.now()/1000;
   net.nextState=0; net.nextWorld=0; net.pausedByHost=false;
   if(net.connected&&net.host) net.zombieSeq=1;
   if(mbox.state!=='idle') closeBox();
@@ -7966,6 +8132,7 @@ function startGame(mapId){
   ui.downed.style.opacity=0; ui.vig.style.opacity=0;
   const crouchButton=el('crouchBtn');if(crouchButton)crouchButton.classList.remove('on');
   renderPerks(); updHUD();
+  ui.bossHud.style.opacity=0;
   game.running=true; last=performance.now()/1000;
   startMapAmbience();
   rebuildRemotePlayers();
@@ -8246,7 +8413,8 @@ function updateRounds(dt){
     game.spawnTimer-=dt;
     let live=0; for(const z of zombies) if(!z.dead) live++;
     if(game.spawnTimer<=0&&live<30){
-      spawnOne(); game.toSpawn--;
+      const boss=game.bossPending;
+      spawnOne(boss);game.bossPending=false;game.toSpawn--;
       game.spawnTimer=game.lockdown>0?rand(.32,.72):rand(.7,1.6);
     }
     else if(game.spawnTimer<=0) game.spawnTimer=1.5;
@@ -8263,6 +8431,12 @@ function updRoundHUD(){
   if(nukeSign&&nukeSign.last!==pop){ nukeSign.last=pop; drawNukeSign(pop); }
   if(nukeClock&&nukeClock.last!==game.round){ nukeClock.last=game.round; drawNukeClock(game.round); }
   ui.left.textContent=(alive>0?alive+' remaining':'clear')+'  \u00b7  next in '+Math.max(0,Math.ceil(game.roundTimer))+'s'+(alive===0?'  \u00b7  press E':'');
+  const boss=zombies.find(z=>z.boss&&!z.dead);
+  ui.bossHud.style.opacity=boss?1:0;
+  if(boss){
+    ui.bossName.textContent='THE BRUTE  \u00b7  '+Math.max(0,Math.ceil(boss.hp)).toLocaleString()+' HP';
+    ui.bossFill.style.width=clamp(boss.hp/boss.maxHp*100,0,100)+'%';
+  }
 }
 
 function updateReplicaZombies(dt){
@@ -8270,12 +8444,14 @@ function updateReplicaZombies(dt){
     const z=zombies[i];
     updateZombieShadowCasting(z);
     if(z.dead){
-      ragdollStep(z,dt); drawZombie(z);
+      if(z.boss&&z.bossModel)updateBossVisual(z,dt,false);
+      else{ragdollStep(z,dt);drawZombie(z);}
       const age=game.time-z.deadAt;
       if(age>7){
         const o=clamp(1-(age-7)/3,0,1);
         Object.values(z.mats).forEach(m=>{m.opacity=o;});
         if(z.eyeMat) z.eyeMat.opacity=o;
+        if(z.bossMats)z.bossMats.forEach(m=>{m.opacity=o;});
       }
       if(game.time>z.removeAt) removeZombie(z);
       continue;
@@ -8292,7 +8468,8 @@ function updateReplicaZombies(dt){
     if(game.time>z.nextGroan&&replicaDist<46){
       z.nextGroan=game.time+rand(4,11); sfxGroan(replicaDist);
     }
-    poseAlive(z,game.time,true); drawZombie(z);
+    poseAlive(z,game.time,true);drawZombie(z);
+    if(z.boss)updateBossVisual(z,dt,true);
   }
 }
 function updateZombies(dt){
@@ -8301,12 +8478,14 @@ function updateZombies(dt){
     const z=zombies[i];
     updateZombieShadowCasting(z);
     if(z.dead){
-      ragdollStep(z,dt); drawZombie(z);
+      if(z.boss&&z.bossModel)updateBossVisual(z,dt,false);
+      else{ragdollStep(z,dt);drawZombie(z);}
       const age=game.time-z.deadAt;
       if(age>7){
         const o=clamp(1-(age-7)/3,0,1);
         Object.values(z.mats).forEach(m=>{m.opacity=o;});
         if(z.eyeMat) z.eyeMat.opacity=o;
+        if(z.bossMats)z.bossMats.forEach(m=>{m.opacity=o;});
       }
       if(game.time>z.removeAt) removeZombie(z);
       continue;
@@ -8415,22 +8594,23 @@ function updateZombies(dt){
     while(da>Math.PI) da-=TAU; while(da<-Math.PI) da+=TAU;
     z.yaw+=clamp(da,-3.2*dt,3.2*dt);
 
-    const reach=dist>1.1||Math.abs(targetY-z.y)>1.2;
+    const reach=dist>(z.boss?1.65:1.1)||Math.abs(targetY-z.y)>1.2;
     if(reach){
       z.pos.x+=Math.sin(z.yaw)*z.speed*dt;
       z.pos.z+=Math.cos(z.yaw)*z.speed*dt;
-      resolveCircle(z.pos,0.44,z.y);
+      resolveCircle(z.pos,z.boss?.68:.44,z.y);
     } else if(game.time>z.nextSwing&&!targetDown){
-      z.nextSwing=game.time+1.05;
-      const amount=13+z.round*0.7;
+      z.nextSwing=game.time+(z.boss?1.35:1.05);
+      const amount=z.boss?(28+z.round*1.05):(13+z.round*0.7);
+      if(z.boss)z.bossAttackUntil=game.time+1.18;
       const listenerDist=Math.hypot(z.pos.x-player.pos.x,z.pos.z-player.pos.z);
       if(listenerDist<28) sfxGroan(listenerDist,'attack');
       if(!net.connected||targetId===net.id) hurtPlayer(amount);
       else netHostDirect(targetId,{type:'player_damage',amount});
     }
     if(game.time>z.nextGroan&&dist<46){ z.nextGroan=game.time+rand(4,11); sfxGroan(dist); }
-    poseAlive(z,game.time,true);
-    drawZombie(z);
+    poseAlive(z,game.time,true);drawZombie(z);
+    if(z.boss)updateBossVisual(z,dt,reach);
   }
 }
 
