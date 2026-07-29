@@ -5045,7 +5045,11 @@ function stepParts(dt){
 // (and any time) a new light-count combination is hit. Keep a fixed pool of
 // lights permanently in the scene (intensity 0 when idle) instead, mirroring
 // the existing reused muzzleLight/shotLight pattern for hitscan weapons.
-const DYNAMIC_LIGHT_POOL_SIZE=14;
+// Keep this pool small: every light left in the scene - lit or not - still
+// costs each PBR material a full per-fragment shading pass (intensity is a
+// runtime uniform, not a compile-time constant the shader can skip), so a
+// large "off" pool is a permanent frame-cost regression, not a free fix.
+const DYNAMIC_LIGHT_POOL_SIZE=4;
 const dynamicLightPool=[];
 for(let i=0;i<DYNAMIC_LIGHT_POOL_SIZE;i++){
   const L=new THREE.PointLight(0xffffff,0,10,2);
