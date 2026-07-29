@@ -2761,15 +2761,18 @@ function buildLastStop(){
   addMapGate('front','Open terminal doors',750,0,0,30,5.9,3.7,.40,0,stoneDark,'shutter');
 
   // Ticket windows, queue rails, departure board, luggage, and the café establish the interior.
+  // Three short kiosks instead of one wall-to-wall counter: it reads better
+  // as a real station layout, and it means the hall has two wide crossings
+  // instead of forcing all foot traffic out to the far edges.
   const ticketParts=[];
-  for(let i=0;i<7;i++){
-    const x=-18+i*6;
+  const TICKET_X=[-19,-13,-3,3,13,19];
+  for(const x of TICKET_X){
     ticketParts.push(pc(PROP_BOX,0,x,1.05,18.0,0,0,0,4.7,2.1,.55));
     ticketParts.push(pc(PROP_BOX,1,x,2.45,17.68,0,0,0,4.7,.18,.18));
   }
   const ticketBank=new THREE.Mesh(mergeGeos(ticketParts),[M.wood,brass]);worldRoot.add(ticketBank);blockers.push(ticketBank);
-  addCollider(-21,21,17.65,18.35,2.6,0);
-  for(const x of [-18,-12,-6,0,6,12,18]){
+  for(const seg of [[-21.4,-10.6],[-5.4,5.4],[10.6,21.4]])addCollider(seg[0],seg[1],17.65,18.35,2.6,0);
+  for(const x of TICKET_X){
     const pane=new THREE.Mesh(new THREE.PlaneGeometry(3.8,1.15),M.glassBroken);pane.position.set(x,1.55,17.64);worldRoot.add(pane);
   }
   signBoard('Tickets & Departures',0,4.95,17.60,0,12);
