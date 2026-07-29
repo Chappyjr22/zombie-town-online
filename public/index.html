@@ -4197,7 +4197,7 @@ def({id:'mp5',name:'Suomi KP-31',cls:'smg',mode:'auto',rpm:820,dmg:36,mag:30,res
   muzzle:[0,.006,-.400]});
 
 def({id:'ak74u',name:'AK-47',cls:'rifle',mode:'auto',rpm:740,dmg:46,mag:30,res:270,reload:2.4,
-  sightY:.094,spread:.034,adsSpread:.005,range:85,cost:1200,ammoCost:600,wall:true,
+  sightY:.094,spread:.034,adsSpread:.005,range:85,cost:1200,ammoCost:600,wall:true,underGrip:true,
   parts:[].concat(
     [B(.068,.074,.320,0,.006,.040,14), C(.033,.033,.320,0,.026,.040,14),
      B(.060,.056,.220,0,-.010,-.230,13), B(.052,.030,.190,0,.036,-.220,13),
@@ -5307,6 +5307,13 @@ const FP_RAIL_GRIP_L={
   dir:new THREE.Vector3(.42,.10,-.90),
   face:new THREE.Vector3(.86,-.48,-.18)
 };
+// The AK is supported from below instead of pinched from either side. Point
+// the palm into the underside of the handguard while the knuckles run forward,
+// producing a relaxed cup that stays completely beneath the sight channel.
+const FP_UNDER_GRIP_L={
+  dir:new THREE.Vector3(.38,.05,-.92),
+  face:new THREE.Vector3(0,1,0)
+};
 function gripBasis(dir,face){
   const d=dir.clone().normalize();
   const f=face.clone().addScaledVector(d,-face.dot(d)).normalize();
@@ -5359,7 +5366,8 @@ function makeFPArm(asset,side,geo){
     native:upper.getWorldPosition(new THREE.Vector3()),
     palmLen:frame.palmLen,offset:new THREE.Vector3(),
     grip:gripCorrection(frame,hand,side==='Right'?FP_GRIP_R:FP_GRIP_L),
-    railGrip:side==='Left'?gripCorrection(frame,hand,FP_RAIL_GRIP_L):null};
+    railGrip:side==='Left'?gripCorrection(frame,hand,FP_RAIL_GRIP_L):null,
+    underGrip:side==='Left'?gripCorrection(frame,hand,FP_UNDER_GRIP_L):null};
   curlHand(model,side,frame);
   return arm;
 }
@@ -5473,8 +5481,9 @@ function updateFPArms(d,dt){
   }
   const handR=H&&H[0]?H[0]:[0,-.08,.10,.28];
   const handL=(!H||!H[1])?null:H[1];
-  const supportGrip=d.tacticalGrip?FP_RAIL_GRIP_L:FP_GRIP_L;
-  const supportGripQ=d.tacticalGrip?fpArms.L.railGrip:fpArms.L.grip;
+  const supportGrip=d.underGrip?FP_UNDER_GRIP_L:(d.tacticalGrip?FP_RAIL_GRIP_L:FP_GRIP_L);
+  const supportGripQ=d.underGrip?fpArms.L.underGrip:
+    (d.tacticalGrip?fpArms.L.railGrip:fpArms.L.grip);
   if(fpArms.weaponId!==id){
     fpArms.weaponId=id;
     d.mesh.traverse(o=>{if(o.userData&&o.userData.arm)o.visible=false;});
@@ -7343,7 +7352,7 @@ function makeRemotePlayer(p){
     weaponHolder,meleeKnife,flash,shotLight,nameTag,flashT:0,
     ready:false,model:null,fallback:null,mixer:null,idleAction:null,walkAction:null,runAction:null,
     armL:null,foreL:null,handL:null,armR:null,foreR:null,handR:null,head:null,
-    gripR:null,gripL:null,railGripL:null,weaponScale:.74,upperLen:.28,foreLen:.26};
+    gripR:null,gripL:null,railGripL:null,underGripL:null,weaponScale:.74,upperLen:.28,foreLen:.26};
   remote.fallback=makeRemoteFallback(col,remote.mats);upper.add(remote.fallback);
   // Keep a useful fallback weapon pose while the rig loads or if its asset is unavailable.
   upper.add(weaponHolder);weaponHolder.position.set(.11,1.32,-.16);weaponHolder.rotation.set(-.08,0,0);
@@ -7372,6 +7381,7 @@ function makeRemotePlayer(p){
     remote.gripR=gripCorrection(frameR,remote.handR,FP_GRIP_R);
     remote.gripL=gripCorrection(frameL,remote.handL,FP_GRIP_L);
     remote.railGripL=gripCorrection(frameL,remote.handL,FP_RAIL_GRIP_L);
+    remote.underGripL=gripCorrection(frameL,remote.handL,FP_UNDER_GRIP_L);
     curlHand(model,'Left',frameL);curlHand(model,'Right',frameR);
     // Keep the holder under `upper`. Parenting it to the Mixamo hand let the
     // bind-pose wrist transform turn the gun into the torso, where it became
@@ -7698,7 +7708,7 @@ function netStep(dt){
             .add(r.weaponHolder.position);
           // A palm grips the near side of the fore-end, not its centerline.
           // This also keeps the left arm inside the Soldier rig's real reach.
-          _remoteHandL.x-=wd.cls==='sniper'?.132:(compact?.035:.075);
+          _remoteHandL.x-=wd.underGrip?.018:(wd.cls==='sniper'?.132:(compact?.035:.075));
         }else{
           _remoteHandL.set(-.06,1.30+lift,-.24+recoilZ);
         }
@@ -7718,7 +7728,7 @@ function netStep(dt){
       if(holdingWeapon){
         aimRemoteGrip(r.handR,r.weaponHolder,r.gripR,gripR,smooth);
         aimRemoteGrip(r.handL,r.weaponHolder,
-          wd.tacticalGrip?r.railGripL:r.gripL,gripL,smooth);
+          wd.underGrip?r.underGripL:(wd.tacticalGrip?r.railGripL:r.gripL),gripL,smooth);
       }
     }
     if(r.flashT>0){
