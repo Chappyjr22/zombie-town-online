@@ -4645,8 +4645,8 @@ const SOURCED_WEAPONS={
     railGrip:true,sightX:-.001,sightY:.076,hipDrop:.035},
   mp5:{file:'suomi-kp',length:.82,grip:[-.004,-.088,.132],support:[0,-.035,-.185],
     sightY:.055,hipDrop:.030},
-  ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[0,-.012,-.125],
-    sightY:.044,hipDrop:.034},
+  ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[-.028,.012,-.125],
+    railGrip:true,sightX:.004,sightY:.044,hipDrop:.034},
   rem870:{file:'shotgun',length:1.05,grip:[-.001,-.112,.455],support:[0,-.035,-.065],
     sightY:.045,hipDrop:.036},
   skorpion:{file:'grease-gun',length:.76,grip:[0,-.112,.178],support:[0,-.030,-.190],
@@ -4732,6 +4732,7 @@ function loadSourcedWeapon(id){
       d.baseAdsX=-sightX;d.adsPos.x=d.baseAdsX;
     }
     updateSourcedPack(d,0);
+    refreshRemoteWeaponModels(id);
   },undefined,err=>console.warn('CC0 weapon failed to load: '+id,err));
 }
 for(const id in SOURCED_WEAPONS)loadSourcedWeapon(id);
@@ -5129,17 +5130,23 @@ function poseRemoteArm(refFrame,upperBone,foreBone,upperLen,foreLen,shoulderLoca
 const REMOTE_ARM_AXIS=new THREE.Vector3(0,1,0);
 const ARM_L_SHOULDER=new THREE.Vector3(-.255,1.49,0),ARM_R_SHOULDER=new THREE.Vector3(.255,1.49,0);
 const _remoteElbowL=new THREE.Vector3(),_remoteHandL=new THREE.Vector3(),
-  _remoteElbowR=new THREE.Vector3(),_remoteHandR=new THREE.Vector3();
-// The hand bone's bind-pose world orientation isn't aligned with "character
-// forward" (it inherits whatever the arm chain's rest rotations produce), so
-// a flat local tilt on the weapon doesn't correct for that base mismatch.
-// Cancel the hand's actual world rotation each frame, then apply the desired
-// world-space orientation instead. WEAPON_GRIP_Q is a fixed correction for
-// the weapon mesh's own modeled axes vs. this rig's hand/socket convention -
-// calibrated once by eye, not derived from the model.
-const _wpHandQ=new THREE.Quaternion(),_wpDesiredQ=new THREE.Quaternion(),_wpTiltQ=new THREE.Quaternion();
+  _remoteElbowR=new THREE.Vector3(),_remoteHandR=new THREE.Vector3(),
+  _remoteWeaponOffset=new THREE.Vector3();
+/* Remote weapons live in the upper-body frame, not under the animated Mixamo
+   hand hierarchy. That prevents bind-pose transforms from turning or burying
+   the gun, and lets both hands target its actual per-weapon grip sockets. */
+const _wpDesiredQ=new THREE.Quaternion(),_wpTiltQ=new THREE.Quaternion(),
+  _remoteHandParentQ=new THREE.Quaternion(),_remoteHandWantQ=new THREE.Quaternion();
 const _wpTiltAxis=new THREE.Vector3(1,0,0);
-const WEAPON_GRIP_Q=new THREE.Quaternion().setFromEuler(new THREE.Euler(0,-Math.PI/2,0));
+function aimRemoteGrip(bone,holder,gripQ,anchor,smooth){
+  if(!bone||!gripQ||!anchor)return;
+  bone.parent.updateMatrixWorld(true);
+  bone.parent.getWorldQuaternion(_remoteHandParentQ);
+  holder.getWorldQuaternion(_remoteHandWantQ);
+  _remoteHandWantQ.multiply(fpAnchorRotation(anchor)).multiply(gripQ);
+  bone.quaternion.slerp(
+    _remoteHandParentQ.invert().multiply(_remoteHandWantQ),smooth);
+}
 
 /* ---------- first-person arms (the local player's own view) ----------
    Reuses the same model asset and IK solver as the remote players, but
@@ -7229,7 +7236,8 @@ function makeRemotePlayer(p){
     mats:[flash.material],weapon:'',weaponMesh:null,
     weaponHolder,meleeKnife,flash,shotLight,nameTag,flashT:0,
     ready:false,model:null,fallback:null,mixer:null,idleAction:null,walkAction:null,runAction:null,
-    armL:null,foreL:null,armR:null,foreR:null,head:null,hand:null,upperLen:.28,foreLen:.26};
+    armL:null,foreL:null,handL:null,armR:null,foreR:null,handR:null,head:null,
+    gripR:null,gripL:null,railGripL:null,weaponScale:.74,upperLen:.28,foreLen:.26};
   remote.fallback=makeRemoteFallback(col,remote.mats);upper.add(remote.fallback);
   // Keep a useful fallback weapon pose while the rig loads or if its asset is unavailable.
   upper.add(weaponHolder);weaponHolder.position.set(.11,1.32,-.16);weaponHolder.rotation.set(-.08,0,0);
@@ -7250,14 +7258,19 @@ function makeRemotePlayer(p){
     remote.model=model;remote.fallback.visible=false;
     remote.armL=model.getObjectByName('mixamorigLeftArm');remote.foreL=model.getObjectByName('mixamorigLeftForeArm');
     remote.armR=model.getObjectByName('mixamorigRightArm');remote.foreR=model.getObjectByName('mixamorigRightForeArm');
+    remote.handL=model.getObjectByName('mixamorigLeftHand');
+    remote.handR=model.getObjectByName('mixamorigRightHand');
     remote.head=model.getObjectByName('mixamorigHead');
-    remote.hand=model.getObjectByName('mixamorigRightHand');
     remote.upperLen=asset.upperLen;remote.foreLen=asset.foreLen;
-    upper.remove(weaponHolder);remote.hand.add(weaponHolder);
-    // Grip socket calibration: weaponHolder was authored as a torso-relative
-    // group; this is the fixed local offset that puts a weapon modeled for
-    // that old anchor into a plausible right-hand grip instead.
-    weaponHolder.position.set(-.02,.06,.16);   // rotation is computed every frame from the hand's actual world orientation
+    const frameL=measureHandFrame(model,'Left'),frameR=measureHandFrame(model,'Right');
+    remote.gripR=gripCorrection(frameR,remote.handR,FP_GRIP_R);
+    remote.gripL=gripCorrection(frameL,remote.handL,FP_GRIP_L);
+    remote.railGripL=gripCorrection(frameL,remote.handL,FP_RAIL_GRIP_L);
+    curlHand(model,'Left',frameL);curlHand(model,'Right',frameR);
+    // Keep the holder under `upper`. Parenting it to the Mixamo hand let the
+    // bind-pose wrist transform turn the gun into the torso, where it became
+    // effectively invisible from the outside.
+    weaponHolder.position.set(.11,1.36,-.16);weaponHolder.rotation.set(-.08,0,0);
     const clip=n=>THREE.AnimationClip.findByName(asset.animations,n);
     remote.mixer=new THREE.AnimationMixer(model);
     remote.idleAction=remote.mixer.clipAction(clip('Idle'));
@@ -7270,18 +7283,22 @@ function makeRemotePlayer(p){
   setRemoteWeapon(remote,p.state&&p.state.weapon);
   if(p.state) updateRemoteState(p.id,p.state);
 }
-function setRemoteWeapon(r,id){
+function setRemoteWeapon(r,id,force){
   id=DEFS[id]?id:'m1911';
-  if(r.weapon===id&&r.weaponMesh) return;
+  if(!force&&r.weapon===id&&r.weaponMesh) return;
   if(r.weaponMesh) r.weaponHolder.remove(r.weaponMesh);
   const d=DEFS[id],m=cloneWeaponDisplay(d.mesh);
   m.visible=true;
   if(m.children[1])m.children[1].visible=false;
-  const scale=(d.cls==='pistol'||d.cls==='knife'||d.id==='raygun'||d.id==='raygun2')?.72:.82;
+  const scale=(d.cls==='pistol'||d.cls==='knife'||d.id==='raygun'||d.id==='raygun2')?.72:.74;
   m.position.set(0,0,0);m.rotation.set(0,0,0);m.scale.setScalar(scale);
-  r.weaponHolder.add(m);r.weapon=id;r.weaponMesh=m;
+  r.weaponHolder.add(m);r.weapon=id;r.weaponMesh=m;r.weaponScale=scale;
   r.flash.position.set(d.muzzle[0]*scale,d.muzzle[1]*scale,d.muzzle[2]*scale);
   r.shotLight.position.copy(r.flash.position);
+}
+function refreshRemoteWeaponModels(id){
+  if(typeof net==='undefined'||!net.remotes)return;
+  for(const r of net.remotes.values())if(r.weapon===id)setRemoteWeapon(r,id,true);
 }
 function remoteFire(id,event){
   const r=net.remotes.get(id); if(!r||!r.g.visible) return;
@@ -7528,7 +7545,7 @@ function netStep(dt){
       r.walkAction.timeScale=clamp(r.speed/1.9,.5,2.0);
       r.runAction.timeScale=clamp(r.speed/4.2,.6,2.0);
       r.mixer.update(dt);
-      r.hand.quaternion.set(0,0,0,1);   // cancel the clip's own wrist sway for a stable weapon grip
+      let holdingWeapon=false,gripR=null,gripL=null,wd=null;
       if(down){
         _remoteElbowL.set(-.36,1.24,.04);_remoteHandL.set(-.23,1.08,-.08);
         poseRemoteArm(r.upper,r.armL,r.foreL,r.upperLen,r.foreLen,ARM_L_SHOULDER,
@@ -7549,35 +7566,54 @@ function netStep(dt){
         r.meleeKnife.visible=true;r.meleeKnife.position.copy(_remoteHandR);
         r.meleeKnife.rotation.set(-.48+swing*.62,-.28+swing*1.18,-.72+swing*1.26);
       }else{
+        holdingWeapon=true;
         r.meleeKnife.visible=false;
-        const wd=DEFS[r.weapon]||DEFS.m1911;
+        wd=DEFS[r.weapon]||DEFS.m1911;
+        const grips=HANDS[wd.id]||HANDS.m1911;
+        gripR=grips&&grips[0];gripL=grips&&grips[1];
         const compact=wd.cls==='pistol'||wd.cls==='knife'||wd.id==='raygun'||wd.id==='raygun2';
         const lower=r.sprint?.14:0,lift=r.pitch*.16+(r.ads?.025:0)-lower-(crouch?.12:0);
         const recoilZ=r.recoil*.045;
-        const supportZ=(compact?-.28:(wd.cls==='lmg'||wd.cls==='sniper'?-.56:-.49))+(r.sprint?.10:0);
-        // Support hand stays on the fore-end and the firing hand stays on the
-        // grip, raised into a compact shouldered tactical stance.
-        _remoteElbowL.set(-.34,1.46+lift*.28,-.10);
-        _remoteHandL.set(-.035,1.425+lift,supportZ+recoilZ);
+        // Author the weapon in upper-body space and put its actual trigger
+        // grip into the firing hand. The support target then comes from that
+        // weapon's own fore-end socket, so stocks, pistols, SMGs, and long
+        // rifles all keep the correct two-handed spacing.
+        _remoteHandR.set(compact?.095:.125,1.37+lift,(compact?-.10:-.08)+recoilZ);
+        _wpTiltQ.setFromAxisAngle(
+          _wpTiltAxis,r.pitch-r.recoil*.12-(r.sprint?.32:0));
+        _wpDesiredQ.copy(_wpTiltQ);
+        r.weaponHolder.quaternion.slerp(_wpDesiredQ,smooth);
+        _remoteWeaponOffset.set(gripR[0],gripR[1],gripR[2])
+          .multiplyScalar(r.weaponScale).applyQuaternion(r.weaponHolder.quaternion);
+        r.weaponHolder.position.copy(_remoteHandR).sub(_remoteWeaponOffset);
+        if(gripL){
+          _remoteHandL.set(gripL[0],gripL[1],gripL[2])
+            .multiplyScalar(r.weaponScale).applyQuaternion(r.weaponHolder.quaternion)
+            .add(r.weaponHolder.position);
+          // A palm grips the near side of the fore-end, not its centerline.
+          // This also keeps the left arm inside the Soldier rig's real reach.
+          _remoteHandL.x-=compact?.035:.075;
+        }else{
+          _remoteHandL.set(-.06,1.30+lift,-.24+recoilZ);
+        }
+        // Lower, separated elbows keep the silhouette shouldered and tactical
+        // instead of making the forearms read as crossed over the chest.
+        _remoteElbowL.set(-.36,1.29+lift*.20,
+          compact?-.02:lerp(-.10,_remoteHandL.z,.34));
         poseRemoteArm(r.upper,r.armL,r.foreL,r.upperLen,r.foreLen,ARM_L_SHOULDER,
           _remoteElbowL,_remoteHandL,REMOTE_ARM_AXIS,smooth);
-        _remoteElbowR.set(.34,1.44+lift*.24,.055);
-        _remoteHandR.set(.105,1.385+lift,-.105+recoilZ*.35);
+        _remoteElbowR.set(.36,1.30+lift*.18,.045);
         poseRemoteArm(r.upper,r.armR,r.foreR,r.upperLen,r.foreLen,ARM_R_SHOULDER,
           _remoteElbowR,_remoteHandR,REMOTE_ARM_AXIS,smooth);
       }
       if(down)r.meleeKnife.visible=false;
       r.head.rotation.x=lerp(r.head.rotation.x,down?0:r.pitch*.28,smooth);
-      // The two-bone IK positions the hand but doesn't constrain muzzle tilt.
-      // Aim the weapon explicitly: cancel the hand bone's actual world
-      // rotation, then apply character-forward + pitch tilt + the fixed
-      // grip correction, so it points sensibly regardless of the arm chain's
-      // bind-pose orientation.
-      r.hand.getWorldQuaternion(_wpHandQ);
-      r.g.getWorldQuaternion(_wpDesiredQ);
-      _wpTiltQ.setFromAxisAngle(_wpTiltAxis,down?0:r.pitch-r.recoil*.12-(r.sprint?.32:0));
-      _wpDesiredQ.multiply(_wpTiltQ).multiply(WEAPON_GRIP_Q);
-      r.weaponHolder.quaternion.slerp(_wpHandQ.invert().multiply(_wpDesiredQ),smooth);
+      r.weaponHolder.visible=holdingWeapon;
+      if(holdingWeapon){
+        aimRemoteGrip(r.handR,r.weaponHolder,r.gripR,gripR,smooth);
+        aimRemoteGrip(r.handL,r.weaponHolder,
+          wd.sourceRailGrip?r.railGripL:r.gripL,gripL,smooth);
+      }
     }
     if(r.flashT>0){
       r.flashT=Math.max(0,r.flashT-dt);
