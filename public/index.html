@@ -2569,12 +2569,24 @@ function buildNuketown(){
    Paid routes are registered as real meshes with fitted collision. The host owns
    multiplayer changes, while compact snapshots keep reconnecting players and late
    joiners on the same set of opened routes and powered switches. */
-const mapProgress={gates:new Map(),switches:new Map(),required:[],power:false};
+const mapProgress={gates:new Map(),switches:new Map(),required:[],perkMachines:[],power:false};
 function resetMapProgress(){
-  mapProgress.gates.clear();mapProgress.switches.clear();mapProgress.required.length=0;mapProgress.power=false;
+  mapProgress.gates.clear();mapProgress.switches.clear();mapProgress.required.length=0;
+  mapProgress.perkMachines.length=0;mapProgress.power=false;
 }
 function mapGateReady(g){
-  return !g.requires||g.requires.every(id=>mapProgress.switches.get(id)?.active);
+  return !g.requires||g.requires.every(id=>id.startsWith('gate:')
+    ?mapProgress.gates.get(id.slice(5))?.open
+    :mapProgress.switches.get(id)?.active);
+}
+function mapGateLockText(g){
+  if(!g.requires)return '';
+  const gateId=g.requires.find(id=>id.startsWith('gate:')&&!mapProgress.gates.get(id.slice(5))?.open);
+  if(gateId){
+    const prerequisite=mapProgress.gates.get(gateId.slice(5));
+    return prerequisite?(prerequisite.label+' first'):'Open the previous area first';
+  }
+  return 'Restore station power';
 }
 function addMapGate(id,label,cost,x,y,z,w,h,d,rot,mat,style,requires,moveDelta){
   const R=rot||0,g=new THREE.Group(),items=[];
@@ -2612,11 +2624,11 @@ function addMapGate(id,label,cost,x,y,z,w,h,d,rot,mat,style,requires,moveDelta){
   mapProgress.gates.set(id,gate);
   interactables.push({
     x:x-.8*Math.sin(R),y:y+Math.min(1.4,h*.45),z:z-.8*Math.cos(R),r:3.0,kind:'mapgate',
-    label(){return mapGateReady(gate)?label:('Restore station power');},
+    label(){return mapGateReady(gate)?label:mapGateLockText(gate);},
     cost(){return mapGateReady(gate)?cost:0;},
     can(){return !gate.open;},
     buy(){
-      if(!mapGateReady(gate)){toast('Restore both station circuits first');sfxDeny();return;}
+      if(!mapGateReady(gate)){toast(mapGateLockText(gate));sfxDeny();return;}
       if(net.connected)netGameRequest({type:'map_gate',id});
       else openMapGate(id,false);
     }
@@ -2674,7 +2686,8 @@ function activateMapSwitch(id,silent){
   const powered=mapProgress.required.length>0&&mapProgress.required.every(k=>mapProgress.switches.get(k)?.active);
   if(powered&&!mapProgress.power){
     mapProgress.power=true;
-    if(!silent){banner('STATION POWER','Vault and rail systems online');sfxTone(90,420,.72,.20,'sawtooth');}
+    setMapPerkPower(true);
+    if(!silent){banner('STATION POWER','Perks, vault and rail systems online');sfxTone(90,420,.72,.20,'sawtooth');}
   }else if(!silent){toast(sw.label+' active');sfxBuy('switch');}
   return true;
 }
@@ -2712,12 +2725,12 @@ function buildLastStop(){
   const trainBlue=phong({color:0x263e50,shininess:45,specular:0x607c8e});
   const cream=phong({color:0xb9ad91,shininess:18,specular:0x514b40});
   const wet=phong({map:T.concrete,color:0x3d4246,shininess:38,specular:0x697780});
-  const glow=phong({color:0xd7b46a,emissive:0xf0a43a,emissiveIntensity:.72,shininess:90});
+  const glow=phong({color:0xe2c17b,emissive:0xffb44f,emissiveIntensity:1.02,shininess:90});
   const greenGlow=phong({color:0x174b36,emissive:0x36e69b,emissiveIntensity:.75,shininess:72});
   BND=52;
-  scene.background=new THREE.Color(0x0b1117);
-  scene.fog=new THREE.Fog(0x0b1117,26,118);mapFog={near:26,far:118};
-  torch.intensity=.92;
+  scene.background=new THREE.Color(0x151e28);
+  scene.fog=new THREE.Fog(0x151e28,34,126);mapFog={near:34,far:126};
+  torch.intensity=1.22;
   SPAWN_AT.set(0,0,41);SPAWN_YAW=Math.PI;
   SPAWNS=[
     [-18,47],[18,47],[-21,39],[21,39],[-12,34],[12,34],
@@ -2733,10 +2746,29 @@ function buildLastStop(){
   ];
   mannequins=[];nukeSign=null;nukeClock=null;
 
-  worldRoot.add(new THREE.HemisphereLight(0x52667b,0x080b0e,.62));
-  const moon=new THREE.DirectionalLight(0xa8bed8,.36);moon.position.set(-36,52,24);worldRoot.add(moon);sunShadow(moon,58);
+  worldRoot.add(new THREE.HemisphereLight(0x7890a8,0x11171d,.98));
+  const moon=new THREE.DirectionalLight(0xb9cde3,.56);moon.position.set(-36,52,24);worldRoot.add(moon);sunShadow(moon,58);
   const ground=new THREE.Mesh(new THREE.PlaneGeometry(280,280),wet);
   ground.receiveShadow=true;ground.rotation.x=-Math.PI/2;worldRoot.add(ground);blockers.push(ground);
+  // One instanced fixture batch supplies readable pools of light through the
+  // ticket hall, concourse, platforms, service tunnel, and maintenance yard.
+  // Point lights remain distance-culled, preserving the existing light budget.
+  const stationLightSpots=[];
+  for(const x of [-16,-8,0,8,16])stationLightSpots.push([x,7.28,23,0,.78,15]);
+  for(const x of [-18,-9,0,9,18])stationLightSpots.push([x,6.22,10,0,.76,15]);
+  for(const x of [-36,-18,0,18,36])stationLightSpots.push([x,5.25,-4.5,0,.72,15]);
+  for(const z of [-20,-11,-2])stationLightSpots.push([-48.55,3.85,z,Math.PI/2,.68,13]);
+  for(const z of [-34,-24,-14,-4])stationLightSpots.push([48.55,3.85,z,Math.PI/2,.68,13]);
+  const stationFixtures=new THREE.InstancedMesh(
+    new THREE.BoxGeometry(2.6,.14,.48),glow,stationLightSpots.length);
+  const fixtureMatrix=new THREE.Matrix4(),fixtureQ=new THREE.Quaternion();
+  stationLightSpots.forEach((p,i)=>{
+    fixtureQ.setFromEuler(new THREE.Euler(0,p[3],0));
+    fixtureMatrix.compose(new THREE.Vector3(p[0],p[1],p[2]),fixtureQ,new THREE.Vector3(1,1,1));
+    stationFixtures.setMatrixAt(i,fixtureMatrix);
+    roomLight(p[0],p[1]-.38,p[2],0xffd49a,p[4],p[5]);
+  });
+  stationFixtures.instanceMatrix.needsUpdate=true;worldRoot.add(stationFixtures);
 
   // Outer rail-yard fencing and masonry hide the hard map boundary behind believable structure.
   fenceRun(-51,-50,51,-50);fenceRun(-51,50,51,50);
@@ -2783,6 +2815,19 @@ function buildLastStop(){
   phoneBooth(-21,35,Math.PI/2);fireBarrel(21,38,0);
 
   addMapGate('front','Open terminal doors',750,0,0,30,5.9,3.7,.40,0,stoneDark,'shutter');
+  // The powered plaza door now enters a sealed station-control room instead
+  // of spilling into the exterior loop. It is a distinct post-power reward,
+  // so opening the terminal route cannot bypass it.
+  wallRun(24,31,34,31,4.6,stoneDark,[]);
+  wallRun(24,39,34,39,4.6,stoneDark,[]);
+  wallRun(34,31,34,39,4.6,stoneDark,[]);
+  floorSlab(24.3,31.3,33.7,38.7,.04,M.tile);
+  bx(10.4,.38,8.4,29,4.79,35,stoneDark,false);
+  signBoard('Station Control',29,3.85,31.24,0,6.5);
+  bx(2.4,.12,.45,29,4.42,35,glow,false);
+  roomLight(29,4.05,35,0xffd49a,.78,13);
+  addMapGate('control','Open station control',1000,24,0,35,4.2,3.0,.48,Math.PI/2,
+    stoneDark,'shutter',['signal','yardpower']);
 
   // Ticket windows, queue rails, departure board, luggage, and the café establish the interior.
   // Three short kiosks instead of one wall-to-wall counter: it reads better
@@ -2820,7 +2865,8 @@ function buildLastStop(){
   luggage.castShadow=true;worldRoot.add(luggage);
 
   addMapGate('turnstiles','Open concourse',1000,0,0,16,6.7,2.3,.55,0,brass,'turnstile');
-  addMapGate('cafe','Clear café passage',1250,-13,0,16,4.1,2.5,.72,0,M.plank,'debris');
+  addMapGate('cafe','Clear café passage',1250,-13,0,16,4.1,2.5,.72,0,M.plank,'debris',
+    ['gate:turnstiles']);
 
   // Concourse shell and café. The paid central and side routes reconnect before the platforms.
   wallRun(-30,4,30,4,6.4,stoneDark,[{c:0,w:7.0}]);
@@ -2836,7 +2882,6 @@ function buildLastStop(){
     cyl(.25,.28,.78,-26+i*1.65,.39,7.65,M.metal,true);
     cyl(.28,.28,.11,-26+i*1.65,.82,7.65,M.plank,false);
   }
-  for(const x of [-18,-9,0,9,18])roomLight(x,5.7,10,0xffd9a0,.58,13);
   addMapGate('platforms','Open platform access',1250,0,0,4,6.5,3.4,.50,0,railMat,'shutter');
 
   // Four long platforms, rails, sleepers, canopies, signs, and detailed rolling stock.
@@ -2855,7 +2900,9 @@ function buildLastStop(){
     lm.compose(new THREE.Vector3(x,.08,z),new THREE.Quaternion(),new THREE.Vector3(1,1,1));sleepers.setMatrixAt(i,lm);
   }
   sleepers.receiveShadow=true;worldRoot.add(sleepers);
-  for(const z of [-17.7,-16.3,-9.7,-8.3])bx(82,.16,.15,0,.23,z,railMat,false);
+  // Track centres match the sleeper beds at -11 and -19. Each rail sits
+  // directly beneath the corresponding wheel row instead of under a platform.
+  for(const z of [-19.7,-18.3,-11.7,-10.3])bx(82,.16,.15,0,.23,z,railMat,false);
 
   const trainBox=new THREE.BoxGeometry(1,1,1),trainBodyGeo=mergeGeos([
     pc(trainBox,0,0,1.58,0,0,0,0,3.05,2.88,8.80),
@@ -2876,7 +2923,7 @@ function buildLastStop(){
   ]);
   const wheelGeo=mergeGeos((()=>{
     const a=[];for(const side of [-1,1])for(const zz of [-3.05,3.05])
-      a.push(pc(new THREE.CylinderGeometry(.43,.43,.22,12),0,side*1.60,.43,zz,0,0,Math.PI/2));
+      a.push(pc(new THREE.CylinderGeometry(.43,.43,.22,12),0,side*.70,.43,zz,0,0,Math.PI/2));
     return a;
   })());
   function trainCar(x,z,rot,col,solid){
@@ -2889,13 +2936,12 @@ function buildLastStop(){
     if(solid!==false)addYawCollider(x,z,3.18,9.0,rot||0,3.25,0,.02);
     return g;
   }
-  for(const x of [-27,-18,-9,18,27])trainCar(x,-13,Math.PI/2,x<0?0x5b1d25:0x2c465b,true);
-  trainCar(-27,-21,Math.PI/2,0x414a50,true);trainCar(27,-21,Math.PI/2,0x414a50,true);
+  for(const x of [-27,-18,-9,18,27])trainCar(x,-11,Math.PI/2,x<0?0x5b1d25:0x2c465b,true);
+  trainCar(-27,-19,Math.PI/2,0x414a50,true);trainCar(27,-19,Math.PI/2,0x414a50,true);
   for(const x of [-36,-18,0,18,36]){
     const post=bx(.22,5.8,.22,x,2.9,-4.5,railMat,false);
     bx(8,.16,.18,x,5.55,-4.5,railMat,false);
     const lamp=new THREE.Mesh(new THREE.BoxGeometry(2.6,.16,.48),glow);lamp.position.set(x,5.25,-4.5);worldRoot.add(lamp);
-    if(x%36===0)roomLight(x,4.9,-4.5,0xffc36c,.62,12);
   }
   [-32,-16,0,16,32].forEach((x,i)=>signBoard('PLATFORM '+(i+1),x,3.15,-4.28,Math.PI,5));
 
@@ -2915,6 +2961,16 @@ function buildLastStop(){
   floorSlab(31.3,-37.7,48.7,-2.3,.04,M.concrete);
   signBoard('Maintenance Yard',40,4.15,-2.25,Math.PI,8);
   addMapGate('yard','Open maintenance yard',1500,31,0,-20,4.5,3.1,.48,Math.PI/2,railMat,'shutter');
+  // The powered maintenance car has its own correctly gauged siding.
+  const sidingSleepers=new THREE.InstancedMesh(new THREE.BoxGeometry(3.8,.14,.24),M.wood,10);
+  for(let i=0;i<10;i++){
+    fixtureMatrix.compose(new THREE.Vector3(40,.07,-51+i*1.85),
+      new THREE.Quaternion(),new THREE.Vector3(1,1,1));
+    sidingSleepers.setMatrixAt(i,fixtureMatrix);
+  }
+  sidingSleepers.instanceMatrix.needsUpdate=true;sidingSleepers.receiveShadow=true;worldRoot.add(sidingSleepers);
+  bx(.15,.16,19,39.3,.23,-43.5,railMat,false);
+  bx(.15,.16,19,40.7,.23,-43.5,railMat,false);
 
   // Service pipes, lockers, tools, and work benches are batched into a few meshes.
   for(const z of [-20,-13,-6]){
@@ -2948,7 +3004,6 @@ function buildLastStop(){
   const placeholder=moveGate.mesh,pbi=blockers.indexOf(placeholder);if(pbi>=0)blockers.splice(pbi,1);
   moveGate.g.clear();moveGate.g.add(shortcutCar);shortcutCar.position.set(0,0,0);shortcutCar.rotation.set(0,0,0);
   moveGate.mesh=shortcutCar.children[0];blockers.push(moveGate.mesh);
-  addMapGate('return','Open plaza shortcut',1000,24,0,35,4.2,3.0,.48,Math.PI/2,stoneDark,'shutter',['signal','yardpower']);
 
   // Gameplay distribution rewards every newly purchased section.
   addWallBuy('m14',-23.78,2.0,25,Math.PI/2);
@@ -2958,12 +3013,12 @@ function buildLastStop(){
   addWallBuy('galil',-30.78,2.0,-18,-Math.PI/2);
   addWallBuy('rem870',30.78,2.0,-27,Math.PI/2);
   addAmmoBuy('m4a1',13.78,2.0,-39,Math.PI/2,400);
-  addPerkMachine('revive',-19,27,0,0);
-  addPerkMachine('stamin',20,13,0,Math.PI);
-  addPerkMachine('dtap',-43,-5,0,-Math.PI/2);
-  addPerkMachine('jugg',25,-18,0,Math.PI/2);
-  addPerkMachine('speed',45,-10,0,Math.PI);
-  addPerkMachine('mule',-10,-34,0,0);
+  addPerkMachine('revive',-19,27,0,0,true);
+  addPerkMachine('stamin',20,13,0,Math.PI,true);
+  addPerkMachine('dtap',-43,-5,0,-Math.PI/2,true);
+  addPerkMachine('jugg',25,-18,0,Math.PI/2,true);
+  addPerkMachine('speed',45,-10,0,Math.PI,true);
+  addPerkMachine('mule',32.7,35,0,Math.PI/2,true);
 
   // Restrained rain and drifting station dust add atmosphere without Town-sized fire counts.
   const n=420,rg=new THREE.BufferGeometry(),arr=new Float32Array(n*3);
@@ -4667,7 +4722,7 @@ const SOURCED_WEAPONS={
     tacticalGrip:true,sightX:-.001,sightY:.076,hipDrop:.035},
   mp5:{file:'suomi-kp',length:.82,grip:[-.004,-.088,.132],support:[0,-.035,-.185],
     sightY:.055,hipDrop:.030},
-  ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[-.028,.012,-.125],
+  ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[-.180,-.095,-.285],
     tacticalGrip:true,sightX:.004,sightY:.044,hipDrop:.034},
   rem870:{file:'shotgun',length:1.05,grip:[-.001,-.112,.455],support:[0,-.035,-.065],
     sightY:.045,hipDrop:.036},
@@ -6115,7 +6170,19 @@ function addAmmoBuy(defId,x,y,z,rot,price){
     buy(){ const own=player.guns.find(g=>g.def===d);
       if(own) own.res=resOf(own); else giveGun(d.id); toast(d.name+' ammo'); }});
 }
-function addPerkMachine(key,x,z,y0,rot){
+function setMapPerkPower(on){
+  for(const m of mapProgress.perkMachines){
+    const color=on?m.color:0x181a1e;
+    for(const mat of [m.face,m.top,m.button]){
+      mat.color.setHex(color);mat.emissive.setHex(on?m.color:0x000000);
+    }
+    m.face.emissiveIntensity=on?.60:0;
+    m.top.emissiveIntensity=on?.50:0;
+    m.button.emissiveIntensity=on?1.10:0;
+    m.light.intensity=on?1.10:.04;
+  }
+}
+function addPerkMachine(key,x,z,y0,rot,requiresPower){
   const P=PERKS[key], y=y0||0, R=rot||0;
   const g=new THREE.Group();
   const shell=phong({color:0x24262c,shininess:52,specular:0x676b72});
@@ -6131,7 +6198,8 @@ function addPerkMachine(key,x,z,y0,rot){
   const face=new THREE.Mesh(new THREE.BoxGeometry(1.05,1.5,0.1),
     faceMat);
   face.position.set(0,1.35,-0.48); g.add(face); blockers.push(face);
-  const top=new THREE.Mesh(new THREE.BoxGeometry(1.4,0.22,1.0),phong({color:P.col,emissive:P.col,emissiveIntensity:.5}));
+  const topMat=phong({color:P.col,emissive:P.col,emissiveIntensity:.5});
+  const top=new THREE.Mesh(new THREE.BoxGeometry(1.4,0.22,1.0),topMat);
   top.position.y=2.28; g.add(top);
   const frontDetails=mergeGeos([
     pc(PROP_BOX,0,0,.39,-.555,0,0,0,.62,.28,.08),
@@ -6159,14 +6227,22 @@ function addPerkMachine(key,x,z,y0,rot){
   lbl.position.set(0,0.62,-0.54); lbl.rotation.y=Math.PI; g.add(lbl);
   const L=new THREE.PointLight(P.col,1.1,9,2); L.position.set(0,1.6,-1.0); g.add(L);
   cullableLights.push(L);
+  if(requiresPower){
+    mapProgress.perkMachines.push({color:P.col,face:faceMat,top:topMat,button:buttonMat,light:L});
+    setMapPerkPower(mapProgress.power);
+  }
   g.position.set(x,y,z); g.rotation.y=R; worldRoot.add(g);
   addYawCollider(x,z,1.46,1.02,R,y+2.40,y,0.02);
   interactables.push({x:x-0.9*Math.sin(R),y:y+1.2,z:z-0.9*Math.cos(R),r:2.6,kind:'perk',key,
-    label(){return 'Buy '+P.name;}, cost(){return P.cost;},
+    locked(){return !!requiresPower&&!mapProgress.power;},
+    label(){return this.locked()?'Turn on station power':('Buy '+P.name);},
+    cost(){return this.locked()?0:P.cost;},
     can(){return !has(key);},
-    buy(){ player.perks[key]=true;
+    buy(){
+      if(this.locked()){toast('Activate both station power circuits first');sfxDeny();return false;}
+      player.perks[key]=true;
       if(key==='jugg'){ player.maxHp=250; player.hp=250; }
-      renderPerks(); sfxPerk(); toast(P.name+': '+P.blurb); }});
+      renderPerks(); sfxPerk(); toast(P.name+': '+P.blurb);return true; }});
 }
 
 /* --- mystery box ---
@@ -6981,7 +7057,9 @@ function doBuy(){
   const c=it.cost();
   if(player.points<c){ sfxDeny(); toast('Not enough points'); return; }
   if(net.connected&&(it.kind==='box'||it.kind==='revive'||it.kind==='mapgate'||it.kind==='mapswitch')){it.buy();return;}
-  player.points-=c; it.buy(); sfxBuy(it.kind); updHUD();
+  player.points-=c;
+  if(it.buy()===false){updHUD();return;}
+  sfxBuy(it.kind); updHUD();
 }
 
 
@@ -8385,7 +8463,9 @@ function updateWeaponView(dt){
     (d.reddot||(lv>=1&&!d.scoped)))?1:0;
   ui.cross.classList.toggle('hide',adsShown);
   ui.scope.classList.toggle('reticle',d.scoped);
-  ui.scope.style.opacity=d.scoped?d.adsMix:d.adsMix*0.45;
+  // Only a genuinely scoped weapon may draw the scope mask. The old fallback
+  // vignette made every iron-sight weapon look as though it had been scoped.
+  ui.scope.style.opacity=d.scoped?d.adsMix:0;
   const spx=(player.ads?4:12)+Math.min(sp,6)*1.4+player.kick*90;
   ui.cross.querySelector('.t').style.top=(20-spx-8)+'px';
   ui.cross.querySelector('.b').style.top=(20+spx)+'px';
