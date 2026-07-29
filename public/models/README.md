@@ -9,6 +9,6 @@ Three.js repository license: MIT, https://github.com/mrdoob/three.js/blob/dev/LI
 
 The upstream example does not currently include a separate asset-specific license file. This note records the exact upstream reference instead of leaving the binary unattributed.
 
-## Quaternius weapons
+## CC0 Guns & Explosives weapons
 
-See quaternius/README.md and quaternius/LICENSE.txt.
+See cc0-guns/README.md and cc0-guns/LICENSE.txt.

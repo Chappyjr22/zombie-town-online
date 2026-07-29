@@ -488,8 +488,6 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { MTLLoader } from "three/addons/loaders/MTLLoader.js";
-import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
 /* ===================================================================
    TOWN - first person zombie survival
@@ -4054,7 +4052,7 @@ def({id:'m4a1',name:'M4A1',cls:'rifle',mode:'auto',rpm:760,dmg:48,mag:30,res:270
     kMag(.050,.086,.215,-.150,-.048,2,.22,4),
     kGrip(-.128,.150,.26,2,.150), kTrig(-.020,.096,1),
     kCharge(.040,.150), kPort(.038,.010,-.010),
-    kReddot(.115,-.060,.058), [B(.020,.014,.030,-.036,-.006,.030,1)],
+    [B(.020,.014,.030,-.036,-.006,.030,1)],
     kStockAR(.170,2)),
   muzzle:[0,.004,-.895]});
 
@@ -4147,7 +4145,6 @@ def({id:'an94',name:'AN-94',cls:'rifle',mode:'auto',rpm:700,dmg:58,mag:30,res:30
     kBarrel(.011,.220,-.610,0,'brake'),
     kMag(.048,.088,.240,-.156,-.040,1,.20,4),
     kGrip(-.126,.132,.28,1,.148), kTrig(-.018,.078,1),
-    kReddot(.100,-.020,.062),
     kStockFixed(.230,1)),
   muzzle:[0,.000,-.798]});
 
@@ -4528,6 +4525,10 @@ const PACK_DOT=mergeGeos([
   pc(RB(.052,.014,.062),1, 0,-.055,0)
 ]);
 const DOT_Z={pistol:.030,knife:.020,smg:.050,rifle:.060,lmg:.050,shotgun:.040,wonder:.000,sniper:0};
+// Optics are intentionally paused while the new weapon proportions and grips
+// are being finalized. Keeping this as one switch makes the circular Pack-a-
+// Punch dots and the HUD reticle easy to restore together later.
+const RED_DOT_SIGHTS_ENABLED=false;
 
 /* ---------- build the view models ---------- */
 function gunPart(p){
@@ -4581,7 +4582,7 @@ for(const id in DEFS){
       a.rotation.set(H[1][3]||0,H[1][4]||0,H[1][5]||0);
       a.userData.arm=true;a.userData.armSide='left';a.visible=!pistol;d.mesh.add(a); }
   }
-  if(!d.reddot&&!d.scoped){
+  if(RED_DOT_SIGHTS_ENABLED&&!d.reddot&&!d.scoped){
     const dot=new THREE.Mesh(PACK_DOT,GM);
     dot.position.set(0,d.sightY,DOT_Z[d.cls]===undefined?0.04:DOT_Z[d.cls]);
     dot.visible=false; d.mesh.add(dot); d.packDot=dot;
@@ -4604,23 +4605,26 @@ for(const id in DEFS){
   d.adsFov=d.scoped?28:(d.cls==='pistol'?58:52);
 }
 
-/* Quaternius Ultimate Gun Pack pilot.
+/* CC0 Guns & Explosives replacement pilot.
    The procedural weapons stay as instant-loading fallbacks. Five common guns
-   are replaced after their small OBJ+MTL pairs arrive, using the existing grip
-   and muzzle sockets so first-person arms, remote players, Pack-a-Punch, and
-   Mystery Box previews all continue to share one weapon root. */
+   are replaced by detailed, texture-mapped GLBs while preserving the existing
+   IDs, stats, sockets, remote-player clones, Pack-a-Punch finishes, and Mystery
+   Box behavior. Source models already point down the game's -Z muzzle axis. */
 const SOURCED_WEAPONS={
-  // Imported receivers are taller than the procedural silhouettes they
-  // replace. `hipDrop` only affects the relaxed view, never ADS, while the
-  // optic sockets keep red-dot housings seated on the imported top rails.
-  m1911:{file:'Pistol_1',y:.015,hipDrop:.022,opticY:.105,opticZ:-.040,opticScale:.82},
-  m4a1:{file:'AssaultRifle2_1',y:.025,hipDrop:.170,opticY:.170,opticZ:.045,opticScale:.70,
-    permanentDot:true,adsZ:-.330},
-  mp5:{file:'SubmachineGun_1',y:.020,hipDrop:.150,opticY:.185,opticZ:.035,opticScale:.74,adsZ:-.320},
-  rem870:{file:'Shotgun_2',y:.020,hipDrop:.145,opticY:.080,opticZ:.030,opticScale:.78,adsZ:-.320},
-  dsr50:{file:'SniperRifle_1',y:.030,hipDrop:.165}
+  // grip is the source-model palm center. support is the natural fore-end hold.
+  // length is the complete rendered length, not a gameplay range or stat.
+  m1911:{file:'makarov',length:.30,grip:[.005,-.034,.008],sightY:.056,hipDrop:.018},
+  m4a1:{file:'m4a1',length:1.00,grip:[0,-.090,.075],support:[0,-.018,-.255],
+    sightY:.076,hipDrop:.035},
+  mp5:{file:'suomi-kp',length:.82,grip:[-.004,-.088,.132],support:[0,-.035,-.185],
+    sightY:.055,hipDrop:.030},
+  rem870:{file:'shotgun',length:1.05,grip:[-.001,-.112,.455],support:[0,-.035,-.065],
+    sightY:.045,hipDrop:.036},
+  dsr50:{file:'sniper',length:1.10,grip:[-.002,-.135,.315],support:[0,-.030,-.175],
+    sightY:.105,hipDrop:.040}
 };
-const SOURCE_WEAPON_PATH='/models/quaternius/';
+const SOURCE_WEAPON_PATH='/models/cc0-guns/';
+const sourceGltfLoader=new GLTFLoader();
 const SOURCE_PACK_COLOR_1=new THREE.Color(0x755fc0),SOURCE_PACK_COLOR_2=new THREE.Color(0x9e78f0);
 function rememberSourceMaterial(mat){
   if(!mat||!mat.color||mat.userData.sourceColor)return;
@@ -4648,49 +4652,44 @@ function updateSourcedPack(d,level){
   });
 }
 function loadSourcedWeapon(id){
-  const cfg=SOURCED_WEAPONS[id],d=DEFS[id],hand=HANDS[id]&&HANDS[id][0];
+  const cfg=SOURCED_WEAPONS[id],d=DEFS[id],H=HANDS[id],hand=H&&H[0];
   if(!cfg||!d||!hand)return;
-  const mtlLoader=new MTLLoader();mtlLoader.setPath(SOURCE_WEAPON_PATH);
-  mtlLoader.load(cfg.file+'.mtl',materials=>{
-    materials.preload();
-    const objLoader=new OBJLoader();objLoader.setMaterials(materials);objLoader.setPath(SOURCE_WEAPON_PATH);
-    objLoader.load(cfg.file+'.obj',object=>{
-      const box=new THREE.Box3().setFromObject(object);
-      if(box.isEmpty()||box.max.x<=.001){console.warn(cfg.file+' has invalid geometry');return;}
-      // Source models point +X. Rotate that axis to the game's -Z muzzle axis,
-      // center their width, and map source origin to the existing trigger grip.
-      const scale=(hand[2]-d.muzzle[2])/box.max.x;
-      const centerZ=(box.min.z+box.max.z)*.5;
-      object.rotation.y=Math.PI/2;object.scale.setScalar(scale);
-      object.position.set(-centerZ*scale,hand[1]+cfg.y,hand[2]);
-      object.traverse(o=>{
-        if(!o.isMesh)return;
-        o.castShadow=true;o.receiveShadow=true;
-        const mats=Array.isArray(o.material)?o.material:[o.material];
-        for(const mat of mats)rememberSourceMaterial(mat);
-      });
-      const root=new THREE.Group();root.userData.sourcedWeapon=true;root.add(object);
-      const fallback=d.mesh.children[0];if(fallback)fallback.visible=false;
-      d.mesh.add(root);d.sourcedModel=root;d.sourcedPack=-1;
-      d.sourceViewDrop=cfg.hipDrop||0;
-      // Guns that already advertised a red dot used to get that geometry
-      // from the hidden procedural mesh. Restore a real circular optic
-      // housing for the imported model, and realign Pack-a-Punch optics for
-      // the other sourced guns instead of leaving them inside the receiver.
-      if(cfg.permanentDot&&!d.packDot){
-        d.packDot=new THREE.Mesh(PACK_DOT,GM);
-        d.mesh.add(d.packDot);
-        d.sourceDotPermanent=true;
-      }
-      if(d.packDot&&cfg.opticY!==undefined){
-        d.packDot.position.set(0,cfg.opticY,cfg.opticZ||0);
-        d.packDot.scale.setScalar(cfg.opticScale||1);
-        d.sourceOpticY=cfg.opticY;
-      }
-      if(cfg.adsZ!==undefined)d.sourceAdsZ=cfg.adsZ;
-      updateSourcedPack(d,0);
-    },undefined,err=>console.warn('Quaternius weapon failed to load: '+id,err));
-  },undefined,err=>console.warn('Quaternius materials failed to load: '+id,err));
+  sourceGltfLoader.load(SOURCE_WEAPON_PATH+cfg.file+'.glb',gltf=>{
+    const object=gltf&&gltf.scene;
+    if(!object)return;
+    const box=new THREE.Box3().setFromObject(object),span=box.max.z-box.min.z;
+    if(box.isEmpty()||span<=.001){console.warn(cfg.file+' has invalid geometry');return;}
+    const scale=cfg.length/span,grip=cfg.grip;
+    object.scale.setScalar(scale);
+    object.position.set(
+      hand[0]-grip[0]*scale,
+      hand[1]-grip[1]*scale,
+      hand[2]-grip[2]*scale);
+    object.traverse(o=>{
+      if(!o.isMesh)return;
+      o.castShadow=true;o.receiveShadow=true;
+      const mats=Array.isArray(o.material)?o.material:[o.material];
+      for(const mat of mats)rememberSourceMaterial(mat);
+    });
+    const root=new THREE.Group();root.userData.sourcedWeapon=true;root.add(object);
+    const fallback=d.mesh.children[0];if(fallback)fallback.visible=false;
+    d.mesh.add(root);d.sourcedModel=root;d.sourcedPack=-1;
+    d.sourceViewDrop=cfg.hipDrop||0;
+    // Keep the support hand on the imported fore-end instead of the old
+    // procedural socket. The trigger-hand anchor itself never changes.
+    if(cfg.support&&H&&H[1]){
+      H[1][0]=object.position.x+cfg.support[0]*scale;
+      H[1][1]=object.position.y+cfg.support[1]*scale;
+      H[1][2]=object.position.z+cfg.support[2]*scale;
+    }
+    // Re-seat muzzle effects and iron-sight ADS on the actual imported mesh.
+    const muzzle=[object.position.x,object.position.y,object.position.z+box.min.z*scale];
+    d.muzzle=muzzle;d.mesh.userData.muzzle.set(muzzle[0],muzzle[1],muzzle[2]);
+    d.mesh.userData.flash.position.set(muzzle[0],muzzle[1],muzzle[2]);
+    d.sightY=object.position.y+cfg.sightY*scale;
+    d.baseAdsY=-d.sightY;d.adsPos.y=d.baseAdsY;
+    updateSourcedPack(d,0);
+  },undefined,err=>console.warn('CC0 weapon failed to load: '+id,err));
 }
 for(const id in SOURCED_WEAPONS)loadSourcedWeapon(id);
 
@@ -8201,9 +8200,9 @@ function updateWeaponView(dt){
   const want=lv>=2?GM_P2:(lv===1?GM_P1:GM);
   if(body.material!==want) body.material=want;
   updateSourcedPack(d,lv);
-  if(d.packDot) d.packDot.visible=!!d.sourceDotPermanent||lv>=1;
+  if(d.packDot) d.packDot.visible=RED_DOT_SIGHTS_ENABLED&&(!!d.sourceDotPermanent||lv>=1);
   d.adsMix=lerp(d.adsMix||0,player.ads?1:0,1-Math.pow(0.00008,dt));
-  const sourcedOpticActive=d.sourceOpticY!==undefined&&d.packDot&&
+  const sourcedOpticActive=RED_DOT_SIGHTS_ENABLED&&d.sourceOpticY!==undefined&&d.packDot&&
     (d.sourceDotPermanent||lv>=1);
   d.adsPos.y=sourcedOpticActive?-d.sourceOpticY:d.baseAdsY;
   d.adsPos.z=sourcedOpticActive&&d.sourceAdsZ!==undefined?d.sourceAdsZ:d.baseAdsZ;
@@ -8236,7 +8235,8 @@ function updateWeaponView(dt){
   muzzleLight.intensity=Math.max(0,muzzleLight.intensity-dt*70);
 
   const adsShown=d.adsMix>0.75;
-  ui.reddot.style.opacity=(adsShown&&(d.reddot||(lv>=1&&!d.scoped)))?1:0;
+  ui.reddot.style.opacity=(RED_DOT_SIGHTS_ENABLED&&adsShown&&
+    (d.reddot||(lv>=1&&!d.scoped)))?1:0;
   ui.cross.classList.toggle('hide',adsShown);
   ui.scope.style.opacity=d.scoped?d.adsMix*0.95:d.adsMix*0.45;
   const spx=(player.ads?4:12)+Math.min(sp,6)*1.4+player.kick*90;
