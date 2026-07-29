@@ -4028,7 +4028,7 @@ function kSerr(x,y,z,n,m){
 const DEFS={};
 function def(o){ DEFS[o.id]=o; return o; }
 
-def({id:'m1911',name:'M1911',cls:'pistol',mode:'semi',rpm:420,dmg:74,mag:8,res:96,reload:1.6,
+def({id:'m1911',name:'Makarov',cls:'pistol',mode:'semi',rpm:420,dmg:74,mag:8,res:96,reload:1.6,
   sightY:.078,spread:.026,adsSpread:.004,range:80,cost:0,ammoCost:250,
   parts:[].concat(
     [B(.046,.056,.232,0,.028,-.060,0), B(.050,.014,.232,0,.054,-.060,0),
@@ -4040,6 +4040,30 @@ def({id:'m1911',name:'M1911',cls:'pistol',mode:'semi',rpm:420,dmg:74,mag:8,res:9
     kTrig(-.018,-.008,0), kIron(.052,-.166,.058,0,.056,.056),
     kMag(.034,.056,.150,-.118,.058,0,0,3)),
   muzzle:[0,.022,-.238]});
+
+def({id:'luger',name:'Luger P08',cls:'pistol',mode:'semi',rpm:430,dmg:82,mag:8,res:96,reload:1.55,
+  sightY:.076,spread:.024,adsSpread:.004,range:85,cost:0,box:true,
+  parts:[].concat(
+    [B(.045,.052,.245,0,.030,-.070,0), B(.050,.014,.245,0,.056,-.070,0),
+     B(.040,.045,.178,0,-.022,-.004,0), B(.046,.019,.060,0,-.042,-.080,0),
+     C(.008,.008,.092,0,.024,-.226,7), B(.028,.028,.022,0,.024,-.184,0),
+     B(.030,.015,.026,0,.050,.080,0), B(.030,.020,.018,0,.020,.080,0),
+     B(.036,.018,.044,0,.066,.036,0)],
+    kSerr(.045,.032,.030,5,0), kGrip(-.106,.056,.31,3,.148),
+    kTrig(-.014,-.006,0), kIron(.050,-.190,.058,0,.052,.052),
+    kMag(.032,.052,.142,-.112,.052,0,0,3)),
+  muzzle:[0,.024,-.266]});
+
+def({id:'flaregun',name:'Flare Gun',cls:'pistol',mode:'semi',rpm:55,dmg:260,splash:380,splashR:4.0,proj:'flare',
+  mag:1,res:18,reload:1.8,sightY:.075,spread:.018,adsSpread:.006,range:70,cost:0,box:true,
+  parts:[].concat(
+    [B(.060,.072,.250,0,.026,-.080,16), C(.032,.032,.250,0,.040,-.080,16),
+     B(.050,.052,.145,0,-.028,.020,1), B(.054,.020,.060,0,-.048,-.030,1),
+     C(.018,.018,.120,0,.036,-.245,0), B(.038,.038,.030,0,.036,-.306,0),
+     B(.032,.014,.022,0,.066,-.040,0), B(.026,.018,.018,0,.020,.090,0)],
+    kGrip(-.104,.070,.30,1,.150), kTrig(-.012,-.004,1),
+    kIron(.052,-.290,.064,0,.018,.052)),
+  muzzle:[0,.036,-.326]});
 
 def({id:'m4a1',name:'M4A1',cls:'rifle',mode:'auto',rpm:760,dmg:48,mag:30,res:270,reload:2.1,
   sightY:.115,spread:.030,adsSpread:.0035,range:130,cost:0,ammoCost:400,reddot:true,
@@ -4081,7 +4105,7 @@ def({id:'olympia',name:'Olympia',cls:'shotgun',mode:'semi',rpm:180,dmg:30,pellet
     [B(.007,.020,.008,0,.048,-.740,0), B(.024,.010,.008,0,.036,.056,0)]),
   muzzle:[0,.020,-.766]});
 
-def({id:'mp5',name:'MP5',cls:'smg',mode:'auto',rpm:820,dmg:36,mag:30,res:270,reload:2.0,
+def({id:'mp5',name:'Suomi KP-31',cls:'smg',mode:'auto',rpm:820,dmg:36,mag:30,res:270,reload:2.0,
   sightY:.094,spread:.032,adsSpread:.006,range:70,cost:1000,ammoCost:500,wall:true,
   parts:[].concat(
     [B(.062,.076,.300,0,.008,.010,1), C(.036,.036,.300,0,.028,.010,1),
@@ -4095,7 +4119,7 @@ def({id:'mp5',name:'MP5',cls:'smg',mode:'auto',rpm:820,dmg:36,mag:30,res:270,rel
     kStockSkel(.200,1)),
   muzzle:[0,.006,-.400]});
 
-def({id:'ak74u',name:'AK-74u',cls:'smg',mode:'auto',rpm:740,dmg:46,mag:30,res:270,reload:2.4,
+def({id:'ak74u',name:'AK-47',cls:'rifle',mode:'auto',rpm:740,dmg:46,mag:30,res:270,reload:2.4,
   sightY:.094,spread:.034,adsSpread:.005,range:85,cost:1200,ammoCost:600,wall:true,
   parts:[].concat(
     [B(.068,.074,.320,0,.006,.040,14), C(.033,.033,.320,0,.026,.040,14),
@@ -4123,7 +4147,7 @@ def({id:'galil',name:'Galil',cls:'rifle',mode:'auto',rpm:680,dmg:60,mag:35,res:3
     kStockSkel(.240,12)),
   muzzle:[0,.000,-.752]});
 
-def({id:'rem870',name:'Remington 870',cls:'shotgun',mode:'semi',rpm:75,dmg:34,pellets:9,mag:6,res:72,reload:.55,shellLoad:true,
+def({id:'rem870',name:'Pump Shotgun',cls:'shotgun',mode:'semi',rpm:75,dmg:34,pellets:9,mag:6,res:72,reload:.55,shellLoad:true,
   sightY:.080,spread:.050,adsSpread:.034,range:40,cost:1200,ammoCost:600,wall:true,
   parts:[].concat(
     kBarrel(.020,.620,-.400,0),
@@ -4178,7 +4202,7 @@ def({id:'hamr',name:'HAMR',cls:'lmg',mode:'auto',rpm:600,dmg:80,mag:75,res:375,r
     kStockFixed(.250,2)),
   muzzle:[0,.000,-.926]});
 
-def({id:'skorpion',name:'Skorpion EVO',cls:'smg',mode:'auto',rpm:960,dmg:30,mag:40,res:320,reload:1.9,
+def({id:'skorpion',name:'M3 Grease Gun',cls:'smg',mode:'auto',rpm:960,dmg:30,mag:40,res:320,reload:1.9,
   sightY:.090,spread:.036,adsSpread:.007,range:60,cost:0,box:true,
   parts:[].concat(
     [B(.058,.078,.280,0,.006,.000,15), C(.034,.034,.280,0,.028,.000,15),
@@ -4191,7 +4215,7 @@ def({id:'skorpion',name:'Skorpion EVO',cls:'smg',mode:'auto',rpm:960,dmg:30,mag:
     kStockSkel(.150,1)),
   muzzle:[0,.000,-.458]});
 
-def({id:'dsr50',name:'DSR-50',cls:'sniper',mode:'semi',rpm:48,dmg:520,pierce:3,mag:4,res:40,reload:3.2,
+def({id:'dsr50',name:'Sniper Rifle',cls:'sniper',mode:'semi',rpm:48,dmg:520,pierce:3,mag:4,res:40,reload:3.2,
   sightY:.14,spread:.055,adsSpread:.0004,range:220,cost:0,box:true,scoped:true,
   parts:[].concat(
     [B(.076,.086,.560,0,.004,.060,12), B(.066,.070,.240,0,-.010,.400,12),
@@ -4464,6 +4488,8 @@ const ARM_PISTOL_R=pistolGripHand(1,true),ARM_PISTOL_L=pistolGripHand(-1,false);
    'grip' cups the shooting hand on a pistol. Anchors sit at the thing being held. */
 const HANDS={
   m1911:    [[0,-.070,.054,.30],[-.056,-.088,.036,.34,.30,.46],'grip'],
+  luger:    [[0,-.070,.054,.30],[-.056,-.088,.036,.34,.30,.46],'grip'],
+  flaregun: [[0,-.070,.054,.30],[-.056,-.088,.036,.34,.30,.46],'grip'],
   m4a1:     [[0,-.092,.146,.26],[0,.004,-.400,0,0,.10],'fore'],
   m14:      [[0,-.052,.170,.34],[0,-.012,-.300,0,0,.10],'fore'],
   olympia:  [[0,-.052,.166,.34],[0,-.006,-.190,0,0,.10],'fore'],
@@ -4605,11 +4631,12 @@ for(const id in DEFS){
   d.adsFov=d.scoped?28:(d.cls==='pistol'?58:52);
 }
 
-/* CC0 Guns & Explosives replacement pilot.
-   The procedural weapons stay as instant-loading fallbacks. Five common guns
-   are replaced by detailed, texture-mapped GLBs while preserving the existing
+/* CC0 Guns & Explosives weapon set.
+   The procedural weapons stay as instant-loading fallbacks. Nine firearms use
+   detailed, texture-mapped GLBs while established slots preserve their existing
    IDs, stats, sockets, remote-player clones, Pack-a-Punch finishes, and Mystery
-   Box behavior. Source models already point down the game's -Z muzzle axis. */
+   Box behavior. The Luger source is normalized at load time because its FBX was
+   authored along the opposite barrel axis. */
 const SOURCED_WEAPONS={
   // grip is the source-model palm center. support is the natural fore-end hold.
   // length is the complete rendered length, not a gameplay range or stat.
@@ -4618,10 +4645,18 @@ const SOURCED_WEAPONS={
     railGrip:true,sightX:-.001,sightY:.076,hipDrop:.035},
   mp5:{file:'suomi-kp',length:.82,grip:[-.004,-.088,.132],support:[0,-.035,-.185],
     sightY:.055,hipDrop:.030},
+  ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[0,-.012,-.125],
+    sightY:.044,hipDrop:.034},
   rem870:{file:'shotgun',length:1.05,grip:[-.001,-.112,.455],support:[0,-.035,-.065],
     sightY:.045,hipDrop:.036},
+  skorpion:{file:'grease-gun',length:.76,grip:[0,-.112,.178],support:[0,-.030,-.190],
+    sightY:.049,hipDrop:.032},
   dsr50:{file:'sniper',length:1.10,grip:[-.002,-.135,.315],support:[0,-.030,-.175],
-    sightY:.105,hipDrop:.040}
+    sightY:.105,hipDrop:.040},
+  luger:{file:'luger',length:.30,rotationY:Math.PI,grip:[.028,-.050,.018],
+    sightX:.028,sightY:.067,hipDrop:.018},
+  flaregun:{file:'flare-gun',length:.31,grip:[0,-.066,.060],
+    sightY:.068,hipDrop:.020}
 };
 const SOURCE_WEAPON_PATH='/models/cc0-guns/';
 const sourceGltfLoader=new GLTFLoader();
@@ -4657,6 +4692,8 @@ function loadSourcedWeapon(id){
   sourceGltfLoader.load(SOURCE_WEAPON_PATH+cfg.file+'.glb',gltf=>{
     const object=gltf&&gltf.scene;
     if(!object)return;
+    object.rotation.y=cfg.rotationY||0;
+    object.updateMatrixWorld(true);
     const box=new THREE.Box3().setFromObject(object),span=box.max.z-box.min.z;
     if(box.isEmpty()||span<=.001){console.warn(cfg.file+' has invalid geometry');return;}
     const scale=cfg.length/span,grip=cfg.grip;
@@ -5614,13 +5651,15 @@ function releaseDynamicLight(L){ L.intensity=0; }
 const projectiles=[], booms=[], bolts=[];
 const projGeo=new THREE.SphereGeometry(.13,8,6);
 function spawnProj(kind,org,dir,d,mul){
-  const col=kind==='nade'?0x4a4a3a:(kind==='ray2'?0x9b3bff:0x3bff77);
+  const nade=kind==='nade',flare=kind==='flare';
+  const col=nade?0x4a4a3a:(flare?0xff5c18:(kind==='ray2'?0x9b3bff:0x3bff77));
   const m=new THREE.Mesh(projGeo,new THREE.MeshBasicMaterial({color:col}));
-  m.position.copy(org); m.scale.setScalar(kind==='nade'?1.2:1);
+  m.position.copy(org); m.scale.setScalar(nade?1.2:(flare?.72:1));
   scene.add(m);
-  const L=acquireDynamicLight(col,kind==='nade'?0.4:1.4,kind==='nade'?5:9,2);
+  const L=acquireDynamicLight(col,nade?.4:(flare?2.0:1.4),nade?5:(flare?11:9),2);
   L.position.copy(org);
-  projectiles.push({m,L,kind,d,mul:mul||1,v:dir.clone().multiplyScalar(kind==='nade'?30:60),life:4,grav:kind==='nade'?18:0});
+  projectiles.push({m,L,kind,d,mul:mul||1,
+    v:dir.clone().multiplyScalar(nade?30:(flare?42:60)),life:4,grav:nade?18:(flare?5:0)});
 }
 function stepProjectiles(dt){
   for(let i=projectiles.length-1;i>=0;i--){
@@ -5670,16 +5709,17 @@ function stepProjectiles(dt){
   }
 }
 function explode(pos,dmg,radius,kind,exclude){
-  const col=kind==='nade'?0xffa03a:(kind==='ray2'?0xa04aff:0x4dff88);
+  const explosive=kind==='nade'||kind==='flare';
+  const col=kind==='nade'?0xffa03a:(kind==='flare'?0xff5c18:(kind==='ray2'?0xa04aff:0x4dff88));
   const m=new THREE.Mesh(new THREE.SphereGeometry(1,12,10),
     new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.52,
       blending:THREE.AdditiveBlending,depthWrite:false}));
   m.position.copy(pos); m.scale.setScalar(.4); scene.add(m);
   const L=acquireDynamicLight(col,7,radius*5,2); L.position.copy(pos);
   booms.push({m,L,t:0,r:radius});
-  spray(pos.x,pos.y,pos.z,0,1,0,16,kind==='nade'?emberMat:plasmaMat,2.2);
+  spray(pos.x,pos.y,pos.z,0,1,0,16,explosive?emberMat:plasmaMat,2.2);
   const blastDist=Math.hypot(player.pos.x-pos.x,player.y+player.eye-pos.y,player.pos.z-pos.z);
-  if(kind==='nade') sfxBoom(clamp(1-blastDist/72,.08,1));
+  if(explosive) sfxBoom(clamp(1-blastDist/72,.08,kind==='flare'?.72:1));
   else sfxRay(clamp(1-blastDist/62,.06,1));
   for(let i=zombies.length-1;i>=0;i--){
     const z=zombies[i]; if(z.dead||z===exclude) continue;
@@ -5888,7 +5928,7 @@ function shootOnce(){
   if(d.proj){
     const o=_org.clone().add(_dir.clone().multiplyScalar(.6));
     spawnProj(d.proj,o,_dir,d,packMul(g));
-    if(d.proj!=='nade') sfxRay();
+    if(d.proj==='ray'||d.proj==='ray2') sfxRay();
     updHUD(); return;
   }
   const n=d.pellets||1;
@@ -6100,10 +6140,10 @@ function addPerkMachine(key,x,z,y0,rot){
    Weighted draw. Wall and basic guns are common, heavy weapons uncommon, wonder
    weapons rare, and anything already in your hands is taken out of the pool. */
 const BOX_TIER={m14:12,olympia:12,mp5:12,ak74u:12,galil:12,rem870:12,
-  an94:7,skorpion:7,rpk:6,hamr:6,m1216:6,dsr50:5,bknife:5,
-  // 8.580645 total wonder weight against 114 standard weight is a 7% opening chance.
+  an94:7,skorpion:7,luger:8,flaregun:3,rpk:6,hamr:6,m1216:6,dsr50:5,bknife:5,
+  // 9.4086 total wonder weight against 125 standard weight is a 7% opening chance.
   // The existing dry-streak pity multiplier still prevents extreme runs of bad luck.
-  raygun:1.9,raygun2:1.9,warmachine:1.72,thunder:1.5303225,waffe:1.5303225};
+  raygun:2.08,raygun2:2.08,warmachine:1.89,thunder:1.6793,waffe:1.6793};
 const WONDER=new Set(['raygun','raygun2','thunder','waffe','warmachine']);
 /* every roll that does not turn up a wonder weapon makes the next one likelier,
    so a long unlucky run cannot go on forever */
