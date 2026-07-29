@@ -4574,10 +4574,12 @@ for(const id in DEFS){
   if(H){
     const pistol=d.cls==='pistol';
     if(H[0]){ const a=new THREE.Mesh(pistol?ARM_PISTOL_R:ARM_R,GM); a.position.set(H[0][0],H[0][1],H[0][2]);
-      a.rotation.set(H[0][3]||0,H[0][4]||0,H[0][5]||0); a.userData.arm=true; d.mesh.add(a); }
+      a.rotation.set(H[0][3]||0,H[0][4]||0,H[0][5]||0);
+      a.userData.arm=true;a.userData.armSide='right';d.mesh.add(a); }
     if(H[1]){ const support=pistol?ARM_PISTOL_L:(H[2]==='fore'?ARM_F:ARM_L);
       const a=new THREE.Mesh(support,GM); a.position.set(H[1][0],H[1][1],H[1][2]);
-      a.rotation.set(H[1][3]||0,H[1][4]||0,H[1][5]||0); a.userData.arm=true; d.mesh.add(a); }
+      a.rotation.set(H[1][3]||0,H[1][4]||0,H[1][5]||0);
+      a.userData.arm=true;a.userData.armSide='left';a.visible=!pistol;d.mesh.add(a); }
   }
   if(!d.reddot&&!d.scoped){
     const dot=new THREE.Mesh(PACK_DOT,GM);
@@ -4598,6 +4600,7 @@ for(const id in DEFS){
     d.hip=new THREE.Vector3(small?0.125:0.150,small?-0.105:-0.108,small?-0.400:-0.420);
     d.adsPos=new THREE.Vector3(0,-d.sightY,small?-0.350:-0.225);
   }
+  d.baseAdsY=d.adsPos.y;d.baseAdsZ=d.adsPos.z;
   d.adsFov=d.scoped?28:(d.cls==='pistol'?58:52);
 }
 
@@ -4610,11 +4613,12 @@ const SOURCED_WEAPONS={
   // Imported receivers are taller than the procedural silhouettes they
   // replace. `hipDrop` only affects the relaxed view, never ADS, while the
   // optic sockets keep red-dot housings seated on the imported top rails.
-  m1911:{file:'Pistol_1',y:.015,hipDrop:.022,opticY:.105,opticZ:-.040},
-  m4a1:{file:'AssaultRifle2_1',y:.025,hipDrop:.072,opticY:.255,opticZ:-.120,permanentDot:true},
-  mp5:{file:'SubmachineGun_1',y:.020,hipDrop:.060,opticY:.195,opticZ:-.080},
-  rem870:{file:'Shotgun_2',y:.020,hipDrop:.058,opticY:.085,opticZ:-.100},
-  dsr50:{file:'SniperRifle_1',y:.030,hipDrop:.070}
+  m1911:{file:'Pistol_1',y:.015,hipDrop:.022,opticY:.105,opticZ:-.040,opticScale:.82},
+  m4a1:{file:'AssaultRifle2_1',y:.025,hipDrop:.170,opticY:.170,opticZ:.045,opticScale:.70,
+    permanentDot:true,adsZ:-.330},
+  mp5:{file:'SubmachineGun_1',y:.020,hipDrop:.150,opticY:.185,opticZ:.035,opticScale:.74,adsZ:-.320},
+  rem870:{file:'Shotgun_2',y:.020,hipDrop:.145,opticY:.080,opticZ:.030,opticScale:.78,adsZ:-.320},
+  dsr50:{file:'SniperRifle_1',y:.030,hipDrop:.165}
 };
 const SOURCE_WEAPON_PATH='/models/quaternius/';
 const SOURCE_PACK_COLOR_1=new THREE.Color(0x755fc0),SOURCE_PACK_COLOR_2=new THREE.Color(0x9e78f0);
@@ -4678,8 +4682,12 @@ function loadSourcedWeapon(id){
         d.mesh.add(d.packDot);
         d.sourceDotPermanent=true;
       }
-      if(d.packDot&&cfg.opticY!==undefined)
+      if(d.packDot&&cfg.opticY!==undefined){
         d.packDot.position.set(0,cfg.opticY,cfg.opticZ||0);
+        d.packDot.scale.setScalar(cfg.opticScale||1);
+        d.sourceOpticY=cfg.opticY;
+      }
+      if(cfg.adsZ!==undefined)d.sourceAdsZ=cfg.adsZ;
       updateSourcedPack(d,0);
     },undefined,err=>console.warn('Quaternius weapon failed to load: '+id,err));
   },undefined,err=>console.warn('Quaternius materials failed to load: '+id,err));
@@ -5176,12 +5184,10 @@ function gripCorrection(frame,hand,want){
   const qWant=new THREE.Quaternion().setFromRotationMatrix(gripBasis(want.dir,want.face));
   return qWant.multiply(qRig.invert());
 }
-/* Hand size and arm length have to be set independently. The Soldier's palm
-   is about .155 units at first-person scale. Forcing it to the old .087
-   procedural anchor made both hands visibly miniature and distorted the
-   wrist skinning. Keep nearly all of the natural hand size while retaining
-   enough arm reach for rifle fore-ends. */
-const FP_ARM_SCALE=.8, FP_PALM_TARGET=.135;
+/* Keep the Soldier hands at their natural authored size. Scaling only the
+   hand bones distorts the wrist skinning and is what made every grip look
+   miniature even after the first correction. */
+const FP_ARM_SCALE=.8;
 /* One rigged instance per arm. A single shared body cannot serve both grips:
    its shoulders move together, but a rifle's fore-end sits ~0.4 ahead of its
    trigger grip, so any one placement leaves the support arm folded up short
@@ -5196,11 +5202,7 @@ function makeFPArm(asset,side,geo){
   model.userData.fpArm=true;
   model.scale.setScalar(asset.scale*FP_ARM_SCALE);
   model.updateMatrixWorld(true);
-  // Keep the correction mild so skinning around the wrist stays natural.
   const hand=model.getObjectByName('mixamorig'+side+'Hand');
-  const naturalPalm=measureHandFrame(model,side).palmLen;
-  hand.scale.setScalar(clamp(FP_PALM_TARGET/naturalPalm,.82,1.05));
-  model.updateMatrixWorld(true);
   const body=model.getObjectByName('vanguard_Mesh'),visor=model.getObjectByName('vanguard_visor');
   body.geometry=geo; body.frustumCulled=false;
   if(visor) visor.visible=false;
@@ -5296,10 +5298,20 @@ function updateFPArms(d,dt){
   if(!fpArms){loadFPArms();return;}
   if(!fpArms.ready) return;
   const id=d.id,H=HANDS[id];
+  // The Soldier shoulder placement hides almost the entire one-handed
+  // pistol arm below the camera. Pistols already have a dedicated compact
+  // camo sleeve and gripping hand, so use that stable authored pose instead.
+  if(d.cls==='pistol'){
+    if(fpArms.R.model.parent)fpArms.R.model.parent.remove(fpArms.R.model);
+    if(fpArms.L.model.parent)fpArms.L.model.parent.remove(fpArms.L.model);
+    d.mesh.traverse(o=>{
+      if(o.userData&&o.userData.arm)o.visible=o.userData.armSide==='right';
+    });
+    fpArms.weaponId=id;
+    return;
+  }
   const handR=H&&H[0]?H[0]:[0,-.08,.10,.28];
-  // A pistol is fired one-handed here - no support arm to place, and none
-  // drawn, which also keeps the second sleeve out of an already busy frame.
-  const handL=(d.cls==='pistol'||!H||!H[1])?null:H[1];
+  const handL=(!H||!H[1])?null:H[1];
   if(fpArms.weaponId!==id){
     fpArms.weaponId=id;
     d.mesh.traverse(o=>{if(o.userData&&o.userData.arm)o.visible=false;});
@@ -8191,6 +8203,10 @@ function updateWeaponView(dt){
   updateSourcedPack(d,lv);
   if(d.packDot) d.packDot.visible=!!d.sourceDotPermanent||lv>=1;
   d.adsMix=lerp(d.adsMix||0,player.ads?1:0,1-Math.pow(0.00008,dt));
+  const sourcedOpticActive=d.sourceOpticY!==undefined&&d.packDot&&
+    (d.sourceDotPermanent||lv>=1);
+  d.adsPos.y=sourcedOpticActive?-d.sourceOpticY:d.baseAdsY;
+  d.adsPos.z=sourcedOpticActive&&d.sourceAdsZ!==undefined?d.sourceAdsZ:d.baseAdsZ;
   _pos.copy(d.hip).lerp(d.adsPos,d.adsMix);
   const sp=Math.hypot(player.vel.x,player.vel.z);
   const swayX=Math.sin(player.bob*2.1)*0.012*Math.min(sp/4,1)*(1-d.adsMix);
