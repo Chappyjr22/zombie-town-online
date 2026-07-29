@@ -4066,7 +4066,7 @@ def({id:'flaregun',name:'Flare Gun',cls:'pistol',mode:'semi',rpm:55,dmg:260,spla
   muzzle:[0,.036,-.326]});
 
 def({id:'m4a1',name:'M4A1',cls:'rifle',mode:'auto',rpm:760,dmg:48,mag:30,res:270,reload:2.1,
-  sightY:.115,spread:.030,adsSpread:.0035,range:130,cost:0,ammoCost:400,reddot:true,
+  sightY:.115,spread:.030,adsSpread:.0035,range:130,cost:0,ammoCost:400,reddot:true,tacticalGrip:true,
   parts:[].concat(
     [B(.072,.050,.290,0,.014,.020,15), C(.034,.034,.290,0,.028,.020,15),
      B(.066,.066,.185,0,-.046,.088,15), B(.058,.070,.098,0,-.058,-.048,15),
@@ -4120,7 +4120,7 @@ def({id:'mp5',name:'Suomi KP-31',cls:'smg',mode:'auto',rpm:820,dmg:36,mag:30,res
   muzzle:[0,.006,-.400]});
 
 def({id:'ak74u',name:'AK-47',cls:'rifle',mode:'auto',rpm:740,dmg:46,mag:30,res:270,reload:2.4,
-  sightY:.094,spread:.034,adsSpread:.005,range:85,cost:1200,ammoCost:600,wall:true,
+  sightY:.094,spread:.034,adsSpread:.005,range:85,cost:1200,ammoCost:600,wall:true,tacticalGrip:true,
   parts:[].concat(
     [B(.068,.074,.320,0,.006,.040,14), C(.033,.033,.320,0,.026,.040,14),
      B(.060,.056,.220,0,-.010,-.230,13), B(.052,.030,.190,0,.036,-.220,13),
@@ -4134,7 +4134,7 @@ def({id:'ak74u',name:'AK-47',cls:'rifle',mode:'auto',rpm:740,dmg:46,mag:30,res:2
   muzzle:[0,.000,-.578]});
 
 def({id:'galil',name:'Galil',cls:'rifle',mode:'auto',rpm:680,dmg:60,mag:35,res:315,reload:2.6,
-  sightY:.100,spread:.028,adsSpread:.004,range:140,cost:1500,ammoCost:750,wall:true,
+  sightY:.100,spread:.028,adsSpread:.004,range:140,cost:1500,ammoCost:750,wall:true,tacticalGrip:true,
   parts:[].concat(
     [B(.078,.086,.400,0,.004,.030,12), C(.038,.038,.400,0,.028,.030,12),
      B(.064,.062,.290,0,-.008,-.290,12), B(.056,.028,.240,0,.040,-.280,12),
@@ -4160,7 +4160,7 @@ def({id:'rem870',name:'Pump Shotgun',cls:'shotgun',mode:'semi',rpm:75,dmg:34,pel
   muzzle:[0,.000,-.716]});
 
 def({id:'an94',name:'AN-94',cls:'rifle',mode:'auto',rpm:700,dmg:58,mag:30,res:300,reload:2.4,
-  sightY:.10,spread:.027,adsSpread:.0035,range:150,cost:0,box:true,reddot:true,
+  sightY:.10,spread:.027,adsSpread:.0035,range:150,cost:0,box:true,reddot:true,tacticalGrip:true,
   parts:[].concat(
     [B(.070,.080,.440,0,.006,.040,15), C(.035,.035,.440,0,.030,.040,15),
      B(.060,.058,.300,0,-.006,-.320,1), B(.034,.048,.060,0,.030,-.500,0),
@@ -4190,7 +4190,7 @@ def({id:'rpk',name:'RPK',cls:'lmg',mode:'auto',rpm:640,dmg:72,mag:100,res:400,re
   muzzle:[0,.000,-.902]});
 
 def({id:'hamr',name:'HAMR',cls:'lmg',mode:'auto',rpm:600,dmg:80,mag:75,res:375,reload:4.0,
-  sightY:.135,spread:.033,adsSpread:.004,range:160,cost:0,box:true,
+  sightY:.135,spread:.033,adsSpread:.004,range:160,cost:0,box:true,tacticalGrip:true,
   parts:[].concat(
     [B(.092,.104,.480,0,.004,.020,2), C(.046,.046,.480,0,.032,.020,2),
      B(.074,.070,.320,0,-.006,-.360,2), B(.078,.040,.300,0,.048,-.350,2),
@@ -4490,16 +4490,16 @@ const HANDS={
   m1911:    [[0,-.070,.054,.30],[-.056,-.088,.036,.34,.30,.46],'grip'],
   luger:    [[0,-.070,.054,.30],[-.056,-.088,.036,.34,.30,.46],'grip'],
   flaregun: [[0,-.070,.054,.30],[-.056,-.088,.036,.34,.30,.46],'grip'],
-  m4a1:     [[0,-.092,.146,.26],[0,.004,-.400,0,0,.10],'fore'],
+  m4a1:     [[0,-.092,.146,.26],[-.032,.018,-.400,0,0,.10],'fore'],
   m14:      [[0,-.052,.170,.34],[0,-.012,-.300,0,0,.10],'fore'],
   olympia:  [[0,-.052,.166,.34],[0,-.006,-.190,0,0,.10],'fore'],
   mp5:      [[0,-.082,.182,.24],[0,.000,-.300,0,0,.10],'fore'],
-  ak74u:    [[0,-.088,.124,.30],[0,-.010,-.230,0,0,.10],'fore'],
-  galil:    [[0,-.094,.136,.28],[0,-.008,-.290,0,0,.10],'fore'],
+  ak74u:    [[0,-.088,.124,.30],[-.028,.012,-.230,0,0,.10],'fore'],
+  galil:    [[0,-.094,.136,.28],[-.030,.012,-.290,0,0,.10],'fore'],
   rem870:   [[0,-.058,.176,.32],[0,-.044,-.330,0,0,.10],'fore'],
-  an94:     [[0,-.094,.130,.28],[0,-.006,-.320,0,0,.10],'fore'],
+  an94:     [[0,-.094,.130,.28],[-.030,.014,-.320,0,0,.10],'fore'],
   rpk:      [[0,-.098,.138,.28],[0,-.008,-.360,0,0,.10],'fore'],
-  hamr:     [[0,-.104,.148,.26],[0,-.006,-.360,0,0,.10],'fore'],
+  hamr:     [[0,-.104,.148,.26],[-.034,.016,-.320,0,0,.10],'fore'],
   skorpion: [[0,-.080,.118,.24],[0,-.038,-.185,0,0,.10],'fore'],
   dsr50:    [[0,-.094,.178,.26],[0,-.020,-.290,0,0,.10],'fore'],
   m1216:    [[0,-.096,.146,.26],[0,-.036,-.230,0,0,.10],'fore'],
@@ -4642,11 +4642,11 @@ const SOURCED_WEAPONS={
   // length is the complete rendered length, not a gameplay range or stat.
   m1911:{file:'makarov',length:.30,grip:[.005,-.034,.008],sightY:.056,hipDrop:.018},
   m4a1:{file:'m4a1',length:1.00,grip:[0,-.090,.075],support:[-.030,.018,-.255],
-    railGrip:true,sightX:-.001,sightY:.076,hipDrop:.035},
+    tacticalGrip:true,sightX:-.001,sightY:.076,hipDrop:.035},
   mp5:{file:'suomi-kp',length:.82,grip:[-.004,-.088,.132],support:[0,-.035,-.185],
     sightY:.055,hipDrop:.030},
   ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[-.028,.012,-.125],
-    railGrip:true,sightX:.004,sightY:.044,hipDrop:.034},
+    tacticalGrip:true,sightX:.004,sightY:.044,hipDrop:.034},
   rem870:{file:'shotgun',length:1.05,grip:[-.001,-.112,.455],support:[0,-.035,-.065],
     sightY:.045,hipDrop:.036},
   skorpion:{file:'grease-gun',length:.76,grip:[0,-.112,.178],support:[0,-.030,-.190],
@@ -4719,7 +4719,9 @@ function loadSourcedWeapon(id){
       H[1][1]=object.position.y+cfg.support[1]*scale;
       H[1][2]=object.position.z+cfg.support[2]*scale;
     }
-    d.sourceRailGrip=!!cfg.railGrip;
+    // The same grip metadata drives the local Soldier hands and remote rigs.
+    // Sourced meshes may opt in here while procedural weapons opt in at def().
+    d.tacticalGrip=!!(d.tacticalGrip||cfg.tacticalGrip);
     if(fpArms&&fpArms.weaponId===id)fpArms.weaponId=null;
     // Re-seat muzzle effects and iron-sight ADS on the actual imported mesh.
     const muzzle=[object.position.x,object.position.y,object.position.z+box.min.z*scale];
@@ -5390,8 +5392,8 @@ function updateFPArms(d,dt){
   }
   const handR=H&&H[0]?H[0]:[0,-.08,.10,.28];
   const handL=(!H||!H[1])?null:H[1];
-  const supportGrip=d.sourceRailGrip?FP_RAIL_GRIP_L:FP_GRIP_L;
-  const supportGripQ=d.sourceRailGrip?fpArms.L.railGrip:fpArms.L.grip;
+  const supportGrip=d.tacticalGrip?FP_RAIL_GRIP_L:FP_GRIP_L;
+  const supportGripQ=d.tacticalGrip?fpArms.L.railGrip:fpArms.L.grip;
   if(fpArms.weaponId!==id){
     fpArms.weaponId=id;
     d.mesh.traverse(o=>{if(o.userData&&o.userData.arm)o.visible=false;});
@@ -7612,7 +7614,7 @@ function netStep(dt){
       if(holdingWeapon){
         aimRemoteGrip(r.handR,r.weaponHolder,r.gripR,gripR,smooth);
         aimRemoteGrip(r.handL,r.weaponHolder,
-          wd.sourceRailGrip?r.railGripL:r.gripL,gripL,smooth);
+          wd.tacticalGrip?r.railGripL:r.gripL,gripL,smooth);
       }
     }
     if(r.flashT>0){
