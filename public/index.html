@@ -2814,7 +2814,11 @@ function buildLastStop(){
 
   // Four long platforms, rails, sleepers, canopies, signs, and detailed rolling stock.
   for(const z of [1,-7,-15,-23]){
-    bx(82,.34,4.8,0,.17,z,M.concrete);
+    // solid:false - the platform is a walkable step-up (registered via addPlatform
+    // below), not a wall. A blocking collider here would stop players/zombies from
+    // ever getting close enough at track level to trigger the step-up onto it.
+    bx(82,.34,4.8,0,.17,z,M.concrete,false);
+    addPlatform(-41,41,z-2.4,z+2.4,.34);
     const line=new THREE.Mesh(new THREE.PlaneGeometry(80,.20),new THREE.MeshBasicMaterial({color:0xe1b733}));
     line.rotation.x=-Math.PI/2;line.position.set(0,.355,z+2.12);worldRoot.add(line);
   }
@@ -7609,12 +7613,37 @@ function updateZombies(dt){
     } else {z.stair=false;z.stairDir=0;z.stairT=0;}
     const dx=tgx-z.pos.x,dz=tgz-z.pos.z;
     const dist=Math.hypot(px-z.pos.x,pz-z.pos.z);
+    // A short-lookahead probe centered on the direct heading can deadlock at
+    // concave wall corners (rounding one needs turning further than the
+    // normal search allows, since the escape route briefly points away from
+    // the target). Track lack of real progress and briefly widen the search
+    // toward a full circle to break out, then drop back to normal tracking.
+    if(z.navCheckAt===undefined||game.time>=z.navCheckAt){
+      z.stuckT=(z.navRefDist!==undefined&&dist>=z.navRefDist-0.6)?(z.stuckT||0)+0.8:0;
+      z.navRefDist=dist;z.navCheckAt=game.time+0.8;
+    }
     const desired=Math.atan2(dx,dz);
     let angle=desired;
     const probe=clamp(Math.hypot(dx,dz),0.5,1.05);   // shorter look ahead threads doorways better
-    for(const off of [0,.42,-.42,.85,-.85,1.4,-1.4,2.0,-2.0]){
-      const a=desired+off;
-      if(!blockedAt(z.pos.x+Math.sin(a)*probe,z.pos.z+Math.cos(a)*probe,0.45,z.y)){angle=a;break;}
+    if((z.stuckT||0)>2.4){
+      // Commit to one escape heading for a bit instead of re-deriving it every
+      // frame - re-deriving from the (still target-facing) desired angle each
+      // frame can flip-flop between two equally-valid ways around a corner
+      // and never actually walk either one.
+      if(!(z.escapeUntil>game.time)){
+        let chosen=desired;
+        for(const off of [.85,-.85,1.4,-1.4,2.0,-2.0,2.6,-2.6,3.14]){
+          const a=desired+off;
+          if(!blockedAt(z.pos.x+Math.sin(a)*probe,z.pos.z+Math.cos(a)*probe,0.45,z.y)){chosen=a;break;}
+        }
+        z.escapeAngle=chosen;z.escapeUntil=game.time+1.6;
+      }
+      angle=z.escapeAngle;
+    }else{
+      for(const off of [0,.42,-.42,.85,-.85,1.4,-1.4,2.0,-2.0]){
+        const a=desired+off;
+        if(!blockedAt(z.pos.x+Math.sin(a)*probe,z.pos.z+Math.cos(a)*probe,0.45,z.y)){angle=a;break;}
+      }
     }
     let da=angle-z.yaw;
     while(da>Math.PI) da-=TAU; while(da<-Math.PI) da+=TAU;
