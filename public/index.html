@@ -77,7 +77,29 @@
   #downed{position:absolute;inset:0;opacity:0;background:radial-gradient(ellipse at center, rgba(90,0,0,.25) 10%, rgba(60,0,0,.95) 85%);}
   #invuln{position:absolute;inset:0;opacity:0;pointer-events:none;
     background:radial-gradient(ellipse at center, rgba(80,200,255,0) 52%, rgba(96,214,255,.6) 100%);}
-  #scope{position:absolute;inset:0;opacity:0;background:radial-gradient(circle at center, rgba(0,0,0,0) 22%, rgba(0,0,0,.55) 40%, rgba(0,0,0,.95) 62%);}
+  #scope{position:absolute;inset:0;opacity:0;pointer-events:none;
+    background:radial-gradient(circle at center,rgba(0,0,0,0) 22%,rgba(0,0,0,.55) 40%,rgba(0,0,0,.95) 62%);}
+  #scope.reticle{
+    background:radial-gradient(circle at center,rgba(14,24,21,.10) 0 33.5vmin,
+      rgba(0,0,0,.98) 34.2vmin 100%);
+  }
+  #scope.reticle::before{
+    content:"";position:absolute;left:50%;top:50%;width:67vmin;height:67vmin;
+    transform:translate(-50%,-50%);border:2px solid rgba(196,220,204,.42);border-radius:50%;
+    background:
+      linear-gradient(to right,transparent calc(50% - .6px),rgba(205,229,211,.82) calc(50% - .6px),
+        rgba(205,229,211,.82) calc(50% + .6px),transparent calc(50% + .6px)),
+      linear-gradient(to bottom,transparent calc(50% - .6px),rgba(205,229,211,.82) calc(50% - .6px),
+        rgba(205,229,211,.82) calc(50% + .6px),transparent calc(50% + .6px)),
+      radial-gradient(circle at center,transparent 0 46%,rgba(113,151,124,.18) 46.5%,
+        transparent 47.5%);
+    box-shadow:inset 0 0 38px rgba(0,0,0,.74),0 0 0 2px rgba(0,0,0,.82);
+  }
+  #scope.reticle::after{
+    content:"";position:absolute;left:50%;top:50%;width:5px;height:5px;
+    transform:translate(-50%,-50%);border:1px solid rgba(220,238,224,.95);
+    border-radius:50%;background:rgba(20,30,24,.72);
+  }
 
   .screen{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     background:radial-gradient(ellipse at center,#141924 0%,#04060a 78%);text-align:center;padding:24px;overflow:auto;}
@@ -4215,7 +4237,7 @@ def({id:'skorpion',name:'M3 Grease Gun',cls:'smg',mode:'auto',rpm:960,dmg:30,mag
     kStockSkel(.150,1)),
   muzzle:[0,.000,-.458]});
 
-def({id:'dsr50',name:'Sniper Rifle',cls:'sniper',mode:'semi',rpm:48,dmg:520,pierce:3,mag:4,res:40,reload:3.2,
+def({id:'dsr50',name:'Sniper Rifle',cls:'sniper',mode:'semi',rpm:48,dmg:1250,pierce:3,mag:4,res:40,reload:3.2,
   sightY:.14,spread:.055,adsSpread:.0004,range:220,cost:0,box:true,scoped:true,
   parts:[].concat(
     [B(.076,.086,.560,0,.004,.060,12), B(.066,.070,.240,0,-.010,.400,12),
@@ -4628,7 +4650,7 @@ for(const id in DEFS){
     d.adsPos=new THREE.Vector3(0,-d.sightY,small?-0.350:-0.225);
   }
   d.baseAdsY=d.adsPos.y;d.baseAdsZ=d.adsPos.z;
-  d.adsFov=d.scoped?28:(d.cls==='pistol'?58:52);
+  d.adsFov=d.scoped?22:(d.cls==='pistol'?58:52);
 }
 
 /* CC0 Guns & Explosives weapon set.
@@ -4651,8 +4673,8 @@ const SOURCED_WEAPONS={
     sightY:.045,hipDrop:.036},
   skorpion:{file:'grease-gun',length:.76,grip:[0,-.112,.178],support:[0,-.030,-.190],
     sightY:.049,hipDrop:.032},
-  dsr50:{file:'sniper',length:1.10,grip:[-.002,-.135,.315],support:[0,-.030,-.175],
-    sightY:.105,hipDrop:.040},
+  dsr50:{file:'sniper',length:1.10,grip:[-.002,-.135,.315],support:[0,-.065,-.190],
+    sightX:-.0037,sightY:.015,adsZ:-.320,hip:[.220,-.180,-.500]},
   luger:{file:'luger',length:.30,rotationY:Math.PI,grip:[.028,-.050,.018],
     sightX:.028,sightY:.067,hipDrop:.018},
   flaregun:{file:'flare-gun',length:.31,grip:[0,-.066,.060],
@@ -4712,6 +4734,7 @@ function loadSourcedWeapon(id){
     const fallback=d.mesh.children[0];if(fallback)fallback.visible=false;
     d.mesh.add(root);d.sourcedModel=root;d.sourcedPack=-1;
     d.sourceViewDrop=cfg.hipDrop||0;
+    if(cfg.hip)d.hip.set(cfg.hip[0],cfg.hip[1],cfg.hip[2]);
     // Keep the support hand on the imported fore-end instead of the old
     // procedural socket. The trigger-hand anchor itself never changes.
     if(cfg.support&&H&&H[1]){
@@ -4729,6 +4752,7 @@ function loadSourcedWeapon(id){
     d.mesh.userData.flash.position.set(muzzle[0],muzzle[1],muzzle[2]);
     d.sightY=object.position.y+cfg.sightY*scale;
     d.baseAdsY=-d.sightY;d.adsPos.y=d.baseAdsY;
+    if(cfg.adsZ!==undefined)d.baseAdsZ=d.adsPos.z=cfg.adsZ;
     if(cfg.sightX!==undefined){
       const sightX=object.position.x+cfg.sightX*scale;
       d.baseAdsX=-sightX;d.adsPos.x=d.baseAdsX;
@@ -7594,7 +7618,7 @@ function netStep(dt){
             .add(r.weaponHolder.position);
           // A palm grips the near side of the fore-end, not its centerline.
           // This also keeps the left arm inside the Soldier rig's real reach.
-          _remoteHandL.x-=compact?.035:.075;
+          _remoteHandL.x-=wd.cls==='sniper'?.132:(compact?.035:.075);
         }else{
           _remoteHandL.set(-.06,1.30+lift,-.24+recoilZ);
         }
@@ -8321,6 +8345,9 @@ function updateWeaponView(dt){
   updateSourcedPack(d,lv);
   if(d.packDot) d.packDot.visible=RED_DOT_SIGHTS_ENABLED&&(!!d.sourceDotPermanent||lv>=1);
   d.adsMix=lerp(d.adsMix||0,player.ads?1:0,1-Math.pow(0.00008,dt));
+  // Once the eye reaches a magnified optic, the physical scope is behind the
+  // camera and should no longer block the sight picture.
+  d.mesh.visible=!meleeActive&&!(d.scoped&&d.adsMix>.72);
   const sourcedOpticActive=RED_DOT_SIGHTS_ENABLED&&d.sourceOpticY!==undefined&&d.packDot&&
     (d.sourceDotPermanent||lv>=1);
   d.adsPos.y=sourcedOpticActive?-d.sourceOpticY:d.baseAdsY;
@@ -8357,7 +8384,8 @@ function updateWeaponView(dt){
   ui.reddot.style.opacity=(RED_DOT_SIGHTS_ENABLED&&adsShown&&
     (d.reddot||(lv>=1&&!d.scoped)))?1:0;
   ui.cross.classList.toggle('hide',adsShown);
-  ui.scope.style.opacity=d.scoped?d.adsMix*0.95:d.adsMix*0.45;
+  ui.scope.classList.toggle('reticle',d.scoped);
+  ui.scope.style.opacity=d.scoped?d.adsMix:d.adsMix*0.45;
   const spx=(player.ads?4:12)+Math.min(sp,6)*1.4+player.kick*90;
   ui.cross.querySelector('.t').style.top=(20-spx-8)+'px';
   ui.cross.querySelector('.b').style.top=(20+spx)+'px';
