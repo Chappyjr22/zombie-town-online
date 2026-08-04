@@ -4956,7 +4956,8 @@ function giveGun(defId){
   player.reloading=false; player.burstLeft=0; player.swapAnim=0.4;
   return inst;
 }
-function addPoints(n){ player.points+=Math.round(n*(buffs.doublepoints>0?2:1)); }
+const POINTS_EARN_RATE=2/3; // knocked down by a third from the original rate
+function addPoints(n){ player.points+=Math.round(n*POINTS_EARN_RATE*(buffs.doublepoints>0?2:1)); }
 
 /* ---------- zombie skeleton ----------
    15 points. Alive, they are driven by forward kinematics so every segment
@@ -5158,7 +5159,9 @@ function bossTeamSize(){
   return Math.max(1,n);
 }
 function bossHpForRound(round){
-  const base=6000+Math.max(0,round-10)*550;
+  // Boss rounds land every 10 rounds (see isBossRound); 100k at round 10,
+  // then another 100k per boss spawn after that (200k at 20, 300k at 30, ...).
+  const base=100000*(round/10);
   return Math.round(base*(1+(bossTeamSize()-1)*.45));
 }
 function setBossAction(z,name){
