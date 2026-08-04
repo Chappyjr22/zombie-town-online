@@ -5113,7 +5113,7 @@ const gltfLoader=new GLTFLoader();
 let playerModelAsset=null,playerModelLoading=null;
 const BOSS_MODEL_PATH='/models/boss-zombie/boss-zombie.glb';
 const BOSS_MODEL_SCALE=1.52;
-const BOSS_MODEL_YAW=Math.PI;
+const BOSS_MODEL_YAW=0; // was Math.PI - that 180 flip was making the Brute walk backward toward the player
 const BOSS_HIT_GEO=new THREE.SphereGeometry(1,10,8);
 const BOSS_HIT_MAT=new THREE.MeshBasicMaterial({visible:false});
 let bossModelAsset=null,bossModelLoading=null;
@@ -5680,7 +5680,7 @@ function makeZombie(round,isBoss){
     grp.add(m); z.meshes.push(m); zombieMeshes.push(m);
   }
   if(isBoss){
-    z.boss=true;z.scale=1.48;z.speed=clamp(1.42+round*.035,1.65,2.35);
+    z.boss=true;z.scale=1.48;z.speed=clamp(1.8+round*.045,2.1,3.4);
     z.hp=z.maxHp=bossHpForRound(round);
     z.mats.cloth.color.setHex(0x351512);z.mats.pantsM.color.setHex(0x1a1718);
     z.mats.skin.color.setHex(0x64705a);z.mats.eye.color.setHex(0xff6a35);
@@ -8609,7 +8609,7 @@ function updateZombies(dt){
       resolveCircle(z.pos,z.boss?.68:.44,z.y);
     } else if(game.time>z.nextSwing&&!targetDown){
       z.nextSwing=game.time+(z.boss?1.35:1.05);
-      const amount=z.boss?(28+z.round*1.05):(13+z.round*0.7);
+      const amount=z.boss?(40+z.round*1.4):(13+z.round*0.7);
       if(z.boss)z.bossAttackUntil=game.time+1.18;
       const listenerDist=Math.hypot(z.pos.x-player.pos.x,z.pos.z-player.pos.z);
       if(listenerDist<28) sfxGroan(listenerDist,'attack');
