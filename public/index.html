@@ -7055,6 +7055,8 @@ function updHUD(){
 
 /* ---------- rounds ---------- */
 const ROUND_GAP=150;
+const MAX_ALIVE=45;      // was 30 - lets more zombies be on the map at once
+const SPAWN_BURST=3;     // zombies spawned together per spawn tick, was 1
 const game={round:0,toSpawn:0,spawnTimer:0,roundTimer:0,running:false,time:0,kills:0,focus:null,wonderFound:false,boxDry:0,lockdown:0,bossPending:false};
 const roundCount=r=>10+(r-1)*2;                 // two more every round
 const roundMult=r=>1+(r-1)*0.15;                // and they are worth more
@@ -8415,9 +8417,12 @@ function updateRounds(dt){
   if(game.toSpawn>0){
     game.spawnTimer-=dt;
     let live=0; for(const z of zombies) if(!z.dead) live++;
-    if(game.spawnTimer<=0&&live<30){
-      const boss=game.bossPending;
-      spawnOne(boss);game.bossPending=false;game.toSpawn--;
+    if(game.spawnTimer<=0&&live<MAX_ALIVE){
+      const burst=Math.min(SPAWN_BURST,game.toSpawn,MAX_ALIVE-live);
+      for(let i=0;i<burst;i++){
+        const boss=game.bossPending;
+        spawnOne(boss);game.bossPending=false;game.toSpawn--;
+      }
       game.spawnTimer=game.lockdown>0?rand(.32,.72):rand(.7,1.6);
     }
     else if(game.spawnTimer<=0) game.spawnTimer=1.5;
