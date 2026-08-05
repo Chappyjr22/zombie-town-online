@@ -7223,12 +7223,13 @@ function startRound(){
   game.round++;
   const bossRound=isBossRound(game.round);
   game.bossPending=bossRound;
-  // Boss rounds are intentionally focused: one Brute and ten regular zombies.
-  game.toSpawn=bossRound?11:roundCount(game.round); game.spawnTimer=0; game.roundTimer=ROUND_GAP;
+  // Boss rounds: one Brute plus a much larger escort mob than a regular round.
+  const BOSS_ESCORTS=30;
+  game.toSpawn=bossRound?BOSS_ESCORTS+1:roundCount(game.round); game.spawnTimer=0; game.roundTimer=ROUND_GAP;
   const lockdown=currentMap==='blacksire'&&game.round>1&&game.round%4===0;
   game.lockdown=lockdown?20:0;
   banner(bossRound?'BOSS ROUND':(lockdown?'CONTAINMENT LOCKDOWN':'ROUND '+String(game.round).padStart(2,'0')),
-    bossRound?'The Brute  \u00b7  ten escorts':(lockdown?'Emergency protocol  \u00b7  accelerated breach':game.toSpawn+' of them'));
+    bossRound?('The Brute  \u00b7  '+BOSS_ESCORTS+' escorts'):(lockdown?'Emergency protocol  \u00b7  accelerated breach':game.toSpawn+' of them'));
   if(typeof placeMannequins==='function') placeMannequins();
   sfxRound(); updHUD();
   if(bossRound)loadBossModelAsset().catch(()=>{});
