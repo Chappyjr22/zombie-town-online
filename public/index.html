@@ -7423,12 +7423,53 @@ function doBuy(){
    validates combat requests, and broadcasts shared world state to the room. */
 const net={
   ws:null,code:'',id:'',host:false,connected:false,manualClose:false,token:'',reconnectAttempts:0,
-  players:new Map(),remotes:new Map(),nextState:0,nextWorld:0,zombieSeq:1,activeGame:false,
+  players:new Map(),remotes:new Map(),nextState:0,nextWorld:0,nextSave:0,zombieSeq:1,activeGame:false,
   pausedByHost:false
 };
 function netTokenKey(code){ return 'town:token:'+code; }
 function netLoadToken(code){ try{return sessionStorage.getItem(netTokenKey(code))||'';}catch(e){return '';} }
 function netSaveToken(code,token){ try{sessionStorage.setItem(netTokenKey(code),token);}catch(e){} }
+// Reconnecting mid-session (the auto-retry loop below) never touches this -
+// the local `player` object survives untouched across a WebSocket drop, so
+// there's nothing to restore. This is only for the case a friend's tab
+// actually reloads (network loss outlasting the retry loop, or they close
+// and reopen the room link): a fresh page load means a fresh `player`
+// object, and the previous code unconditionally reset it to the starting
+// loadout via startGame() even when rejoining a match already in progress.
+// Persisting a snapshot here and reapplying it on that rejoin (see the
+// 'welcome' handler) keeps points/perks/guns instead of losing them.
+function netLoadoutKey(code){ return 'town:loadout:'+code; }
+function netSaveLoadout(){
+  if(!net.code) return;
+  try{
+    sessionStorage.setItem(netLoadoutKey(net.code),JSON.stringify({
+      points:player.points,perks:player.perks,slot:player.slot,
+      guns:player.guns.map(g=>({id:g.def.id,ammo:g.ammo,res:g.res,pack:g.pack||0}))
+    }));
+  }catch(e){}
+}
+function netLoadLoadout(code){
+  try{const raw=sessionStorage.getItem(netLoadoutKey(code));return raw?JSON.parse(raw):null;}catch(e){return null;}
+}
+function netClearLoadout(code){ try{sessionStorage.removeItem(netLoadoutKey(code));}catch(e){} }
+function applySavedLoadout(saved){
+  if(!saved) return;
+  player.perks={};
+  if(saved.perks) for(const k in saved.perks) if(PERKS[k]&&saved.perks[k]) player.perks[k]=true;
+  player.maxHp=has('jugg')?250:100; player.hp=player.maxHp;
+  player.points=Math.max(0,Math.round(+saved.points)||0);
+  if(Array.isArray(saved.guns)&&saved.guns.length){
+    const guns=[];
+    for(const sg of saved.guns){
+      const def=DEFS[sg.id]; if(!def) continue;
+      guns.push({def,ammo:clamp(Math.round(+sg.ammo)||0,0,999),
+        res:clamp(Math.round(+sg.res)||0,0,9999),pack:clamp(Math.round(+sg.pack)||0,0,MAX_PACK)});
+    }
+    if(guns.length) player.guns=guns;
+  }
+  player.slot=clamp(Math.round(+saved.slot)||0,0,player.guns.length-1);
+  renderPerks(); updHUD();
+}
 function safeNetName(v){
   return String(v||'Survivor').replace(/[^\w .'-]/g,'').trim().slice(0,18)||'Survivor';
 }
@@ -7881,6 +7922,10 @@ function netHandle(msg){
     // An active local match remains a reconnect even while the host has paused it.
     // Restarting a paused survivor here would reset points, guns, and perks to defaults.
     const reconnecting=net.activeGame;
+    // Whether *this* connect attempt carried a token from a previous visit to
+    // this exact room code (see netLoadToken in netConnect) - captured before
+    // it's overwritten below with the fresh token this connection just got.
+    const hadToken=!!net.token;
     net.id=m.id; net.host=!!m.host; net.connected=true; net.reconnectAttempts=0; net.players.clear();
     if(m.token){net.token=m.token; netSaveToken(net.code,m.token);}
     for(const p of m.players||[]){net.players.set(p.id,p);makeRemotePlayer(p);}
@@ -7897,6 +7942,14 @@ function netHandle(msg){
       showScreen('lobby'); renderRoster();
       if(m.room&&m.room.active&&m.room.map){
         net.activeGame=true; startGame(m.room.map); toast('Joined room '+net.code);
+        // A fresh page load (not the in-session auto-reconnect above) joining
+        // a match that's already running - if this tab was in this exact
+        // room before (hadToken) and left behind a loadout snapshot, this is
+        // really the same survivor picking back up, not a brand new one.
+        if(hadToken){
+          const saved=netLoadLoadout(net.code);
+          if(saved){applySavedLoadout(saved);toast('Loadout restored');}
+        }
         if(m.room.paused) applySessionPause(true);
       }
     }
@@ -7932,6 +7985,9 @@ function netHandle(msg){
   } else if(m.type==='game'){
     handleSharedGameEvent(m.event);
   } else if(m.type==='start'&&(m.map==='town'||m.map==='nuketown'||m.map==='blacksire'||m.map==='laststop')){
+    // A brand new match for the whole room - any loadout snapshot left over
+    // from a previous match in this same room code is stale now.
+    netClearLoadout(net.code);
     net.activeGame=true; net.pausedByHost=false; startGame(m.map); toast('Online room '+net.code);
   } else if(m.type==='error'){
     setNetStatus(m.message||'Room error'); sfxDeny();
@@ -8117,6 +8173,9 @@ function netStep(dt){
     }else{r.flash.material.opacity=0;r.shotLight.intensity=0;}
   }
   netHostWorld();
+  if(net.connected&&net.activeGame&&game.running&&game.time>=net.nextSave){
+    net.nextSave=game.time+2; netSaveLoadout();
+  }
   if(!net.connected||!game.running||game.time<net.nextState) return;
   net.nextState=game.time+.05;
   const g=curGun();
