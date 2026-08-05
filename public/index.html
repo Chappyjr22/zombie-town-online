@@ -3362,6 +3362,9 @@ function clearWorld(){
   window.__storm=null;
   if(typeof papGlow!=='undefined') papGlow=null;
   if(typeof mbox!=='undefined'){ mbox.g=null; mbox.col=null; mbox.preview=null; mbox.state='idle'; }
+  // worldRoot swap above already discarded/disposed any Fire Sale decoy crates -
+  // just drop the now-stale bookkeeping so a later Fire Sale rebuilds cleanly.
+  if(typeof fireSaleBoxes!=='undefined'){ fireSaleBoxes.length=0; fireSaleActive=false; fireSaleSpot=-1; }
 }
 function loadMap(id){
   clearWorld();
@@ -6515,11 +6518,17 @@ const BOX_LID_GEO=mergeGeos([
   pc(BOX_UNIT,1,.66,.15,-.65,0,0,0,.13,.25,1.34),
   pc(BOX_UNIT,2,0,-.015,-.65,0,0,0,1.82,.035,.94)
 ]);
-function buildBox(){
+// Builds a crate group. withLights=false skips the two PointLights (used for
+// Fire Sale decoy crates) - adding a THREE.PointLight to the scene changes
+// the active light count baked into every PBR material's compiled shader,
+// forcing a multi-second recompile stall across the whole scene (same bug
+// fixed for the Ray Gun and power-up drops elsewhere in this file). Decoys
+// only need the crate mesh/sprites/beacon (all MeshBasicMaterial) to look
+// right, not actual lights.
+function buildBoxVisual(withLights){
   const g=new THREE.Group();
   const b=new THREE.Mesh(BOX_BASE_GEO,[M.boxWood,M.boxMetal,M.boxInside,M.wood]);
   g.add(b); blockers.push(b);
-  mbox.col=null;
   const lid=new THREE.Group();
   lid.position.set(0,1.03,.65);
   const lidShell=new THREE.Mesh(BOX_LID_GEO,[M.boxWood,M.boxMetal,M.boxInside]);
@@ -6539,7 +6548,10 @@ function buildBox(){
   qTop.rotation.x=-Math.PI/2;qTop.position.set(0,.215,-.65);lid.add(qTop);
   const hinge=new THREE.Mesh(new THREE.CylinderGeometry(.08,.08,1.82,12),M.boxMetal);
   hinge.rotation.z=Math.PI/2;hinge.position.set(0,1.07,.67);g.add(hinge);
-  const innerGlow=new THREE.PointLight(0xff9e2f,1.0,6,2);innerGlow.position.set(0,1.10,0);g.add(innerGlow);
+  let innerGlow=null,L=null;
+  if(withLights){
+    innerGlow=new THREE.PointLight(0xff9e2f,1.0,6,2);innerGlow.position.set(0,1.10,0);g.add(innerGlow);
+  }
   // beacon into the sky so the box is findable from anywhere
   const beamMat=new THREE.MeshBasicMaterial({color:0xffbe45,transparent:true,opacity:.13,
     blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide});
@@ -6557,11 +6569,18 @@ function buildBox(){
   // floating question mark above the crate
   const qFloat=new THREE.Mesh(new THREE.PlaneGeometry(1.25,1.25),qMat.clone());
   qFloat.position.set(0,2.9,0); g.add(qFloat);
-  const L=new THREE.PointLight(0xe8a33d,1.4,12,2); L.position.set(0,1.4,0); g.add(L);
-  worldRoot.add(g);
-  mbox.g=g; mbox.lid=lid; mbox.light=L;
-  mbox.beam=beam; mbox.core=core; mbox.halo=halo; mbox.qFloat=qFloat;
-  mbox.beamMat=beamMat; mbox.coreMat=coreMat;
+  if(withLights){
+    L=new THREE.PointLight(0xe8a33d,1.4,12,2); L.position.set(0,1.4,0); g.add(L);
+  }
+  return {g,lid,lidShell,b,beam,core,halo,qFloat,beamMat,coreMat,innerGlow,L};
+}
+function buildBox(){
+  const v=buildBoxVisual(true);
+  worldRoot.add(v.g);
+  mbox.col=null;
+  mbox.g=v.g; mbox.lid=v.lid; mbox.light=v.L;
+  mbox.beam=v.beam; mbox.core=v.core; mbox.halo=v.halo; mbox.qFloat=v.qFloat;
+  mbox.beamMat=v.beamMat; mbox.coreMat=v.coreMat;
   moveBox(randi(0,BOX_SPOTS.length-1));
   interactables.push({get x(){return mbox.g.position.x;},get y(){return mbox.g.position.y+1;},
     get z(){return mbox.g.position.z;},r:2.8,kind:'box',
@@ -6574,17 +6593,24 @@ function buildBox(){
           if(mbox.owner&&mbox.owner!==net.id){toast('Reserved for another survivor');sfxDeny();return;}
           netGameRequest({type:'box_take'}); return;
         }
-        netGameRequest({type:'box_roll',held:player.guns.map(g=>g.def.id)}); return;
+        netGameRequest({type:'box_roll',held:player.guns.map(g=>g.def.id),spot:mbox.spot}); return;
       }
       if(mbox.state==='present'){
         giveGun(mbox.gun.id); toast(mbox.gun.name);
         if(WONDER.has(mbox.gun.id)) game.wonderFound=true;
         closeBox(); return;
       }
-      mbox.state='roll'; mbox.t=0; mbox.uses++;
-      mbox.pool=boxPool(); mbox.result=rollBox();
-      sfxBoxOpen();
+      startLocalBoxRoll(mbox.spot);
     }});
+}
+// Shared idle->roll start for singleplayer, used by both the real box and
+// Fire Sale decoy crates (a decoy click relocates the one real mbox here first).
+function startLocalBoxRoll(spot){
+  if(mbox.state!=='idle') return;
+  if(Number.isInteger(spot)&&spot!==mbox.spot&&BOX_SPOTS[spot]) moveBox(spot);
+  mbox.state='roll'; mbox.t=0; mbox.uses++;
+  mbox.pool=boxPool(); mbox.result=rollBox();
+  sfxBoxOpen();
 }
 function sharedBoxRoll(held){
   const blocked=new Set(held||[]),pool=[];
@@ -6599,8 +6625,12 @@ function beginSharedBox(weapon,owner){
   mbox.state='roll';mbox.t=0;mbox.uses++;mbox.pool=boxPool();mbox.result=d;mbox.owner=owner;
   sfxBoxOpen();
 }
-function hostRollSharedBox(playerId,held){
+function hostRollSharedBox(playerId,held,spot){
   if(!net.host||mbox.state!=='idle') return;
+  // Fire Sale decoy crates all funnel into the one authoritative mbox - relocate
+  // it to the spot that was actually clicked before rolling. The move itself
+  // reaches clients via the next periodic netHostWorld() box.spot sync.
+  if(Number.isInteger(spot)&&spot!==mbox.spot&&BOX_SPOTS[spot]) moveBox(spot);
   const event={type:'box_roll',owner:playerId,weapon:sharedBoxRoll(held),cost:buffs.firesale>0?10:950};
   beginSharedBox(event.weapon,event.owner);netHostBroadcast(event);handleSharedGameEvent(event);
 }
@@ -6642,8 +6672,62 @@ function closeBox(){
     moveBox(n);
   }
 }
+/* --- Fire Sale: decoy crates at every other box spot --- */
+// CoD-style Fire Sale: while buffs.firesale is active, a purchasable-looking
+// crate sits at every BOX_SPOTS location, not just wherever the one real
+// mbox happens to be. There's still only ONE authoritative mbox state
+// machine (required for multiplayer correctness) - clicking a decoy just
+// relocates the real box to that spot (via startLocalBoxRoll/hostRollSharedBox)
+// before rolling. Decoys are lightless (see buildBoxVisual) so they can't
+// reintroduce the shader-recompile freeze fixed elsewhere for the real box's lights.
+const fireSaleBoxes=[];
+let fireSaleActive=false, fireSaleSpot=-1;
+function spawnFireSaleBox(i){
+  const v=buildBoxVisual(false);
+  const s=BOX_SPOTS[i];
+  const y=s[2]||0,R=(s[3]||0)+Math.PI;
+  v.g.position.set(s[0],y,s[1]);
+  v.g.rotation.y=R;
+  worldRoot.add(v.g);
+  addYawCollider(s[0],s[1],2.18,1.34,R,y+1.18,y,0.025);
+  const col=colliders[colliders.length-1];
+  const entry={get x(){return v.g.position.x;},get y(){return v.g.position.y+1;},
+    get z(){return v.g.position.z;},r:2.8,kind:'box',
+    label(){return 'Mystery Box (Fire Sale)';},
+    cost(){return 10;},
+    can(){return mbox.state==='idle';},
+    buy(){
+      if(net.connected){ netGameRequest({type:'box_roll',held:player.guns.map(g=>g.def.id),spot:i}); return; }
+      startLocalBoxRoll(i);
+    }};
+  interactables.push(entry);
+  fireSaleBoxes.push({i,g:v.g,b:v.b,lidShell:v.lidShell,col,entry});
+}
+function removeFireSaleBoxAt(idx){
+  const fb=fireSaleBoxes[idx];
+  worldRoot.remove(fb.g);
+  const ci=colliders.indexOf(fb.col); if(ci>=0) colliders.splice(ci,1);
+  const ei=interactables.indexOf(fb.entry); if(ei>=0) interactables.splice(ei,1);
+  const bi=blockers.indexOf(fb.b); if(bi>=0) blockers.splice(bi,1);
+  const li=blockers.indexOf(fb.lidShell); if(li>=0) blockers.splice(li,1);
+  fireSaleBoxes.splice(idx,1);
+}
+function clearFireSaleBoxes(){ while(fireSaleBoxes.length) removeFireSaleBoxAt(0); }
+function syncFireSaleBoxes(){
+  const want=new Set();
+  for(let i=0;i<BOX_SPOTS.length;i++) if(i!==mbox.spot) want.add(i);
+  for(let i=fireSaleBoxes.length-1;i>=0;i--) if(!want.has(fireSaleBoxes[i].i)) removeFireSaleBoxAt(i);
+  const have=new Set(fireSaleBoxes.map(b=>b.i));
+  for(const i of want) if(!have.has(i)) spawnFireSaleBox(i);
+}
 function stepBox(dt){
   if(!mbox.g) return;
+  const fsNow=buffs.firesale>0;
+  if(fsNow!==fireSaleActive||(fsNow&&mbox.spot!==fireSaleSpot)){
+    fireSaleActive=fsNow;
+    if(fsNow){ syncFireSaleBoxes(); fireSaleSpot=mbox.spot; }
+    else { clearFireSaleBoxes(); fireSaleSpot=-1; }
+  }
   const pulse=0.5+0.5*Math.sin(game.time*2.2);
   mbox.light.intensity=1.1+pulse*0.5;
   const busy=mbox.state!=='idle';
@@ -7443,7 +7527,7 @@ function handleHostGameRequest(e,playerId){
   } else if(e.type==='drop_collect'){
     hostCollectDrop(String(e.id||''),playerId);
   } else if(e.type==='box_roll'){
-    hostRollSharedBox(playerId,Array.isArray(e.held)?e.held:[]);
+    hostRollSharedBox(playerId,Array.isArray(e.held)?e.held:[],Number.isInteger(e.spot)?e.spot:undefined);
   } else if(e.type==='box_take'){
     hostTakeSharedBox(playerId);
   } else if(e.type==='map_gate'){
