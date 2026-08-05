@@ -6103,19 +6103,23 @@ function goDown(){
   const quick=has('revive');
   player.crouched=false;player.crouchMix=0;player.eye=1.68;
   const crouchButton=el('crouchBtn');if(crouchButton)crouchButton.classList.remove('on');
-  if(net.connected){
-    player.downed=true; player.downEnd=Infinity;
-    ui.downed.style.opacity=1;
-    toast('Survivor downed  \u00b7  wait for a teammate');
-    netGameRequest({type:'player_down'});
-    sfxTone(180,90,.8,.3,'sawtooth');
-  } else if(quick){
+  // Quick Revive always gets you back up yourself once, in multiplayer too
+  // (it just doesn't also need a teammate there) - this used to check
+  // net.connected first, so the perk silently did nothing in multiplayer:
+  // buying it never stopped you from going down and waiting on a teammate.
+  if(quick){
     player.perks.revive=false; delete player.perks.revive;
     player.downed=true; player.downEnd=game.time+4.0;
     ui.downed.style.opacity=1;
     toast('Quick Revive used');
     sfxTone(180,90,.8,.3,'sawtooth');
     renderPerks();
+  } else if(net.connected){
+    player.downed=true; player.downEnd=Infinity;
+    ui.downed.style.opacity=1;
+    toast('Survivor downed  \u00b7  wait for a teammate');
+    netGameRequest({type:'player_down'});
+    sfxTone(180,90,.8,.3,'sawtooth');
   } else gameOver();
 }
 function reviveLocal(){
