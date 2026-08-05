@@ -6084,7 +6084,10 @@ function killZombie(z,dir,part,impulse,noReward,silentNet){
   if(z.eyeMat) z.eyeMat.color.setHex(0x2a2a26);
   if(z.mats.eyeGlow) z.mats.eyeGlow.color.setHex(0x000000);
   if(!net.connected||net.host) game.kills++;
-  if(!net.connected||net.host) maybeDrop(z.pos.x,z.pos.z);
+  if(!net.connected||net.host){
+    if(z.boss) forceDrop('maxammo',z.pos.x,z.pos.z);
+    else maybeDrop(z.pos.x,z.pos.z);
+  }
   if(net.connected&&net.host&&!silentNet&&z.netId) netHostBroadcast({type:'zombie_kill',id:z.netId,part,
     dir:[dir.x,dir.y,dir.z],impulse:impulse||.15});
 }
@@ -6990,12 +6993,14 @@ function releaseDropLight(L){
   const slot=dropLightPool.find(s=>s.L===L);
   if(slot){slot.inUse=false;slot.L.intensity=0;}
 }
+function forceDrop(kind,x,z){
+  const id=net.connected&&net.host?('drop-'+netZombieId()):('drop-'+Math.random().toString(36).slice(2));
+  spawnSharedDrop(kind,x,z,id,false);
+  if(net.connected&&net.host) netHostBroadcast({type:'drop_spawn',id,kind,x,z});
+}
 function maybeDrop(x,z){
   if(Math.random()>0.028&&!(game.kills%60===0)) return;
-  const k=pick(Object.keys(DROPS));
-  const id=net.connected&&net.host?('drop-'+netZombieId()):('drop-'+Math.random().toString(36).slice(2));
-  spawnSharedDrop(k,x,z,id,false);
-  if(net.connected&&net.host) netHostBroadcast({type:'drop_spawn',id,kind:k,x,z});
+  forceDrop(pick(Object.keys(DROPS)),x,z);
 }
 function dropPart(g,geo,mat,x,y,z,rx,ry,rz){
   const m=new THREE.Mesh(geo,mat);
