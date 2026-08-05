@@ -8748,7 +8748,18 @@ function updateZombies(dt){
           if(z.stair){
             tgx=bs.tx;tgz=bs.tz;
             if(z.y<(bs.by||0)+.15){z.stairT+=dt;if(z.stairT>3){z.stair=false;z.stairT=0;}}
-            else z.stairT=0;
+            else{
+              z.stairT=0;
+              // Unlike the descending branch, ascending never released the
+              // zombie once it reached the top landing - it kept homing on
+              // bs.tx/tz forever, so once there (dx/dz~0) it had nowhere left
+              // to walk and just spun in place at the top of the stairs (e.g.
+              // the Town bar's upstairs balcony). Release back to normal
+              // player-chase targeting on arrival, same as descending does.
+              if(z.y>=bs.ty-.2&&Math.hypot(z.pos.x-bs.tx,z.pos.z-bs.tz)<2){
+                z.stair=false;z.stairDir=0;
+              }
+            }
           }
         }
       }
