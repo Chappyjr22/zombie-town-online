@@ -460,7 +460,7 @@
         Ten points a hit, fifty a kill, ninety for a headshot. Later rounds multiply all of it, so a clear on round twenty is worth roughly eighteen times a clear on round one.
       </div></div>
       <div><h3>Spending</h3><div style="text-transform:none;letter-spacing:0">
-        Chalk outlines on walls are weapons, and buying one you already own refills its ammo at half price. Vending machines are perks. Follow the beam of light to the mystery box: nine hundred and fifty a roll, and it will not hand you something you are already carrying. Pack-a-Punch your weapon for five thousand, then fully upgrade it for fifteen thousand.
+        Chalk outlines on walls are weapons, and buying one you already own refills its ammo at half price. Vending machines are perks. Follow the beam of light to the mystery box: nine hundred and fifty a roll, and it will not hand you something you are already carrying. Pack-a-Punch your weapon for five thousand, fully upgrade it for fifteen thousand, then master-upgrade it for a hundred and fifty thousand.
       </div></div>
       <div><h3>Staying alive</h3><div style="text-transform:none;letter-spacing:0">
         Juggernog takes you to two hundred and fifty health. Quick Revive gets you back up once, with five seconds of invulnerability to fight your way clear. Keep moving, use the buildings, and remember the bar has an upstairs.
@@ -4940,9 +4940,11 @@ const PERKS={
   mule:{name:'Mule Kick',cost:4000,col:0xd8762a,ltr:'M',blurb:'Carry a third weapon'}
 };
 const has=p=>!!player.perks[p];
-/* packing raises damage, then also the magazine and the reserve. Tier two is the
-   end-game upgrade: substantially stronger than tier one, but priced accordingly. */
-const PACK_DMG=[1,2.0,3.4], PACK_MAG=[1,1,1.5], PACK_COST=[5000,15000];
+/* packing raises damage, then also the magazine and the reserve. Tier three is
+   the true end-game upgrade: three times tier two's damage multiplier, priced
+   at a proper endgame sum. */
+const MAX_PACK=3;
+const PACK_DMG=[1,2.0,3.4,3.4*3], PACK_MAG=[1,1,1.5,2.0], PACK_COST=[5000,15000,150000];
 const packLv=g=>(g&&g.pack)||0;
 const packMul=g=>PACK_DMG[packLv(g)];
 const magOf=g=>Math.round(g.def.mag*PACK_MAG[packLv(g)]);
@@ -6929,11 +6931,12 @@ function addPackAPunch(x,z,rot,y0){
     label(){
       const g2=curGun();if(!g2)return 'Pack-a-Punch';
       const lv=packLv(g2);
-      return lv>=2?(g2.def.name+' is fully packed')
-        :(lv===1?('Fully upgrade '+g2.def.name):('Pack-a-Punch '+g2.def.name));
+      return lv>=MAX_PACK?(g2.def.name+' is fully packed')
+        :(lv===2?('Master upgrade '+g2.def.name)
+        :(lv===1?('Fully upgrade '+g2.def.name):('Pack-a-Punch '+g2.def.name)));
     },
-    cost(){const g2=curGun();const lv=packLv(g2);return lv>=2?0:PACK_COST[lv];},
-    can(){const g2=curGun();return !!g2&&packLv(g2)<2;},
+    cost(){const g2=curGun();const lv=packLv(g2);return lv>=MAX_PACK?0:PACK_COST[lv];},
+    can(){const g2=curGun();return !!g2&&packLv(g2)<MAX_PACK;},
     buy(){packGun(curGun());}
   });
 }
@@ -6943,7 +6946,7 @@ function packGun(g){
   g.ammo=magOf(g);g.res=resOf(g);
   player.swapAnim=.5;papFlash=2.6;
   sfxPack(g.pack);
-  toast(g.def.name+(g.pack>=2?'  fully packed':'  packed'));
+  toast(g.def.name+(g.pack>=MAX_PACK?'  fully packed':'  packed'));
   updHUD();
 }
 function stepPap(dt){
@@ -7804,7 +7807,7 @@ function remoteFire(id,event){
   r.shotLight.intensity=4; r.flashT=.09;r.recoil=1;
   const d=DEFS[r.weapon],dist=Math.hypot(r.g.position.x-player.pos.x,r.g.position.y-player.y,r.g.position.z-player.pos.z);
   const v=clamp(1-dist/55,.06,.72);
-  sfxShot(d.cls==='wonder'?'rifle':d.cls,clamp(event.pack|0,0,2),v);
+  sfxShot(d.cls==='wonder'?'rifle':d.cls,clamp(event.pack|0,0,MAX_PACK),v);
   if(d.id==='raygun'||d.id==='raygun2')sfxRay(v);
   else if(d.id==='thunder')sfxThunder(v);
   else if(d.id==='waffe')sfxZap(v);
