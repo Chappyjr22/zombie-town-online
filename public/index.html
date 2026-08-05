@@ -6591,25 +6591,25 @@ function buildBox(){
       if(net.connected){
         if(mbox.state==='present'){
           if(mbox.owner&&mbox.owner!==net.id){toast('Reserved for another survivor');sfxDeny();return;}
-          netGameRequest({type:'box_take'}); return;
+          netGameRequest({type:'box_take',spot:mbox.spot}); return;
         }
         netGameRequest({type:'box_roll',held:player.guns.map(g=>g.def.id),spot:mbox.spot}); return;
       }
       if(mbox.state==='present'){
         giveGun(mbox.gun.id); toast(mbox.gun.name);
         if(WONDER.has(mbox.gun.id)) game.wonderFound=true;
-        closeBox(); return;
+        closeBoxInst(mbox); return;
       }
-      startLocalBoxRoll(mbox.spot);
+      startLocalBoxRoll(mbox);
     }});
 }
-// Shared idle->roll start for singleplayer, used by both the real box and
-// Fire Sale decoy crates (a decoy click relocates the one real mbox here first).
-function startLocalBoxRoll(spot){
-  if(mbox.state!=='idle') return;
-  if(Number.isInteger(spot)&&spot!==mbox.spot&&BOX_SPOTS[spot]) moveBox(spot);
-  mbox.state='roll'; mbox.t=0; mbox.uses++;
-  mbox.pool=boxPool(); mbox.result=rollBox();
+// Idle->roll start for singleplayer, shared by the real box and (during Fire
+// Sale) every decoy crate - each has its own independent instance/state now,
+// so this just spins up inst itself rather than routing through mbox.
+function startLocalBoxRoll(inst){
+  if(inst.state!=='idle') return;
+  inst.state='roll'; inst.t=0; inst.uses=(inst.uses||0)+1;
+  inst.pool=boxPool(); inst.result=rollBox();
   sfxBoxOpen();
 }
 function sharedBoxRoll(held){
@@ -6620,31 +6620,45 @@ function sharedBoxRoll(held){
   for(const p of pool){r-=p.w;if(r<=0)return p.id;}
   return pool.length?pool[pool.length-1].id:'m14';
 }
-function beginSharedBox(weapon,owner){
+// Every box location (the real crate, or a Fire Sale decoy) is its own
+// instance - mbox for the real one, an entry in fireSaleBoxes for decoys.
+function instanceAt(spot){
+  if(!Number.isInteger(spot)||spot===mbox.spot) return mbox;
+  return fireSaleBoxes.find(b=>b.spot===spot)||null;
+}
+function beginSharedBox(spot,weapon,owner){
+  const inst=instanceAt(spot); if(!inst) return;
   const d=DEFS[weapon]||DEFS.m14;
-  mbox.state='roll';mbox.t=0;mbox.uses++;mbox.pool=boxPool();mbox.result=d;mbox.owner=owner;
+  inst.state='roll';inst.t=0;inst.uses=(inst.uses||0)+1;inst.pool=boxPool();inst.result=d;inst.owner=owner;
   sfxBoxOpen();
 }
 function hostRollSharedBox(playerId,held,spot){
-  if(!net.host||mbox.state!=='idle') return;
-  // Fire Sale decoy crates all funnel into the one authoritative mbox - relocate
-  // it to the spot that was actually clicked before rolling. The move itself
-  // reaches clients via the next periodic netHostWorld() box.spot sync.
-  if(Number.isInteger(spot)&&spot!==mbox.spot&&BOX_SPOTS[spot]) moveBox(spot);
-  const event={type:'box_roll',owner:playerId,weapon:sharedBoxRoll(held),cost:buffs.firesale>0?10:950};
-  beginSharedBox(event.weapon,event.owner);netHostBroadcast(event);handleSharedGameEvent(event);
+  if(!net.host) return;
+  const s=Number.isInteger(spot)?spot:mbox.spot;
+  const inst=instanceAt(s);
+  // Decoy instances only exist (server-side, mirroring every client's own
+  // locally-spawned decoys) while Fire Sale is actually active - reject a
+  // stale/forged request for one otherwise.
+  if(!inst||inst.state!=='idle'||(inst!==mbox&&buffs.firesale<=0)) return;
+  const weapon=sharedBoxRoll(held),cost=inst===mbox?(buffs.firesale>0?10:950):10;
+  const event={type:'box_roll',owner:playerId,weapon,cost,spot:s};
+  beginSharedBox(s,event.weapon,event.owner);netHostBroadcast(event);handleSharedGameEvent(event);
 }
-function hostTakeSharedBox(playerId){
-  if(!net.host||mbox.state!=='present'||mbox.owner!==playerId||!mbox.gun) return;
-  const event={type:'box_take',owner:playerId,weapon:mbox.gun.id};
-  netHostBroadcast(event);finishSharedBox(event.weapon,event.owner);
+function hostTakeSharedBox(playerId,spot){
+  if(!net.host) return;
+  const s=Number.isInteger(spot)?spot:mbox.spot;
+  const inst=instanceAt(s);
+  if(!inst||inst.state!=='present'||inst.owner!==playerId||!inst.gun) return;
+  const event={type:'box_take',owner:playerId,weapon:inst.gun.id,spot:s};
+  netHostBroadcast(event);finishSharedBox(s,event.weapon,event.owner);
 }
-function finishSharedBox(weapon,owner){
+function finishSharedBox(spot,weapon,owner){
+  const inst=instanceAt(spot); if(!inst) return;
   if(owner===net.id){
     giveGun(weapon);toast((DEFS[weapon]||DEFS.m14).name);
     if(WONDER.has(weapon))game.wonderFound=true;
   }
-  closeBox();mbox.owner=null;
+  closeBoxInst(inst);inst.owner=null;
 }
 function moveBox(i){
   mbox.spot=i;
@@ -6660,26 +6674,31 @@ function moveBox(i){
     mbox.col.rot=R;mbox.col.oriented=true;mbox.col.bot=y;mbox.col.top=y+1.18;
   }
 }
-function closeBox(){
-  const wasOpen=mbox.state!=='idle';
-  mbox.state='idle'; mbox.owner=null; mbox.lid.rotation.x=0;
-  if(mbox.preview){scene.remove(mbox.preview); mbox.preview=null;}
+function closeBoxInst(inst){
+  const wasOpen=inst.state!=='idle';
+  inst.state='idle'; inst.owner=null; inst.lid.rotation.x=0;
+  if(inst.preview){scene.remove(inst.preview); inst.preview=null;}
   if(wasOpen)sfxBoxClose();
-  if(!net.connected&&Math.random()<0.14&&BOX_SPOTS.length>1){
+  // Random relocation is a real-box-only quirk, and only makes sense outside
+  // Fire Sale - during Fire Sale the real box's spot must stay put so it
+  // doesn't collide with a decoy that might be mid-roll at another spot.
+  if(inst===mbox&&!net.connected&&buffs.firesale<=0&&Math.random()<0.14&&BOX_SPOTS.length>1){
     let n=mbox.spot; while(n===mbox.spot) n=randi(0,BOX_SPOTS.length-1);
     toast('The box moved');
     sfxTone(900,300,.7,.2,'sine');
     moveBox(n);
   }
 }
-/* --- Fire Sale: decoy crates at every other box spot --- */
-// CoD-style Fire Sale: while buffs.firesale is active, a purchasable-looking
-// crate sits at every BOX_SPOTS location, not just wherever the one real
-// mbox happens to be. There's still only ONE authoritative mbox state
-// machine (required for multiplayer correctness) - clicking a decoy just
-// relocates the real box to that spot (via startLocalBoxRoll/hostRollSharedBox)
-// before rolling. Decoys are lightless (see buildBoxVisual) so they can't
-// reintroduce the shader-recompile freeze fixed elsewhere for the real box's lights.
+function closeBox(){ closeBoxInst(mbox); }
+/* --- Fire Sale: independent crates at every other box spot --- */
+// CoD-style Fire Sale: while buffs.firesale is active, a fully independent,
+// purchasable crate sits at every BOX_SPOTS location, not just wherever the
+// real mbox happens to be - so different players can open different boxes
+// at the same time, matching real Fire Sale behavior. Each decoy carries its
+// own roll/present state (see instanceAt/beginSharedBox above) rather than
+// proxying into mbox. Decoys are lightless (see buildBoxVisual) so having
+// several open at once can't reintroduce the shader-recompile freeze fixed
+// elsewhere for the real box's lights.
 const fireSaleBoxes=[];
 let fireSaleActive=false, fireSaleSpot=-1;
 function spawnFireSaleBox(i){
@@ -6691,20 +6710,36 @@ function spawnFireSaleBox(i){
   worldRoot.add(v.g);
   addYawCollider(s[0],s[1],2.18,1.34,R,y+1.18,y,0.025);
   const col=colliders[colliders.length-1];
-  const entry={get x(){return v.g.position.x;},get y(){return v.g.position.y+1;},
-    get z(){return v.g.position.z;},r:2.8,kind:'box',
-    label(){return 'Mystery Box (Fire Sale)';},
-    cost(){return 10;},
-    can(){return mbox.state==='idle';},
+  const inst={spot:i,state:'idle',t:0,gun:null,result:null,pool:null,owner:null,preview:null,
+    g:v.g,lid:v.lid,light:null,beam:v.beam,core:v.core,halo:v.halo,qFloat:v.qFloat,
+    beamMat:v.beamMat,coreMat:v.coreMat,b:v.b,lidShell:v.lidShell,col};
+  const entry={get x(){return inst.g.position.x;},get y(){return inst.g.position.y+1;},
+    get z(){return inst.g.position.z;},r:2.8,kind:'box',
+    label(){ return inst.state==='present'?('Take the '+inst.gun.name):'Mystery Box (Fire Sale)'; },
+    cost(){ return inst.state==='present'?0:10; },
+    can(){ return inst.state==='idle'||inst.state==='present'; },
     buy(){
-      if(net.connected){ netGameRequest({type:'box_roll',held:player.guns.map(g=>g.def.id),spot:i}); return; }
-      startLocalBoxRoll(i);
+      if(net.connected){
+        if(inst.state==='present'){
+          if(inst.owner&&inst.owner!==net.id){toast('Reserved for another survivor');sfxDeny();return;}
+          netGameRequest({type:'box_take',spot:i}); return;
+        }
+        netGameRequest({type:'box_roll',held:player.guns.map(g=>g.def.id),spot:i}); return;
+      }
+      if(inst.state==='present'){
+        giveGun(inst.gun.id); toast(inst.gun.name);
+        if(WONDER.has(inst.gun.id)) game.wonderFound=true;
+        closeBoxInst(inst); return;
+      }
+      startLocalBoxRoll(inst);
     }};
+  inst.entry=entry;
   interactables.push(entry);
-  fireSaleBoxes.push({i,g:v.g,b:v.b,lidShell:v.lidShell,col,entry});
+  fireSaleBoxes.push(inst);
 }
 function removeFireSaleBoxAt(idx){
   const fb=fireSaleBoxes[idx];
+  if(fb.preview) scene.remove(fb.preview);
   worldRoot.remove(fb.g);
   const ci=colliders.indexOf(fb.col); if(ci>=0) colliders.splice(ci,1);
   const ei=interactables.indexOf(fb.entry); if(ei>=0) interactables.splice(ei,1);
@@ -6716,9 +6751,58 @@ function clearFireSaleBoxes(){ while(fireSaleBoxes.length) removeFireSaleBoxAt(0
 function syncFireSaleBoxes(){
   const want=new Set();
   for(let i=0;i<BOX_SPOTS.length;i++) if(i!==mbox.spot) want.add(i);
-  for(let i=fireSaleBoxes.length-1;i>=0;i--) if(!want.has(fireSaleBoxes[i].i)) removeFireSaleBoxAt(i);
-  const have=new Set(fireSaleBoxes.map(b=>b.i));
+  for(let i=fireSaleBoxes.length-1;i>=0;i--) if(!want.has(fireSaleBoxes[i].spot)) removeFireSaleBoxAt(i);
+  const have=new Set(fireSaleBoxes.map(b=>b.spot));
   for(const i of want) if(!have.has(i)) spawnFireSaleBox(i);
+}
+function stepBoxInstance(inst,dt){
+  const pulse=0.5+0.5*Math.sin(game.time*2.2);
+  if(inst.light) inst.light.intensity=1.1+pulse*0.5;
+  const busy=inst.state!=='idle';
+  inst.beamMat.opacity=(busy?0.22:0.11)+pulse*0.05;
+  inst.coreMat.opacity=(busy?0.55:0.26)+pulse*0.10;
+  inst.beamMat.color.setHex(busy?0xfff0b0:0xffbe45);
+  inst.beam.rotation.y+=dt*0.25; inst.core.rotation.y-=dt*0.4;
+  inst.qFloat.position.y=2.9+Math.sin(game.time*1.8)*0.12;
+  // billboard the floating marker and the halo toward the camera
+  inst.qFloat.rotation.y=Math.atan2(camera.position.x-inst.g.position.x,camera.position.z-inst.g.position.z);
+  inst.halo.rotation.y=inst.qFloat.rotation.y;
+  inst.halo.scale.setScalar(1+pulse*0.14);
+  if(inst.state==='roll'){
+    inst.t+=dt;
+    inst.lid.rotation.x=lerp(0,1.34,clamp(inst.t/0.5,0,1));
+    if(!inst.preview||inst.t%0.14<dt){
+      if(inst.preview) scene.remove(inst.preview);
+      const cand=(inst.pool&&inst.pool.length)?inst.pool:boxPool();
+      const d=cand.length?cand[randi(0,cand.length-1)].d:inst.result;
+      inst.gun=d;
+      inst.preview=cloneWeaponDisplay(d.mesh); inst.preview.visible=true;
+      inst.preview.traverse(o=>{ if(o.userData&&o.userData.arm) o.visible=false; });
+      inst.preview.scale.setScalar(2.0);
+      scene.add(inst.preview);
+    }
+    if(inst.preview){
+      inst.preview.position.set(inst.g.position.x,inst.g.position.y+BOX_PREVIEW_Y+Math.sin(game.time*4)*0.06,inst.g.position.z);
+      inst.preview.rotation.y+=dt*5;
+    }
+    if(inst.t>3.4){
+      inst.state='present'; inst.t=0;
+      const d=inst.result||rollBox();
+      inst.gun=d;
+      if(WONDER.has(d.id)) game.boxDry=0; else game.boxDry=(game.boxDry||0)+1;
+      if(inst.preview) scene.remove(inst.preview);
+      inst.preview=cloneWeaponDisplay(d.mesh); inst.preview.visible=true;
+      inst.preview.traverse(o=>{ if(o.userData&&o.userData.arm) o.visible=false; }); inst.preview.scale.setScalar(2.0); scene.add(inst.preview);
+      sfxBoxReveal(WONDER.has(d.id));
+    }
+  } else if(inst.state==='present'){
+    inst.t+=dt;
+    if(inst.preview){
+      inst.preview.position.set(inst.g.position.x,inst.g.position.y+BOX_PREVIEW_Y+Math.sin(game.time*3)*0.08,inst.g.position.z);
+      inst.preview.rotation.y+=dt*1.6;
+    }
+    if(inst.t>9) closeBoxInst(inst);
+  }
 }
 function stepBox(dt){
   if(!mbox.g) return;
@@ -6728,53 +6812,8 @@ function stepBox(dt){
     if(fsNow){ syncFireSaleBoxes(); fireSaleSpot=mbox.spot; }
     else { clearFireSaleBoxes(); fireSaleSpot=-1; }
   }
-  const pulse=0.5+0.5*Math.sin(game.time*2.2);
-  mbox.light.intensity=1.1+pulse*0.5;
-  const busy=mbox.state!=='idle';
-  mbox.beamMat.opacity=(busy?0.22:0.11)+pulse*0.05;
-  mbox.coreMat.opacity=(busy?0.55:0.26)+pulse*0.10;
-  mbox.beamMat.color.setHex(busy?0xfff0b0:0xffbe45);
-  mbox.beam.rotation.y+=dt*0.25; mbox.core.rotation.y-=dt*0.4;
-  mbox.qFloat.position.y=2.9+Math.sin(game.time*1.8)*0.12;
-  // billboard the floating marker and the halo toward the camera
-  mbox.qFloat.rotation.y=Math.atan2(camera.position.x-mbox.g.position.x,camera.position.z-mbox.g.position.z);
-  mbox.halo.rotation.y=mbox.qFloat.rotation.y;
-  mbox.halo.scale.setScalar(1+pulse*0.14);
-  if(mbox.state==='roll'){
-    mbox.t+=dt;
-    mbox.lid.rotation.x=lerp(0,1.34,clamp(mbox.t/0.5,0,1));
-    if(!mbox.preview||mbox.t%0.14<dt){
-      if(mbox.preview) scene.remove(mbox.preview);
-      const cand=(mbox.pool&&mbox.pool.length)?mbox.pool:boxPool();
-      const d=cand.length?cand[randi(0,cand.length-1)].d:mbox.result;
-      mbox.gun=d;
-      mbox.preview=cloneWeaponDisplay(d.mesh); mbox.preview.visible=true;
-      mbox.preview.traverse(o=>{ if(o.userData&&o.userData.arm) o.visible=false; });
-      mbox.preview.scale.setScalar(2.0);
-      scene.add(mbox.preview);
-    }
-    if(mbox.preview){
-      mbox.preview.position.set(mbox.g.position.x,mbox.g.position.y+BOX_PREVIEW_Y+Math.sin(game.time*4)*0.06,mbox.g.position.z);
-      mbox.preview.rotation.y+=dt*5;
-    }
-    if(mbox.t>3.4){
-      mbox.state='present'; mbox.t=0;
-      const d=mbox.result||rollBox();
-      mbox.gun=d;
-      if(WONDER.has(d.id)) game.boxDry=0; else game.boxDry=(game.boxDry||0)+1;
-      if(mbox.preview) scene.remove(mbox.preview);
-      mbox.preview=cloneWeaponDisplay(d.mesh); mbox.preview.visible=true;
-      mbox.preview.traverse(o=>{ if(o.userData&&o.userData.arm) o.visible=false; }); mbox.preview.scale.setScalar(2.0); scene.add(mbox.preview);
-      sfxBoxReveal(WONDER.has(d.id));
-    }
-  } else if(mbox.state==='present'){
-    mbox.t+=dt;
-    if(mbox.preview){
-      mbox.preview.position.set(mbox.g.position.x,mbox.g.position.y+BOX_PREVIEW_Y+Math.sin(game.time*3)*0.08,mbox.g.position.z);
-      mbox.preview.rotation.y+=dt*1.6;
-    }
-    if(mbox.t>9) closeBox();
-  }
+  stepBoxInstance(mbox,dt);
+  for(const inst of fireSaleBoxes) stepBoxInstance(inst,dt);
 }
 
 
@@ -7422,6 +7461,11 @@ function netHostWorld(){
     drops:drops.map(d=>[d.netId,d.k,+d.m.position.x.toFixed(2),+d.m.position.z.toFixed(2),+d.life.toFixed(1)]),
     box:mbox.g?{state:mbox.state,weapon:mbox.gun?mbox.gun.id:(mbox.result?mbox.result.id:null),
       owner:mbox.owner,t:+mbox.t.toFixed(2),spot:mbox.spot}:null,
+    // Fire Sale decoy crates each carry independent state now (see instanceAt) -
+    // only worth sending the ones actually in use, idle decoys need no sync
+    // since every client spawns them locally off its own buffs.firesale.
+    fs:fireSaleBoxes.filter(b=>b.state!=='idle').map(b=>[b.spot,b.state,
+      b.gun?b.gun.id:(b.result?b.result.id:null),b.owner,+b.t.toFixed(2)]),
     progress:mapProgressSnapshot()});
 }
 function applySharedWorld(e){
@@ -7466,13 +7510,32 @@ function applySharedWorld(e){
     if(e.box.state==='idle'){
       if(mbox.state!=='idle')closeBox();
     }else if((mbox.state==='idle'||mbox.owner!==owner||(mbox.result&&mbox.result.id)!==weapon)&&weapon){
-      beginSharedBox(weapon,owner);
+      beginSharedBox(mbox.spot,weapon,owner);
     }
     if(mbox.state!=='idle'){
       mbox.owner=owner;
       if(e.box.state==='present'&&mbox.state==='roll')mbox.t=Math.max(mbox.t,3.39);
       else mbox.t=Math.max(mbox.t,+e.box.t||0);
     }
+  }
+  if(Array.isArray(e.fs)){
+    const seen=new Set();
+    for(const a of e.fs){
+      if(!Array.isArray(a)||a.length<5) continue;
+      const spot=a[0]|0; seen.add(spot);
+      const inst=fireSaleBoxes.find(b=>b.spot===spot);
+      // Decoy not spawned locally yet (Fire Sale/world sync just landed this
+      // frame) - skip, the next world tick will catch it up once it exists.
+      if(!inst) continue;
+      const owner=String(a[3]||''),weapon=a[2];
+      if((inst.state==='idle'||inst.owner!==owner||(inst.result&&inst.result.id)!==weapon)&&weapon){
+        beginSharedBox(spot,weapon,owner);
+      }
+      inst.owner=owner;
+      if(a[1]==='present'&&inst.state==='roll') inst.t=Math.max(inst.t,3.39);
+      else inst.t=Math.max(inst.t,+a[4]||0);
+    }
+    for(const inst of fireSaleBoxes) if(inst.state!=='idle'&&!seen.has(inst.spot)) closeBoxInst(inst);
   }
   applyMapProgressSnapshot(e.progress);
   updRoundHUD(); updHUD();
@@ -7529,7 +7592,7 @@ function handleHostGameRequest(e,playerId){
   } else if(e.type==='box_roll'){
     hostRollSharedBox(playerId,Array.isArray(e.held)?e.held:[],Number.isInteger(e.spot)?e.spot:undefined);
   } else if(e.type==='box_take'){
-    hostTakeSharedBox(playerId);
+    hostTakeSharedBox(playerId,Number.isInteger(e.spot)?e.spot:undefined);
   } else if(e.type==='map_gate'){
     hostOpenMapGate(playerId,String(e.id||''));
   } else if(e.type==='map_switch'){
@@ -7558,10 +7621,11 @@ function handleSharedGameEvent(e){
   } else if(e.type==='drop_collect'){
     removeSharedDrop(String(e.id||'')); applyCollectedDrop(e.kind,String(e.collector||''));
   } else if(e.type==='box_roll'){
-    if(!net.host) beginSharedBox(e.weapon,String(e.owner||''));
+    const s=Number.isInteger(e.spot)?e.spot:mbox.spot;
+    if(!net.host) beginSharedBox(s,e.weapon,String(e.owner||''));
     if(String(e.owner||'')===net.id){player.points=Math.max(0,player.points-(+e.cost||950));sfxBuy();updHUD();}
   } else if(e.type==='box_take'){
-    finishSharedBox(e.weapon,String(e.owner||''));
+    finishSharedBox(Number.isInteger(e.spot)?e.spot:mbox.spot,e.weapon,String(e.owner||''));
   } else if(e.type==='map_gate'){
     if(String(e.owner||'')===net.id)player.points=Math.max(0,player.points-(+e.cost||0));
     openMapGate(String(e.id||''),false);updHUD();
