@@ -6839,6 +6839,34 @@ const DROPS={
 };
 const drops=[];
 const buffs={instakill:0,doublepoints:0,firesale:0};
+// Same shader-recompile stall as the Ray Gun fix (see dynamicLightPool/
+// acquireDynamicLight above): a fresh THREE.PointLight per drop changes the
+// scene's light count on every power-up drop, forcing every PBR material to
+// recompile - a multi-second freeze. Drops live far longer than a ray gun
+// shot though (up to 26s, vs. a fraction of a second), so they can't share
+// that pool's blind round-robin cursor without one drop's light getting
+// stolen out from under it by another drop before it's collected. This pool
+// tracks which slots are actually in use instead.
+const DROP_LIGHT_POOL_SIZE=6;
+const dropLightPool=[];
+for(let i=0;i<DROP_LIGHT_POOL_SIZE;i++){
+  const L=new THREE.PointLight(0xffffff,0,8,2);
+  scene.add(L);
+  dropLightPool.push({L,inUse:false});
+}
+function acquireDropLight(color,x,y,z){
+  const slot=dropLightPool.find(s=>!s.inUse);
+  if(!slot) return null; // pool exhausted (rare) - drop just renders without its glow
+  slot.inUse=true;
+  slot.L.color.setHex(color); slot.L.intensity=1.65;
+  slot.L.position.set(x,y,z);
+  return slot.L;
+}
+function releaseDropLight(L){
+  if(!L) return;
+  const slot=dropLightPool.find(s=>s.L===L);
+  if(slot){slot.inUse=false;slot.L.intensity=0;}
+}
 function maybeDrop(x,z){
   if(Math.random()>0.028&&!(game.kills%60===0)) return;
   const k=pick(Object.keys(DROPS));
@@ -6957,12 +6985,12 @@ function disposeDropModel(m){
 function spawnSharedDrop(k,x,z,id,fromNet){
   if(!DROPS[k]||drops.some(d=>d.netId===id)) return;
   const m=makeDropModel(k);m.position.set(x,1.08,z);scene.add(m);
-  const L=new THREE.PointLight(DROPS[k].col,1.65,8,2);L.position.set(x,1.30,z);scene.add(L);
+  const L=acquireDropLight(DROPS[k].col,x,1.30,z);
   drops.push({m,L,k,life:26,netId:id,claimed:false,phase:Math.random()*TAU});
 }
 function removeSharedDrop(id){
   const i=drops.findIndex(d=>d.netId===id); if(i<0) return null;
-  const d=drops[i];scene.remove(d.m);scene.remove(d.L);disposeDropModel(d.m);
+  const d=drops[i];scene.remove(d.m);releaseDropLight(d.L);disposeDropModel(d.m);
   drops.splice(i,1);return d;
 }
 function hostCollectDrop(id,playerId){
@@ -6976,10 +7004,10 @@ function stepDrops(dt){
     d.m.rotation.y+=dt*1.55;
     d.m.rotation.z=Math.sin(game.time*1.7+d.phase)*.065;
     d.m.position.y=1.08+Math.sin(game.time*3+d.phase)*.15;
-    d.L.position.y=d.m.position.y+.22;
+    if(d.L)d.L.position.y=d.m.position.y+.22;
     if(d.m.userData.orbit)d.m.userData.orbit.rotation.z-=dt*.85;
     const shown=d.life>=6||Math.sin(game.time*14)>-.3;
-    d.m.visible=shown;d.L.visible=shown;
+    d.m.visible=shown;if(d.L)d.L.visible=shown;
     const dd=Math.hypot(d.m.position.x-player.pos.x,d.m.position.z-player.pos.z);
     if(dd<1.9&&Math.abs(player.y-0)<3){
       if(net.connected){
@@ -8119,8 +8147,11 @@ function startGame(mapId){
   if(AC&&AC.state==='suspended') AC.resume().then(()=>{if(game.running)startMapAmbience();}).catch(()=>{});
   for(let i=zombies.length-1;i>=0;i--) removeZombie(zombies[i]);
   for(const p of parts) scene.remove(p.m); parts.length=0;
-  for(const d of drops){scene.remove(d.m);scene.remove(d.L);} drops.length=0;
-  for(const p of projectiles){scene.remove(p.m);scene.remove(p.L);} projectiles.length=0;
+  // release, don't scene.remove() - these lights are pooled and stay in the
+  // scene permanently; removing them here would silently and permanently
+  // shrink the pool every time a game reset catches one mid-use.
+  for(const d of drops){scene.remove(d.m);releaseDropLight(d.L);} drops.length=0;
+  for(const p of projectiles){scene.remove(p.m);releaseDynamicLight(p.L);} projectiles.length=0;
   player.pos.copy(SPAWN_AT); player.vel.set(0,0,0); player.y=SPAWN_AT.y||0; player.vy=0;
   player.crouched=false;player.crouchMix=0;player.eye=1.68;player.nextMelee=0;player.meleeStart=-99;
   player.maxHp=100; player.hp=100; player.alive=true; player.downed=false; player.invuln=0;
