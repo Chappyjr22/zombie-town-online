@@ -7884,7 +7884,7 @@ function applySharedWorld(e){
 }
 function netPlayerState(id){
   if(id===net.id) return {x:player.pos.x,y:player.y,z:player.pos.z,hp:player.hp,
-    downed:player.downed,map:currentMap};
+    downed:player.downed,reviving:player.downed&&Number.isFinite(player.downEnd),map:currentMap};
   const p=net.players.get(id); return p&&p.state;
 }
 function hostCheckTeamWipe(){
@@ -7892,7 +7892,13 @@ function hostCheckTeamWipe(){
   for(const p of net.players.values()){
     if(p.disconnected) continue; // gone, not "still fighting" - their state is stale
     const s=netPlayerState(p.id);
-    if(!s||s.map!==currentMap||!s.downed) return;
+    if(!s||s.map!==currentMap) return;
+    // A downed player mid-Quick-Revive is about to get back up on their own
+    // (downEnd is a real timestamp, not Infinity) - don't count them as
+    // hopelessly down just because the state sync caught them in that
+    // ~4-second window, or the whole team could get wiped a split second
+    // before they would've stood back up by themselves.
+    if(!s.downed||s.reviving) return;
   }
   const event={type:'team_wipe'};
   netHostBroadcast(event); handleSharedGameEvent(event);
@@ -8537,7 +8543,8 @@ function netStep(dt){
   net.nextState=game.time+.05;
   const g=curGun();
   netSend({type:'state',state:{x:player.pos.x,y:player.y,z:player.pos.z,yaw:netYaw(player.yaw),
-    pitch:player.pitch,hp:player.hp,downed:player.downed,weapon:g?g.def.id:'',map:currentMap,
+    pitch:player.pitch,hp:player.hp,downed:player.downed,
+    reviving:player.downed&&Number.isFinite(player.downEnd),weapon:g?g.def.id:'',map:currentMap,
     speed:Math.hypot(player.vel.x,player.vel.z),sprint:player.sprint,ads:player.ads,
     crouched:player.crouched,grounded:player.grounded,points:player.points,downs:player.downs||0,
     kills:player.kills||0,headshots:player.headshots||0}});
