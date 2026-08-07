@@ -216,6 +216,13 @@
     color:var(--amber);opacity:0;text-shadow:0 1px 4px #000;}
   #overStats{font-size:15px;letter-spacing:.16em;margin:14px 0 6px;}
   #overStats b{color:var(--amber);}
+  #overTeam{max-width:460px;margin:10px auto 0;text-align:left;}
+  #overTeam .sec2{color:var(--amber);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+    margin:14px 0 6px;text-align:center;}
+  #overTeam .row{display:flex;justify-content:space-between;gap:14px;padding:8px 12px;
+    border-bottom:1px solid rgba(230,224,210,.10);font-size:12px;letter-spacing:.1em;text-transform:uppercase;}
+  #overTeam .row.me{color:var(--amber);}
+  #overTeam .row b{font-weight:700;}
 
   #touch{position:absolute;inset:0;display:none;
     --g:max(9px,1.6vmin);
@@ -524,6 +531,7 @@
   <div class="card">
     <h1 style="font-size:42px;color:#a3231e">OVERRUN</h1>
     <div id="overStats"></div>
+    <div id="overTeam"></div>
     <div style="margin-top:10px">
       <div class="btn" data-act="new">Go again</div>
       <div class="btn" data-act="menu">Main menu</div>
@@ -6143,6 +6151,7 @@ function hurtPlayer(amount){
 }
 function goDown(){
   const quick=has('revive');
+  player.downs=(player.downs||0)+1;
   player.crouched=false;player.crouchMix=0;player.eye=1.68;
   const crouchButton=el('crouchBtn');if(crouchButton)crouchButton.classList.remove('on');
   // Quick Revive always gets you back up yourself once, in multiplayer too
@@ -7374,7 +7383,7 @@ function updateDownedIndicators(){
   if(!game.running||!net.connected){ for(const a of downArrows) a.el.style.display='none'; return; }
   const downed=[];
   for(const p of net.players.values()){
-    if(p.id===net.id||!p.state) continue;
+    if(p.id===net.id||!p.state||p.disconnected) continue;
     if(p.state.downed&&p.state.map===currentMap) downed.push(p);
   }
   for(let i=0;i<downArrows.length;i++){
@@ -7599,8 +7608,24 @@ function doBuy(){
 const net={
   ws:null,code:'',id:'',host:false,connected:false,manualClose:false,token:'',reconnectAttempts:0,
   players:new Map(),remotes:new Map(),nextState:0,nextWorld:0,nextSave:0,zombieSeq:1,activeGame:false,
-  pausedByHost:false,roomBest:null
+  pausedByHost:false,roomBest:null,pendingLeaves:new Map()
 };
+// Grace period for a player marked "disconnected" (see player_disconnected
+// below) to reappear before we treat it as a real departure - a little
+// longer than the server's own RECONNECT_TTL_MS so a slow reconnect still
+// beats it under normal conditions.
+const RECONNECT_GRACE_MS=125000;
+function clearPendingLeave(id){
+  const t=net.pendingLeaves.get(id);
+  if(t!==undefined){ clearTimeout(t); net.pendingLeaves.delete(id); }
+}
+function finalizeLeave(id){
+  clearPendingLeave(id);
+  const p=net.players.get(id);
+  net.players.delete(id); removeRemotePlayer(id); renderRoster();
+  if(p) toast(p.name+' left');
+  if(net.host) hostCheckTeamWipe();
+}
 function renderRoomBest(){
   const e=el('roomBestLine'); if(!e) return;
   e.textContent=(net.roomBest&&net.roomBest.round>0)
@@ -7783,6 +7808,7 @@ function netPlayerState(id){
 function hostCheckTeamWipe(){
   if(!net.host||!game.running||!net.players.size) return;
   for(const p of net.players.values()){
+    if(p.disconnected) continue; // gone, not "still fighting" - their state is stale
     const s=netPlayerState(p.id);
     if(!s||s.map!==currentMap||!s.downed) return;
   }
@@ -8090,6 +8116,7 @@ function renderRoster(){
     const row=document.createElement('div');
     row.textContent=p.name+(p.id===net.id?' (you)':'');
     if(p.host){const b=document.createElement('b');b.textContent='HOST';row.appendChild(b);}
+    if(p.disconnected){const b=document.createElement('b');b.style.color='var(--blood)';b.textContent='RECONNECTING';row.appendChild(b);}
     box.appendChild(row);
   }
   el('startOnline').style.display=net.host?'inline-block':'none';
@@ -8138,11 +8165,24 @@ function netHandle(msg){
       }
     }
   } else if(m.type==='player_joined'){
+    // If we'd previously marked this id "disconnected", this is them coming
+    // back inside the grace period, not a stranger joining fresh.
+    const wasReconnect=!!(net.players.get(m.player.id)&&net.players.get(m.player.id).disconnected);
+    clearPendingLeave(m.player.id);
     net.players.set(m.player.id,m.player); makeRemotePlayer(m.player); renderRoster();
-    toast(m.player.name+' joined');
+    toast(m.player.name+(wasReconnect?' reconnected':' joined'));
   } else if(m.type==='player_left'){
-    const p=net.players.get(m.id); net.players.delete(m.id); removeRemotePlayer(m.id); renderRoster();
-    if(p) toast(p.name+' left');
+    finalizeLeave(m.id);
+  } else if(m.type==='player_disconnected'){
+    // Not necessarily final - the server gives them a couple of minutes to
+    // reconnect (see RECONNECT_TTL_MS) before their identity token expires.
+    // Their remote model is torn down now regardless, since they won't be
+    // sending any more state updates until (if) they're back.
+    const p=net.players.get(m.id);
+    if(p){ p.disconnected=true; toast(p.name+' disconnected · reconnecting…'); }
+    removeRemotePlayer(m.id); renderRoster();
+    clearPendingLeave(m.id);
+    net.pendingLeaves.set(m.id,setTimeout(()=>finalizeLeave(m.id),RECONNECT_GRACE_MS));
     if(net.host) hostCheckTeamWipe();
   } else if(m.type==='role'){
     for(const p of net.players.values()) p.host=false;
@@ -8267,6 +8307,7 @@ function netDisconnect(showMenu,keepState){
     net.token='';
     net.nextState=0; net.nextWorld=0; net.zombieSeq=1; net.pausedByHost=false;
     net.players.clear(); clearRemotePlayers();
+    for(const id of Array.from(net.pendingLeaves.keys())) clearPendingLeave(id);
     resetGameRules(); // don't let a past room's hardcore/points settings leak into the next one
   }
   el('netbadge').style.opacity=0;
@@ -8390,7 +8431,7 @@ function netStep(dt){
   netSend({type:'state',state:{x:player.pos.x,y:player.y,z:player.pos.z,yaw:netYaw(player.yaw),
     pitch:player.pitch,hp:player.hp,downed:player.downed,weapon:g?g.def.id:'',map:currentMap,
     speed:Math.hypot(player.vel.x,player.vel.z),sprint:player.sprint,ads:player.ads,
-    crouched:player.crouched,grounded:player.grounded,points:player.points}});
+    crouched:player.crouched,grounded:player.grounded,points:player.points,downs:player.downs||0}});
   el('netbadge').textContent='ONLINE  \u00b7  '+net.code+'  \u00b7  '+net.players.size+'/4';
   el('netbadge').style.opacity=.78;
 }
@@ -8623,7 +8664,7 @@ function startGame(mapId){
   player.pos.copy(SPAWN_AT); player.vel.set(0,0,0); player.y=SPAWN_AT.y||0; player.vy=0;
   player.crouched=false;player.crouchMix=0;player.eye=1.68;player.nextMelee=0;player.meleeStart=-99;
   player.maxHp=100; player.hp=100; player.alive=true; player.downed=false; player.invuln=0;
-  player.points=gameRules.startPoints; player.perks={}; player.yaw=SPAWN_YAW; player.pitch=0;
+  player.points=gameRules.startPoints; player.perks={}; player.yaw=SPAWN_YAW; player.pitch=0; player.downs=0;
   player.reloading=false; player.burstLeft=0; player.slot=0;
   player.guns=[{def:DEFS.m1911,ammo:8,res:96,pack:0},{def:DEFS.m4a1,ammo:30,res:270,pack:0}];
   player.slot=1;
@@ -8695,7 +8736,29 @@ function gameOver(){
   recordBest();
   el('overStats').innerHTML='Round <b>'+game.round+'</b> &nbsp;&middot;&nbsp; <b>'+game.kills+
     '</b> kills &nbsp;&middot;&nbsp; <b>'+player.points.toLocaleString()+'</b> points left over';
+  renderTeamRecap();
   showScreen('over');
+}
+// A per-survivor recap alongside the shared round/kills/points-left-over line
+// above - only meaningful with actual teammates to compare against. Kills
+// aren't split per-player anywhere in this codebase (only the team total is
+// tracked), so this sticks to what's already tracked per-player: final
+// points and how many times each survivor went down.
+function renderTeamRecap(){
+  const box=el('overTeam'); if(!box) return;
+  if(!net.connected||net.players.size<2){ box.innerHTML=''; return; }
+  const rows=[];
+  for(const p of net.players.values()){
+    if(p.disconnected) continue;
+    const self=p.id===net.id;
+    const pts=self?player.points:(p.state&&Number.isFinite(+p.state.points)?+p.state.points:0);
+    const downs=self?(player.downs||0):(p.state&&Number.isFinite(+p.state.downs)?+p.state.downs:0);
+    rows.push({name:self?'You':p.name,pts,downs,self});
+  }
+  rows.sort((a,b)=>b.pts-a.pts);
+  box.innerHTML='<div class="sec2">Team recap</div>'+rows.map(r=>
+    '<div class="row'+(r.self?' me':'')+'"><span>'+r.name+'</span><span><b>'+
+    r.pts.toLocaleString()+'</b> pts &nbsp; '+r.downs+' down'+(r.downs===1?'':'s')+'</span></div>').join('');
 }
 
 
