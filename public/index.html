@@ -369,6 +369,7 @@
     <div class="sub">Invite teammates with this room code</div>
     <div class="roomcode" id="roomCode">------</div>
     <div class="roster" id="roomRoster"></div>
+    <div class="netstatus" id="roomBestLine" style="opacity:.7"></div>
     <div class="netstatus" id="lobbyStatus">Connecting</div>
     <div class="btn" id="startOnline" data-act="net-map">Choose map</div>
     <div class="btn" data-act="net-copy">Copy invite</div>
@@ -433,7 +434,8 @@
         <b>WASD</b> move<br><b>Shift</b> sprint<br><b>Space</b> jump<br><b>Mouse</b> look<br>
         <b>Left click</b> fire<br><b>Right click</b> aim<br><b>R</b> reload<br><b>F</b> buy or use<br>
         <b>V / Middle click</b> knife<br><b>C / Left Ctrl</b> crouch<br>
-        <b>1 2 3</b> switch weapon<br><b>Q</b> next weapon<br><b>E</b> call next round<br><b>Esc</b> pause
+        <b>1 2 3</b> switch weapon<br><b>Q</b> next weapon<br><b>E</b> call next round<br>
+        <b>G</b> ping a spot or zombie<br><b>Esc</b> pause
       </div></div>
       <div><h3>Controller</h3><div>
         <b>Left stick</b> move<br><b>Right stick</b> look<br><b>L3</b> sprint<br><b>A</b> jump<br>
@@ -3907,13 +3909,16 @@ function sfxPerk(){
   sfxTone(330,660,.5,.2,'triangle');setTimeout(()=>sfxTone(660,990,.5,.16,'triangle'),160);
 }
 function sfxPack(level){
-  const full=level>=2;
-  if(playPlayerSample('pap',full?.58:.52,full?.96:1,0,2.55)){
-    setTimeout(()=>sfxTone(full?520:620,full?1720:1380,.55,full?.17:.14,'triangle'),2020);
+  const tier3=level>=3, full=level>=2;
+  if(playPlayerSample('pap',tier3?.64:(full?.58:.52),tier3?.9:(full?.96:1),0,2.55)){
+    setTimeout(()=>sfxTone(tier3?380:(full?520:620),tier3?1900:(full?1720:1380),
+      .6,tier3?.22:(full?.17:.14),'triangle'),2020);
+    if(tier3) setTimeout(()=>sfxTone(760,2400,.55,.16,'sine'),2260);
     return;
   }
   sfxTone(220,880,.55,.26,'sawtooth');
-  setTimeout(()=>sfxTone(full?720:660,full?1580:1320,.5,.20,'triangle'),200);
+  setTimeout(()=>sfxTone(tier3?820:(full?720:660),tier3?1900:(full?1580:1320),.5,.20,'triangle'),200);
+  if(tier3) setTimeout(()=>sfxTone(1100,2600,.5,.14,'sine'),420);
 }
 const RELOAD_AUDIO_LENGTH={reloadPistol:2.22,reloadRifle:2.79,reloadShell:.50,reloadShotgun:2.79,reloadLmg:2.79,reloadWonder:2.79};
 function reloadSampleKind(d){
@@ -4653,6 +4658,16 @@ const GM_P2=repaint(GM,{
   18:{c:0x4c1c92,e:0xa84aff,i:1.7}, 19:{c:0x9c7cf0}, 25:{c:0x1c1838},
   26:{c:0x241f4c}, 27:{c:0x0a0814}
 });
+// Tier three earns its own molten red/gold finish instead of reusing tier
+// two's purple - it's the 150k end-game upgrade, it should look like one.
+const GM_P3=repaint(GM,{
+  0:{c:0x722418,s:0xffb066,sh:150}, 1:{c:0x2a0e08,sh:50}, 2:{c:0x8a3018},
+  3:{c:0x7a2814,sh:90}, 7:{c:0xffcf8a,s:0xffffff}, 8:{c:0xffb86a},
+  11:{c:0x1c0906}, 12:{c:0x6c2612}, 13:{c:0xb8501c,sh:110}, 14:{c:0x7e3016,s:0xffab5c},
+  15:{c:0x8c3a1a,s:0xffcf9a}, 16:{c:0xffe27a,s:0xfff6d0}, 17:{c:0xffe4be,s:0xffffff},
+  18:{c:0x9c2a0c,e:0xff7a1e,i:2.0}, 19:{c:0xe07a3c}, 25:{c:0x180705},
+  26:{c:0x3c1408}, 27:{c:0x0c0403}
+});
 /* an optic that appears on anything that did not already have one */
 const PACK_DOT=mergeGeos([
   pc(new THREE.CylinderGeometry(.031,.031,.082,14,1,true),26, 0,0,0, Math.PI/2),
@@ -4774,7 +4789,8 @@ const SOURCED_WEAPONS={
 };
 const SOURCE_WEAPON_PATH='/models/cc0-guns/';
 const sourceGltfLoader=new GLTFLoader();
-const SOURCE_PACK_COLOR_1=new THREE.Color(0x755fc0),SOURCE_PACK_COLOR_2=new THREE.Color(0x9e78f0);
+const SOURCE_PACK_COLOR_1=new THREE.Color(0x755fc0),SOURCE_PACK_COLOR_2=new THREE.Color(0x9e78f0),
+  SOURCE_PACK_COLOR_3=new THREE.Color(0xff8a3c);
 function rememberSourceMaterial(mat){
   if(!mat||!mat.color||mat.userData.sourceColor)return;
   mat.userData.sourceColor=mat.color.getHex();
@@ -4791,10 +4807,11 @@ function updateSourcedPack(d,level){
       rememberSourceMaterial(mat);
       mat.color.setHex(mat.userData.sourceColor);
       if(level===1)mat.color.lerp(SOURCE_PACK_COLOR_1,.38);
-      else if(level>=2)mat.color.lerp(SOURCE_PACK_COLOR_2,.52);
+      else if(level===2)mat.color.lerp(SOURCE_PACK_COLOR_2,.52);
+      else if(level>=3)mat.color.lerp(SOURCE_PACK_COLOR_3,.62);
       if(mat.emissive){
-        mat.emissive.setHex(level>=2?0x4b188e:(level===1?0x28104f:mat.userData.sourceEmissive));
-        mat.emissiveIntensity=level>=2?.72:(level===1?.32:mat.userData.sourceEmissiveIntensity);
+        mat.emissive.setHex(level>=3?0xb8420c:(level===2?0x4b188e:(level===1?0x28104f:mat.userData.sourceEmissive)));
+        mat.emissiveIntensity=level>=3?.9:(level===2?.72:(level===1?.32:mat.userData.sourceEmissiveIntensity));
       }
       mat.needsUpdate=true;
     }
@@ -6962,6 +6979,63 @@ function stepPap(dt){
   if(papFlash>0)papFlash=Math.max(0,papFlash-dt);
 }
 
+/* --- pings: quick tactical map markers, visible to the whole room --- */
+// No PointLight involved (see the shader-recompile notes on drop/dynamic
+// light pools above) - markers are plain MeshBasicMaterial, so spawning a
+// bunch at once can't reintroduce that freeze.
+const pings=[];
+function disposePing(p){
+  scene.remove(p.g);
+  p.dia.geometry.dispose(); p.dia.material.dispose();
+  p.ring.geometry.dispose(); p.ring.material.dispose();
+  p.label.material.map.dispose(); p.label.material.dispose();
+}
+function spawnPingMarker(x,y,z,ownerId,kind){
+  const zombieKind=kind==='zombie';
+  const color=zombieKind?0xff4a3a:0x4ad8ff;
+  const g=new THREE.Group();
+  const dia=new THREE.Mesh(new THREE.OctahedronGeometry(.26,0),
+    new THREE.MeshBasicMaterial({color,transparent:true,opacity:.95,depthTest:false}));
+  g.add(dia);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(.42,.54,20),
+    new THREE.MeshBasicMaterial({color,transparent:true,opacity:.7,side:THREE.DoubleSide,depthTest:false}));
+  ring.rotation.x=-Math.PI/2; ring.position.y=-1.3; g.add(ring);
+  const isSelf=ownerId===net.id;
+  const ownerName=isSelf?'You':((net.players.get(ownerId)||{}).name||'Survivor');
+  const label=makeRemoteNameTag((zombieKind?'☠ ':'⚑ ')+ownerName,new THREE.Color(color));
+  label.position.y=.55; label.scale.set(1.7,.32,1);
+  g.add(label);
+  g.position.set(x,y+1.35,z);
+  g.renderOrder=999;
+  scene.add(g);
+  pings.push({g,dia,ring,label,t:0,life:5});
+}
+function stepPings(dt){
+  for(let i=pings.length-1;i>=0;i--){
+    const p=pings[i]; p.t+=dt;
+    const fade=clamp(1-p.t/p.life,0,1);
+    p.dia.material.opacity=.95*fade; p.dia.rotation.y+=dt*2.4;
+    p.ring.material.opacity=.7*fade; p.ring.scale.setScalar(1+Math.sin(p.t*4)*.06);
+    p.label.material.opacity=fade;
+    if(p.t>=p.life){ disposePing(p); pings.splice(i,1); }
+  }
+}
+function firePing(){
+  if(!game.running) return;
+  camera.getWorldDirection(_dir); _org.copy(camera.position);
+  ray.set(_org,_dir);
+  const hz=ray.intersectObjects(zombieMeshes,false);
+  const hw=ray.intersectObjects(blockers,false);
+  const wallDist=hw.length?hw[0].distance:Infinity;
+  let pt,kind='spot';
+  if(hz.length&&hz[0].distance<wallDist){ pt=hz[0].point; kind='zombie'; }
+  else if(hw.length){ pt=hw[0].point; }
+  else pt=_org.clone().add(_dir.clone().multiplyScalar(60));
+  spawnPingMarker(pt.x,pt.y,pt.z,net.id,kind);
+  sfxTone(kind==='zombie'?520:820,kind==='zombie'?260:520,.5,.18,'sine');
+  if(net.connected) netSend({type:'ping',x:pt.x,y:pt.y,z:pt.z,kind});
+}
+
 /* --- power-up drops --- */
 const DROPS={
   maxammo:{name:'Max Ammo',col:0xd8d84a},
@@ -7283,6 +7357,7 @@ addEventListener('keydown',e=>{
   if(e.code==='Digit3') swapTo(2);
   if(e.code==='KeyQ') swapTo((player.slot+1)%player.guns.length);
   if(e.code==='KeyE'&&game.toSpawn===0) startRound();
+  if(!e.repeat&&e.code==='KeyG') firePing();
   if(e.code==='Space'){
     e.preventDefault();
     if(player.grounded&&!player.downed){
@@ -7424,8 +7499,14 @@ function doBuy(){
 const net={
   ws:null,code:'',id:'',host:false,connected:false,manualClose:false,token:'',reconnectAttempts:0,
   players:new Map(),remotes:new Map(),nextState:0,nextWorld:0,nextSave:0,zombieSeq:1,activeGame:false,
-  pausedByHost:false
+  pausedByHost:false,roomBest:null
 };
+function renderRoomBest(){
+  const e=el('roomBestLine'); if(!e) return;
+  e.textContent=(net.roomBest&&net.roomBest.round>0)
+    ?('Room best  ·  round '+net.roomBest.round+'  ·  '+net.roomBest.kills+' kills')
+    :'No rounds survived in this room yet';
+}
 function netTokenKey(code){ return 'town:token:'+code; }
 function netLoadToken(code){ try{return sessionStorage.getItem(netTokenKey(code))||'';}catch(e){return '';} }
 function netSaveToken(code,token){ try{sessionStorage.setItem(netTokenKey(code),token);}catch(e){} }
@@ -7915,6 +7996,7 @@ function renderRoster(){
   el('roomCode').textContent=net.code||'------';
   const n=net.players.size;
   setNetStatus(net.host?(n+'/4 connected \u00b7 choose a map when ready'):(n+'/4 connected \u00b7 waiting for host'));
+  renderRoomBest();
 }
 function netHandle(msg){
   let m; try{m=JSON.parse(msg);}catch(e){return;}
@@ -7928,6 +8010,7 @@ function netHandle(msg){
     const hadToken=!!net.token;
     net.id=m.id; net.host=!!m.host; net.connected=true; net.reconnectAttempts=0; net.players.clear();
     if(m.token){net.token=m.token; netSaveToken(net.code,m.token);}
+    net.roomBest=(m.room&&m.room.leaderboard)||net.roomBest;
     for(const p of m.players||[]){net.players.set(p.id,p);makeRemotePlayer(p);}
     net.players.set(net.id,{id:net.id,name:m.name||safeNetName(el('netName').value),host:net.host});
     if(reconnecting){
@@ -7991,6 +8074,16 @@ function netHandle(msg){
     net.activeGame=true; net.pausedByHost=false; startGame(m.map); toast('Online room '+net.code);
   } else if(m.type==='error'){
     setNetStatus(m.message||'Room error'); sfxDeny();
+  } else if(m.type==='leaderboard'&&m.entry){
+    const isNew=!net.roomBest||m.entry.round>net.roomBest.round||
+      (m.entry.round===net.roomBest.round&&m.entry.kills>net.roomBest.kills);
+    net.roomBest=m.entry; renderRoomBest();
+    if(isNew) toast('New room best: round '+m.entry.round);
+  } else if(m.type==='ping'&&m.x!==undefined){
+    const owner=String(m.owner||'');
+    spawnPingMarker(+m.x||0,+m.y||0,+m.z||0,owner,m.kind);
+    const p=net.players.get(owner);
+    toast((p?p.name:'A survivor')+' pinged'+(m.kind==='zombie'?' a zombie':' a location'));
   }
 }
 async function netCreate(){
@@ -8228,19 +8321,16 @@ function bestLine(){
     : 'No rounds survived yet';
 }
 function saveSettings(){
-  try{ if(window.storage&&window.storage.set)
-    window.storage.set('town:save',JSON.stringify({SET,best})); }catch(e){}
+  // Previously wrote through window.storage, an API this deployment never
+  // actually defines - settings and best-round silently never persisted.
+  // localStorage is the same synchronous-enough store already used
+  // elsewhere in this file (net name, reconnect tokens).
+  try{ localStorage.setItem('town:save',JSON.stringify({SET,best})); }catch(e){}
 }
 function loadSettings(){
   try{
-    if(window.storage&&window.storage.get){
-      Promise.resolve(window.storage.get('town:save')).then(r=>{
-        if(r&&r.value){ const o=JSON.parse(r.value);
-          Object.assign(SET,o.SET||{}); Object.assign(best,o.best||{}); }
-        applySettings(); syncOptions(); bestLine();
-      }).catch(()=>{ applySettings(); syncOptions(); bestLine(); });
-      return;
-    }
+    const raw=localStorage.getItem('town:save');
+    if(raw){ const o=JSON.parse(raw); Object.assign(SET,o.SET||{}); Object.assign(best,o.best||{}); }
   }catch(e){}
   applySettings(); syncOptions(); bestLine();
 }
@@ -8287,6 +8377,12 @@ function recordBest(){
   if(game.round>best.round||(game.round===best.round&&player.points>best.points)){
     best.round=game.round; best.points=player.points; best.kills=game.kills;
     saveSettings();
+  }
+  // Only the host submits - round/kills are already host-authoritative and
+  // shared identically by every player, so every client trying to submit
+  // its own copy would just be redundant traffic.
+  if(net.connected&&net.host){
+    netSend({type:'leaderboard_submit',entry:{round:game.round,kills:game.kills}});
   }
 }
 function doAct(a){
@@ -8372,6 +8468,9 @@ function startGame(mapId){
   // shrink the pool every time a game reset catches one mid-use.
   for(const d of drops){scene.remove(d.m);releaseDropLight(d.L);} drops.length=0;
   for(const p of projectiles){scene.remove(p.m);releaseDynamicLight(p.L);} projectiles.length=0;
+  // pings are added straight to `scene`, not worldRoot, so map reload's
+  // worldRoot swap won't clean these up on its own - dispose explicitly.
+  for(const p of pings) disposePing(p); pings.length=0;
   player.pos.copy(SPAWN_AT); player.vel.set(0,0,0); player.y=SPAWN_AT.y||0; player.vy=0;
   player.crouched=false;player.crouchMix=0;player.eye=1.68;player.nextMelee=0;player.meleeStart=-99;
   player.maxHp=100; player.hp=100; player.alive=true; player.downed=false; player.invuln=0;
@@ -8541,7 +8640,7 @@ function loop(){
     updateZombies(dt);
     updateLightCulling();
     stepParts(dt); stepProjectiles(dt); stepBooms(dt); stepBolts(dt);
-    stepDrops(dt); stepBox(dt); stepPap(dt); updateInteract();
+    stepDrops(dt); stepBox(dt); stepPap(dt); stepPings(dt); updateInteract();
   }
   updateFireCrackle();
   updateWeaponView(dt);
@@ -8900,7 +8999,7 @@ function updateWeaponView(dt){
   const d=g.def, lv=(g.pack||0);
   d.mesh.visible=!meleeActive;
   const body=d.mesh.children[0];
-  const want=lv>=2?GM_P2:(lv===1?GM_P1:GM);
+  const want=lv>=3?GM_P3:(lv===2?GM_P2:(lv===1?GM_P1:GM));
   if(body.material!==want) body.material=want;
   updateSourcedPack(d,lv);
   if(d.packDot) d.packDot.visible=RED_DOT_SIGHTS_ENABLED&&(!!d.sourceDotPermanent||lv>=1);
