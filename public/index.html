@@ -5966,7 +5966,7 @@ function releaseDynamicLight(L){ L.intensity=0; }
 
 const projectiles=[], booms=[], bolts=[];
 const projGeo=new THREE.SphereGeometry(.13,8,6);
-function spawnProj(kind,org,dir,d,mul){
+function spawnProj(kind,org,dir,d,mul,cosmetic){
   const nade=kind==='nade',flare=kind==='flare';
   const col=nade?0x4a4a3a:(flare?0xff5c18:(kind==='ray2'?0x9b3bff:0x3bff77));
   const m=new THREE.Mesh(projGeo,new THREE.MeshBasicMaterial({color:col}));
@@ -5974,7 +5974,7 @@ function spawnProj(kind,org,dir,d,mul){
   scene.add(m);
   const L=acquireDynamicLight(col,nade?.4:(flare?2.0:1.4),nade?5:(flare?11:9),2);
   L.position.copy(org);
-  projectiles.push({m,L,kind,d,mul:mul||1,
+  projectiles.push({m,L,kind,d,mul:mul||1,cosmetic:!!cosmetic,
     v:dir.clone().multiplyScalar(nade?30:(flare?42:60)),life:4,grav:nade?18:(flare?5:0)});
 }
 function stepProjectiles(dt){
@@ -5987,17 +5987,24 @@ function stepProjectiles(dt){
     let hit=null,hitZombie=null,hitT=Infinity;
     // Swept collision prevents fast plasma bolts from skipping through zombies
     // between frames. Keep the nearest zombie when several share the path.
-    const segLen2=step.lengthSq();
-    for(const z of zombies){
-      if(z.dead) continue;
-      const c=z.pts[CHEST];
-      let t=segLen2>0?((c.x-prev.x)*step.x+(c.y-prev.y)*step.y+(c.z-prev.z)*step.z)/segLen2:0;
-      t=clamp(t,0,1);
-      const hx=prev.x+step.x*t,hy=prev.y+step.y*t,hz=prev.z+step.z*t;
-      const dx=c.x-hx,dy=c.y-hy,dz=c.z-hz;
-      const hitRadius=.82*z.scale;
-      if(dx*dx+dy*dy+dz*dz<hitRadius*hitRadius&&t<hitT){
-        hitT=t; hitZombie=z; hit=new THREE.Vector3(hx,hy,hz);
+    // Cosmetic echoes (a teammate's shot replayed for its visual only - see
+    // remoteFire) skip this entirely: the shooter's own client already
+    // resolved the real hit and reported it to the host, so finding "a hit"
+    // here too would just be duplicate damage against zombies neither this
+    // client nor the host asked it to check.
+    if(!p.cosmetic){
+      const segLen2=step.lengthSq();
+      for(const z of zombies){
+        if(z.dead) continue;
+        const c=z.pts[CHEST];
+        let t=segLen2>0?((c.x-prev.x)*step.x+(c.y-prev.y)*step.y+(c.z-prev.z)*step.z)/segLen2:0;
+        t=clamp(t,0,1);
+        const hx=prev.x+step.x*t,hy=prev.y+step.y*t,hz=prev.z+step.z*t;
+        const dx=c.x-hx,dy=c.y-hy,dz=c.z-hz;
+        const hitRadius=.82*z.scale;
+        if(dx*dx+dy*dy+dz*dz<hitRadius*hitRadius&&t<hitT){
+          hitT=t; hitZombie=z; hit=new THREE.Vector3(hx,hy,hz);
+        }
       }
     }
     if(!hit){
@@ -6010,7 +6017,7 @@ function stepProjectiles(dt){
     p.life-=dt;
     if(hit||p.life<=0){
       const impact=hit||p.m.position;
-      if(hitZombie){
+      if(hitZombie&&!p.cosmetic){
         const dir=p.v.clone().normalize();
         const before=hitZombie.dead;
         damageZombie(hitZombie,p.d.dmg*(p.mul||1)*dmgMult(),'torso',dir,.22);
@@ -6019,12 +6026,12 @@ function stepProjectiles(dt){
       // Direct damage and splash damage are intentionally separate. The
       // struck zombie gets the full wonder-weapon hit, while nearby zombies
       // receive the weapon's area damage.
-      explode(impact,(p.d.splash||0)*(p.mul||1)*dmgMult(),p.d.splashR||2.5,p.kind,hitZombie);
+      explode(impact,(p.d.splash||0)*(p.mul||1)*dmgMult(),p.d.splashR||2.5,p.kind,hitZombie,p.cosmetic);
       scene.remove(p.m); releaseDynamicLight(p.L); p.m.material.dispose(); projectiles.splice(i,1);
     }
   }
 }
-function explode(pos,dmg,radius,kind,exclude){
+function explode(pos,dmg,radius,kind,exclude,cosmetic){
   const explosive=kind==='nade'||kind==='flare';
   const col=kind==='nade'?0xffa03a:(kind==='flare'?0xff5c18:(kind==='ray2'?0xa04aff:0x4dff88));
   const m=new THREE.Mesh(new THREE.SphereGeometry(1,12,10),
@@ -6037,6 +6044,10 @@ function explode(pos,dmg,radius,kind,exclude){
   const blastDist=Math.hypot(player.pos.x-pos.x,player.y+player.eye-pos.y,player.pos.z-pos.z);
   if(explosive) sfxBoom(clamp(1-blastDist/72,.08,kind==='flare'?.72:1));
   else sfxRay(clamp(1-blastDist/62,.06,1));
+  // A cosmetic echo (see remoteFire/spawnProj) never applies damage - the
+  // shooter's own client already resolved the real hit and reported it to
+  // the host, so this would just double it.
+  if(cosmetic) return;
   for(let i=zombies.length-1;i>=0;i--){
     const z=zombies[i]; if(z.dead||z===exclude) continue;
     const c=z.pts[CHEST];
@@ -6298,26 +6309,28 @@ function hitscan(org,dir,d){
     sfxImpact('hard');
   }
 }
-function thunderBlast(org,dir){
-  sfxThunder();
+function thunderBlast(org,dir,cosmetic){
+  if(!cosmetic) sfxThunder(); // remoteFire already played a distance-aware copy of this for a cosmetic echo
   const d=DEFS.thunder;
-  const cone=[];
-  for(const z of zombies){
-    if(z.dead) continue;
-    const c=z.pts[CHEST];
-    const to=new THREE.Vector3(c.x-org.x,c.y-org.y,c.z-org.z);
-    const dist=to.length();
-    if(dist>d.coneR) continue;
-    to.divideScalar(dist);
-    if(to.dot(dir)<Math.cos(d.coneA*Math.PI/2*1.6)) continue;
-    cone.push({z,to,dist});
-  }
-  for(const c of cone){
-    const push=0.34*(1-c.dist/d.coneR)+0.16;
-    if(c.z.boss)damageZombie(c.z,Math.min(1400,c.z.maxHp*.18),'torso',c.to,.12);
-    else{
-      killZombie(c.z,c.to,'torso',push);
-      for(const p of c.z.pts){ p.px-=c.to.x*push*.7; p.py-=push*.5; p.pz-=c.to.z*push*.7; }
+  if(!cosmetic){
+    const cone=[];
+    for(const z of zombies){
+      if(z.dead) continue;
+      const c=z.pts[CHEST];
+      const to=new THREE.Vector3(c.x-org.x,c.y-org.y,c.z-org.z);
+      const dist=to.length();
+      if(dist>d.coneR) continue;
+      to.divideScalar(dist);
+      if(to.dot(dir)<Math.cos(d.coneA*Math.PI/2*1.6)) continue;
+      cone.push({z,to,dist});
+    }
+    for(const c of cone){
+      const push=0.34*(1-c.dist/d.coneR)+0.16;
+      if(c.z.boss)damageZombie(c.z,Math.min(1400,c.z.maxHp*.18),'torso',c.to,.12);
+      else{
+        killZombie(c.z,c.to,'torso',push);
+        for(const p of c.z.pts){ p.px-=c.to.x*push*.7; p.py-=push*.5; p.pz-=c.to.z*push*.7; }
+      }
     }
   }
   // visible shockwave
@@ -6326,10 +6339,10 @@ function thunderBlast(org,dir){
   m.position.copy(org).add(dir.clone().multiplyScalar(3)); scene.add(m);
   const tL=acquireDynamicLight(0x8fd8ff,4,30,2); tL.position.copy(m.position);
   booms.push({m,L:tL,t:0,r:12});
-  player.kick=0.22;
+  if(!cosmetic) player.kick=0.22; // screen shake is a local-viewer thing, not something a teammate's shot should trigger
 }
-function lightningShot(org,dir,d){
-  sfxZap();
+function lightningShot(org,dir,d,cosmetic){
+  if(!cosmetic) sfxZap(); // remoteFire already played a distance-aware copy of this for a cosmetic echo
   ray.set(org,dir);
   const hz=ray.intersectObjects(zombieMeshes,false);
   const hw=ray.intersectObjects(blockers,false);
@@ -6343,12 +6356,18 @@ function lightningShot(org,dir,d){
   const chainPts=[org.clone()];
   let cur=first.object.userData.z;
   const done=new Set();
+  // Cosmetic echoes still trace the same chain (read-only raycasts/distance
+  // checks, no state mutation) purely to draw an accurate bolt path - they
+  // just skip damageZombie, since the shooter's own client already resolved
+  // and reported the real hit.
   for(let i=0;i<d.chain&&cur;i++){
     done.add(cur);
     const c=cur.pts[CHEST];
     chainPts.push(new THREE.Vector3(c.x,c.y,c.z));
-    const dv=new THREE.Vector3(c.x-org.x,c.y-org.y,c.z-org.z).normalize();
-    damageZombie(cur,d.dmg*packMul(curGun()),'torso',dv,0.14);
+    if(!cosmetic){
+      const dv=new THREE.Vector3(c.x-org.x,c.y-org.y,c.z-org.z).normalize();
+      damageZombie(cur,d.dmg*packMul(curGun()),'torso',dv,0.14);
+    }
     spray(c.x,c.y,c.z,0,1,0,6,sparkMat,1.4);
     let next=null,best=d.chainR*d.chainR;
     for(const z of zombies){
@@ -8044,6 +8063,19 @@ function refreshRemoteWeaponModels(id){
   if(typeof net==='undefined'||!net.remotes)return;
   for(const r of net.remotes.values())if(r.weapon===id)setRemoteWeapon(r,id,true);
 }
+// Scratch objects for deriving a remote player's aim direction from their
+// synced yaw/pitch the same way the local camera does (camera.rotation.set
+// (pitch,yaw,0) then getWorldDirection) - reused every call, never added to
+// the scene, so this is just a throwaway coordinate-math helper.
+const _remoteAimObj=new THREE.Object3D();
+const _remoteOrg=new THREE.Vector3(), _remoteDir=new THREE.Vector3();
+function remoteFireOriginDir(r){
+  r.flash.getWorldPosition(_remoteOrg);
+  _remoteAimObj.rotation.set(r.pitch,r.yaw,0);
+  _remoteAimObj.updateMatrixWorld();
+  _remoteAimObj.getWorldDirection(_remoteDir);
+  return {org:_remoteOrg,dir:_remoteDir};
+}
 function remoteFire(id,event){
   const r=net.remotes.get(id); if(!r||!r.g.visible) return;
   setRemoteWeapon(r,event.weapon);
@@ -8059,6 +8091,18 @@ function remoteFire(id,event){
   if(d.id==='raygun'||d.id==='raygun2')sfxRay(v);
   else if(d.id==='thunder')sfxThunder(v);
   else if(d.id==='waffe')sfxZap(v);
+  // Cosmetic-only echo of the shooter's own visible effect (Ray Gun bolt,
+  // Thunder Gun shockwave, Wunderwaffe chain) - previously teammates could
+  // only ever hear these, never see them. Every function below takes a
+  // cosmetic flag that skips all damageZombie/killZombie/hurtPlayer calls,
+  // since the real hit already happened on the shooter's own client and was
+  // reported to the host separately - replaying it here too would double it.
+  if(d.cone||d.chain||d.proj){
+    const {org,dir}=remoteFireOriginDir(r);
+    if(d.cone) thunderBlast(org,dir,true);
+    else if(d.chain) lightningShot(org,dir,d,true);
+    else if(d.proj) spawnProj(d.proj,org.clone().add(dir.clone().multiplyScalar(.6)),dir,d,1,true);
+  }
 }
 function remoteMelee(id,event){
   const r=net.remotes.get(id);if(!r||!r.g.visible)return;
