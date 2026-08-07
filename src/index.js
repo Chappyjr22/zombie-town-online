@@ -251,6 +251,7 @@ export class GameRoom extends DurableObject {
         pitch: number(source.pitch, -Math.PI / 2, Math.PI / 2),
         hp: number(source.hp, 0, 500),
         downed: Boolean(source.downed),
+        reviving: Boolean(source.reviving),
         weapon: String(source.weapon || "").slice(0, 24),
         map: ["town", "nuketown", "blacksire", "laststop"].includes(source.map) ? source.map : "town",
         speed: number(source.speed, 0, 12),
