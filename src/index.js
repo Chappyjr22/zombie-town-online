@@ -259,6 +259,7 @@ export class GameRoom extends DurableObject {
         crouched: Boolean(source.crouched),
         grounded: source.grounded !== false,
         points: number(source.points, 0, 99999999),
+        downs: number(source.downs, 0, 9999),
       };
       player.state = state;
       ws.serializeAttachment(player);
@@ -418,7 +419,12 @@ export class GameRoom extends DurableObject {
     }
     if (!player.id) return;
 
-    this.broadcast({ type: "player_left", id: player.id }, ws);
+    // A deliberate leave (netDisconnect's ws.close(1000,'Left room')) is
+    // final. Anything else - network drop, tab close, crash - gets a softer
+    // signal instead, since the reconnect-token grace period below might
+    // still bring them back within RECONNECT_TTL_MS.
+    const deliberate = code === 1000 && reason === "Left room";
+    this.broadcast({ type: deliberate ? "player_left" : "player_disconnected", id: player.id }, ws);
 
     if (player.token) {
       await this.ctx.storage.put(`identity:${player.token}`, {
