@@ -67,6 +67,12 @@
   #keys{left:26px;top:20px;font-size:10px;line-height:1.7;opacity:.45;}
   #keys b{color:var(--amber);font-weight:700;}
 
+  #teamPoints{left:26px;top:108px;font-size:11px;line-height:1.85;letter-spacing:.13em;
+    text-align:left;display:none;}
+  #teamPoints .me{color:var(--amber);}
+  #teamPoints b{font-weight:700;}
+  body.touch #teamPoints{top:max(48px,8vmin);}
+
   #prompt{position:absolute;left:50%;bottom:22%;transform:translateX(-50%);text-align:center;
     font-size:15px;letter-spacing:.16em;text-transform:uppercase;text-shadow:0 2px 8px #000;opacity:0;
     transition:opacity .1s;white-space:nowrap;}
@@ -290,6 +296,8 @@
     <b>LMB</b> fire &nbsp; <b>RMB</b> aim &nbsp; <b>R</b> reload &nbsp; <b>F</b> buy<br>
     <b>1 2 3</b> weapon &nbsp; <b>E</b> call next round &nbsp; <b>ESC</b> pause
   </div>
+
+  <div class="panel" id="teamPoints"></div>
 
   <div class="panel" id="bl">
     <div id="points"><span>Points</span><i id="ptsval" style="font-style:normal">500</i></div>
@@ -7255,7 +7263,7 @@ const ui={hp:el('hpfill'),ammo:el('ammo'),gunname:el('gunname'),reloading:el('re
   slots:el('slots'),pts:el('ptsval'),perks:el('perks'),wavebig:el('wavebig'),left:el('left'),
   mult:el('ptsmult'),invuln:el('invuln'),cross:el('cross'),reddot:el('reddot'),hit:el('hitmark'),vig:el('vig'),downed:el('downed'),
   scope:el('scope'),banner:el('banner'),toast:el('toast'),prompt:el('prompt'),buffs:el('buffs'),
-  bossHud:el('bossHud'),bossFill:el('bossFill'),bossName:el('bossName'),flashWhite:0};
+  bossHud:el('bossHud'),bossFill:el('bossFill'),bossName:el('bossName'),teamPoints:el('teamPoints'),flashWhite:0};
 const flashEl=document.createElement('div');
 flashEl.style.cssText='position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;mix-blend-mode:screen;';
 el('hud').appendChild(flashEl);
@@ -7288,6 +7296,23 @@ function updHUD(){
   ui.reloading.style.opacity=player.reloading?1:0;
   ui.slots.innerHTML=player.guns.map((w,i)=>
     (i===player.slot?'<b>':'')+(i+1)+' '+w.def.name+((w.pack||0)?' '+'\u2726'.repeat(w.pack):'')+(i===player.slot?'</b>':'')).join(' &nbsp; ');
+  renderTeamPoints();
+}
+// CoD-Zombies-style scoreboard: everyone's current points, refreshed both on
+// our own point changes (via updHUD) and whenever a teammate's periodic
+// state update reports theirs (see the 'state' case in netHandle).
+function renderTeamPoints(){
+  if(!ui.teamPoints) return;
+  if(!net.connected||net.players.size<2){ ui.teamPoints.style.display='none'; return; }
+  const rows=[];
+  for(const p of net.players.values()){
+    const pts=p.id===net.id?player.points:(p.state&&Number.isFinite(+p.state.points)?+p.state.points:0);
+    rows.push({name:p.name,pts,self:p.id===net.id});
+  }
+  rows.sort((a,b)=>b.pts-a.pts);
+  ui.teamPoints.innerHTML=rows.map(r=>
+    '<div'+(r.self?' class="me"':'')+'>'+(r.self?'You':r.name)+' <b>'+r.pts.toLocaleString()+'</b></div>').join('');
+  ui.teamPoints.style.display='block';
 }
 
 /* ---------- rounds ---------- */
@@ -8059,6 +8084,7 @@ function netHandle(msg){
     const p=net.players.get(m.id); if(p)p.state=m.state;
     updateRemoteState(m.id,m.state||{});
     if(net.host&&m.state&&m.state.downed) hostCheckTeamWipe();
+    renderTeamPoints();
   } else if(m.type==='fire'){
     remoteFire(String(m.id||''),m);
   } else if(m.type==='melee'){
@@ -8275,7 +8301,7 @@ function netStep(dt){
   netSend({type:'state',state:{x:player.pos.x,y:player.y,z:player.pos.z,yaw:netYaw(player.yaw),
     pitch:player.pitch,hp:player.hp,downed:player.downed,weapon:g?g.def.id:'',map:currentMap,
     speed:Math.hypot(player.vel.x,player.vel.z),sprint:player.sprint,ads:player.ads,
-    crouched:player.crouched,grounded:player.grounded}});
+    crouched:player.crouched,grounded:player.grounded,points:player.points}});
   el('netbadge').textContent='ONLINE  \u00b7  '+net.code+'  \u00b7  '+net.players.size+'/4';
   el('netbadge').style.opacity=.78;
 }
