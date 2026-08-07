@@ -249,6 +249,7 @@ export class GameRoom extends DurableObject {
         ads: Boolean(source.ads),
         crouched: Boolean(source.crouched),
         grounded: source.grounded !== false,
+        points: number(source.points, 0, 99999999),
       };
       player.state = state;
       ws.serializeAttachment(player);
