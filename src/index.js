@@ -51,6 +51,15 @@ function cleanToken(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token) ? token : "";
 }
 
+const START_POINTS_OPTIONS = [500, 1000, 2000, 4000];
+const ROUND_GAP_OPTIONS = [90, 150, 210, 300];
+function cleanRules(value) {
+  const source = value || {};
+  const startPoints = START_POINTS_OPTIONS.includes(Number(source.startPoints)) ? Number(source.startPoints) : 500;
+  const roundGap = ROUND_GAP_OPTIONS.includes(Number(source.roundGap)) ? Number(source.roundGap) : 150;
+  return { startPoints, roundGap, hardcore: Boolean(source.hardcore) };
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -377,18 +386,26 @@ export class GameRoom extends DurableObject {
       return;
     }
 
+    if (message.type === "rules" && player.host && message.rules) {
+      // Purely a lobby display sync so everyone sees what the host has
+      // picked before starting - not persisted, re-sent fresh with "start".
+      this.broadcast({ type: "rules", rules: cleanRules(message.rules) }, ws);
+      return;
+    }
+
     if (message.type === "start") {
       if (!player.host) {
         this.send(ws, { type: "error", message: "Only the host can start the match" });
         return;
       }
       const map = ["town", "nuketown", "blacksire", "laststop"].includes(message.map) ? message.map : "town";
+      const rules = cleanRules(message.rules);
       // A new match resets everything about the room *except* its leaderboard -
       // that's meant to track this room's best run across matches, not just one.
       const previous = (await this.ctx.storage.get("room")) || {};
       const room = { active: true, map, paused: false, leaderboard: previous.leaderboard || null };
       await this.ctx.storage.put("room", room);
-      this.broadcast({ type: "start", map });
+      this.broadcast({ type: "start", map, rules });
     }
   }
 

@@ -73,6 +73,16 @@
   #teamPoints b{font-weight:700;}
   body.touch #teamPoints{top:max(48px,8vmin);}
 
+  #downedIndicators{position:absolute;inset:0;pointer-events:none;z-index:5;}
+  .downArrow{position:absolute;display:none;text-align:center;}
+  .downArrowTri{width:0;height:0;margin:0 auto 4px;border-left:9px solid transparent;
+    border-right:9px solid transparent;border-bottom:16px solid var(--blood);
+    filter:drop-shadow(0 0 4px rgba(211,54,38,.9));animation:downPulse 1s ease-in-out infinite;}
+  .downArrow.near .downArrowTri{display:none;}
+  .downArrowLabel{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--blood);
+    text-shadow:0 2px 4px #000;white-space:nowrap;font-weight:700;}
+  @keyframes downPulse{0%,100%{opacity:.7;transform:scale(1);}50%{opacity:1;transform:scale(1.18);}}
+
   #prompt{position:absolute;left:50%;bottom:22%;transform:translateX(-50%);text-align:center;
     font-size:15px;letter-spacing:.16em;text-transform:uppercase;text-shadow:0 2px 8px #000;opacity:0;
     transition:opacity .1s;white-space:nowrap;}
@@ -313,6 +323,8 @@
     <div id="slots"></div>
   </div>
 
+  <div id="downedIndicators"></div>
+
   <div id="prompt"></div>
   <div id="netbadge"></div>
   <div id="fps">60 fps</div>
@@ -378,6 +390,9 @@
     <div class="roomcode" id="roomCode">------</div>
     <div class="roster" id="roomRoster"></div>
     <div class="netstatus" id="roomBestLine" style="opacity:.7"></div>
+    <div class="orow"><label>Starting points</label><div class="otog" id="ruleStartPts">500</div><span class="oval"></span></div>
+    <div class="orow"><label>Round gap</label><div class="otog" id="ruleRoundGap">150s</div><span class="oval"></span></div>
+    <div class="orow"><label>Hardcore</label><div class="otog" id="ruleHardcore">Off</div><span class="oval"></span></div>
     <div class="netstatus" id="lobbyStatus">Connecting</div>
     <div class="btn" id="startOnline" data-act="net-map">Choose map</div>
     <div class="btn" data-act="net-copy">Copy invite</div>
@@ -7314,12 +7329,72 @@ function renderTeamPoints(){
     '<div'+(r.self?' class="me"':'')+'>'+(r.self?'You':r.name)+' <b>'+r.pts.toLocaleString()+'</b></div>').join('');
   ui.teamPoints.style.display='block';
 }
+// Screen-edge arrows pointing at any downed teammate, so a survivor off
+// clearing zombies elsewhere on a big map actually knows someone needs help.
+const DOWN_ARROW_POOL_SIZE=3; // up to 3 other players in a 4-player room
+const downArrows=[];
+function ensureDownArrows(){
+  const wrap=el('downedIndicators');
+  if(!wrap||downArrows.length) return;
+  for(let i=0;i<DOWN_ARROW_POOL_SIZE;i++){
+    const a=document.createElement('div'); a.className='downArrow';
+    const tri=document.createElement('div'); tri.className='downArrowTri';
+    const label=document.createElement('div'); label.className='downArrowLabel';
+    a.appendChild(tri); a.appendChild(label);
+    wrap.appendChild(a);
+    downArrows.push({el:a,label});
+  }
+}
+const _downWorld=new THREE.Vector3();
+function positionDownArrow(entry,worldX,worldY,worldZ,name){
+  _downWorld.set(worldX,worldY,worldZ).project(camera);
+  const behind=_downWorld.z>1;
+  const cx=innerWidth/2, cy=innerHeight/2;
+  let x=(_downWorld.x*0.5+0.5)*innerWidth, y=(1-(_downWorld.y*0.5+0.5))*innerHeight;
+  if(behind){ x=cx-(x-cx); y=cy-(y-cy); }
+  const onScreen=!behind&&_downWorld.x>-0.92&&_downWorld.x<0.92&&_downWorld.y>-0.85&&_downWorld.y<0.85;
+  entry.el.style.display='block';
+  entry.label.textContent=name+' – DOWNED';
+  if(onScreen){
+    entry.el.style.left=x+'px'; entry.el.style.top=y+'px';
+    entry.el.style.transform='translate(-50%,-50%)';
+    entry.el.classList.add('near');
+  }else{
+    const margin=64, angle=Math.atan2(y-cy,x-cx);
+    const halfW=innerWidth/2-margin, halfH=innerHeight/2-margin;
+    const scale=Math.min(Math.abs(halfW/Math.cos(angle))||1e9,Math.abs(halfH/Math.sin(angle))||1e9);
+    const ex=cx+Math.cos(angle)*scale, ey=cy+Math.sin(angle)*scale;
+    entry.el.style.left=ex+'px'; entry.el.style.top=ey+'px';
+    entry.el.style.transform='translate(-50%,-50%) rotate('+(angle+Math.PI/2)+'rad)';
+    entry.el.classList.remove('near');
+  }
+}
+function updateDownedIndicators(){
+  ensureDownArrows();
+  if(!game.running||!net.connected){ for(const a of downArrows) a.el.style.display='none'; return; }
+  const downed=[];
+  for(const p of net.players.values()){
+    if(p.id===net.id||!p.state) continue;
+    if(p.state.downed&&p.state.map===currentMap) downed.push(p);
+  }
+  for(let i=0;i<downArrows.length;i++){
+    const p=downed[i];
+    if(!p){ downArrows[i].el.style.display='none'; continue; }
+    positionDownArrow(downArrows[i],p.state.x,p.state.y+1,p.state.z,p.name);
+  }
+}
 
 /* ---------- rounds ---------- */
-const ROUND_GAP=150;
+let ROUND_GAP=150; // host-configurable via gameRules.roundGap, applied in startGame()
 const MAX_ALIVE=60;      // was 30, then 45 - lets more zombies be on the map at once
 const SPAWN_BURST=3;     // zombies spawned together per spawn tick, was 1
 const game={round:0,toSpawn:0,spawnTimer:0,roundTimer:0,running:false,time:0,kills:0,focus:null,wonderFound:false,boxDry:0,lockdown:0,bossPending:false};
+// Host-picked match settings, synced to the room and applied by everyone at
+// 'start' (see netHandle) - not persisted, chosen fresh in the lobby each time.
+const START_POINTS_OPTIONS=[500,1000,2000,4000];
+const ROUND_GAP_OPTIONS=[90,150,210,300];
+const gameRules={startPoints:500,roundGap:150,hardcore:false};
+function resetGameRules(){ Object.assign(gameRules,{startPoints:500,roundGap:150,hardcore:false}); }
 const roundCount=r=>10+(r-1)*2;                 // two more every round
 const roundMult=r=>1+(r-1)*0.15;                // and they are worth more
 const isBossRound=r=>r>0&&r%10===0;
@@ -8022,6 +8097,7 @@ function renderRoster(){
   const n=net.players.size;
   setNetStatus(net.host?(n+'/4 connected \u00b7 choose a map when ready'):(n+'/4 connected \u00b7 waiting for host'));
   renderRoomBest();
+  syncRulesUI();
 }
 function netHandle(msg){
   let m; try{m=JSON.parse(msg);}catch(e){return;}
@@ -8097,6 +8173,7 @@ function netHandle(msg){
     // A brand new match for the whole room - any loadout snapshot left over
     // from a previous match in this same room code is stale now.
     netClearLoadout(net.code);
+    applyRules(m.rules);
     net.activeGame=true; net.pausedByHost=false; startGame(m.map); toast('Online room '+net.code);
   } else if(m.type==='error'){
     setNetStatus(m.message||'Room error'); sfxDeny();
@@ -8110,7 +8187,18 @@ function netHandle(msg){
     spawnPingMarker(+m.x||0,+m.y||0,+m.z||0,owner,m.kind);
     const p=net.players.get(owner);
     toast((p?p.name:'A survivor')+' pinged'+(m.kind==='zombie'?' a zombie':' a location'));
+  } else if(m.type==='rules'&&m.rules){
+    applyRules(m.rules); syncRulesUI();
   }
+}
+// Applied both for the live lobby-display sync ('rules') and for real when
+// the match actually starts ('start') - the server already validates/clamps
+// these, this just guards against a malformed/missing payload client-side too.
+function applyRules(r){
+  if(!r) return;
+  if(START_POINTS_OPTIONS.includes(+r.startPoints)) gameRules.startPoints=+r.startPoints;
+  if(ROUND_GAP_OPTIONS.includes(+r.roundGap)) gameRules.roundGap=+r.roundGap;
+  gameRules.hardcore=!!r.hardcore;
 }
 async function netCreate(){
   setNetStatus('Creating room');
@@ -8179,6 +8267,7 @@ function netDisconnect(showMenu,keepState){
     net.token='';
     net.nextState=0; net.nextWorld=0; net.zombieSeq=1; net.pausedByHost=false;
     net.players.clear(); clearRemotePlayers();
+    resetGameRules(); // don't let a past room's hardcore/points settings leak into the next one
   }
   el('netbadge').style.opacity=0;
   if(showMenu) showScreen('menu');
@@ -8412,7 +8501,7 @@ function recordBest(){
   }
 }
 function doAct(a){
-  if(a==='new'){ netDisconnect(false); mapBack='menu'; showScreen('mapsel'); }
+  if(a==='new'){ netDisconnect(false); resetGameRules(); mapBack='menu'; showScreen('mapsel'); }
   else if(a==='online'){
     game.running=false; mapBack='lobby';
     try{el('netName').value=localStorage.getItem('town:netname')||el('netName').value;}catch(e){}
@@ -8428,7 +8517,7 @@ function doAct(a){
   }
   else if(a==='resume') resume();
   else if(a==='restart'){
-    if(net.connected){if(net.host)netSend({type:'start',map:currentMap});else toast('Only the host can restart');}
+    if(net.connected){if(net.host)netSend({type:'start',map:currentMap,rules:gameRules});else toast('Only the host can restart');}
     else{hideScreens();startGame(currentMap);}
   }
   else if(a==='menu') quitToMenu();
@@ -8448,7 +8537,7 @@ function doAct(a){
   else if(a==='net-leave') netDisconnect(true);
   else if(a&&a.indexOf('map:')===0){
     const map=a.slice(4);
-    if(net.connected){if(net.host)netSend({type:'start',map});else setNetStatus('Only the host can start');}
+    if(net.connected){if(net.host)netSend({type:'start',map,rules:gameRules});else setNetStatus('Only the host can start');}
     else{hideScreens();startGame(map);}
   }
   else if(a==='reset'){
@@ -8482,6 +8571,40 @@ bindToggle('oQual',()=>SET.quality=SET.quality==='High'?'Medium':(SET.quality===
 bindToggle('oFps',()=>SET.fps=!SET.fps);
 bindToggle('oGore',()=>SET.gore=!SET.gore);
 
+// Host-only lobby rule cyclers. Only the host's choices matter - non-host
+// clients just display whatever the host last broadcast (see the 'rules'
+// case in netHandle) so nobody is surprised mid-match by settings they
+// never saw. Cycling always applies locally first so the host's own display
+// updates instantly even if the broadcast round-trip is slow.
+function syncRulesUI(){
+  const set=(id,v)=>{const e=el(id); if(e) e.textContent=v;};
+  set('ruleStartPts',gameRules.startPoints.toLocaleString());
+  set('ruleRoundGap',gameRules.roundGap+'s');
+  set('ruleHardcore',gameRules.hardcore?'On':'Off');
+  for(const id of ['ruleStartPts','ruleRoundGap','ruleHardcore']){
+    const e=el(id); if(!e) continue;
+    e.style.opacity=net.host?1:.5;
+    e.style.cursor=net.host?'pointer':'default';
+  }
+}
+function bindRuleToggle(id,fn){
+  const e=el(id); if(!e) return;
+  e.addEventListener('click',()=>{
+    if(!net.host) return;
+    fn(); syncRulesUI();
+    if(net.connected) netSend({type:'rules',rules:gameRules});
+  });
+}
+bindRuleToggle('ruleStartPts',()=>{
+  const i=START_POINTS_OPTIONS.indexOf(gameRules.startPoints);
+  gameRules.startPoints=START_POINTS_OPTIONS[(i+1)%START_POINTS_OPTIONS.length];
+});
+bindRuleToggle('ruleRoundGap',()=>{
+  const i=ROUND_GAP_OPTIONS.indexOf(gameRules.roundGap);
+  gameRules.roundGap=ROUND_GAP_OPTIONS[(i+1)%ROUND_GAP_OPTIONS.length];
+});
+bindRuleToggle('ruleHardcore',()=>{ gameRules.hardcore=!gameRules.hardcore; });
+
 /* ---------- game state ---------- */
 function startGame(mapId){
   initAudio();
@@ -8500,11 +8623,12 @@ function startGame(mapId){
   player.pos.copy(SPAWN_AT); player.vel.set(0,0,0); player.y=SPAWN_AT.y||0; player.vy=0;
   player.crouched=false;player.crouchMix=0;player.eye=1.68;player.nextMelee=0;player.meleeStart=-99;
   player.maxHp=100; player.hp=100; player.alive=true; player.downed=false; player.invuln=0;
-  player.points=500; player.perks={}; player.yaw=SPAWN_YAW; player.pitch=0;
+  player.points=gameRules.startPoints; player.perks={}; player.yaw=SPAWN_YAW; player.pitch=0;
   player.reloading=false; player.burstLeft=0; player.slot=0;
   player.guns=[{def:DEFS.m1911,ammo:8,res:96,pack:0},{def:DEFS.m4a1,ammo:30,res:270,pack:0}];
   player.slot=1;
   for(const k in buffs) buffs[k]=0;
+  ROUND_GAP=gameRules.roundGap;
   game.round=0; game.kills=0; game.wonderFound=false; game.boxDry=0; game.lockdown=0; game.bossPending=false; game.time=performance.now()/1000;
   net.nextState=0; net.nextWorld=0; net.pausedByHost=false;
   if(net.connected&&net.host) net.zombieSeq=1;
@@ -8666,7 +8790,7 @@ function loop(){
     updateZombies(dt);
     updateLightCulling();
     stepParts(dt); stepProjectiles(dt); stepBooms(dt); stepBolts(dt);
-    stepDrops(dt); stepBox(dt); stepPap(dt); stepPings(dt); updateInteract();
+    stepDrops(dt); stepBox(dt); stepPap(dt); stepPings(dt); updateInteract(); updateDownedIndicators();
   }
   updateFireCrackle();
   updateWeaponView(dt);
@@ -8996,7 +9120,7 @@ function updateZombies(dt){
       resolveCircle(z.pos,z.boss?.68:.44,z.y);
     } else if(game.time>z.nextSwing&&!targetDown){
       z.nextSwing=game.time+(z.boss?1.35:1.05);
-      const amount=z.boss?(40+z.round*1.4):(13+z.round*0.7);
+      const amount=(z.boss?(40+z.round*1.4):(13+z.round*0.7))*(gameRules.hardcore?1.5:1);
       if(z.boss)z.bossAttackUntil=game.time+1.18;
       const listenerDist=Math.hypot(z.pos.x-player.pos.x,z.pos.z-player.pos.z);
       if(listenerDist<28) sfxGroan(listenerDist,'attack');
