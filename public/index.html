@@ -224,6 +224,24 @@
   #overTeam .row.me{color:var(--amber);}
   #overTeam .row b{font-weight:700;}
 
+  #statsMenu{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    background:rgba(6,7,10,.88);border:1px solid rgba(230,224,210,.18);border-radius:6px;
+    padding:20px 26px;min-width:340px;max-width:640px;display:none;text-align:left;
+    box-shadow:0 10px 40px rgba(0,0,0,.6);}
+  #statsMenu .sec2{color:var(--amber);font-size:12px;letter-spacing:.2em;text-transform:uppercase;
+    text-align:center;margin-bottom:12px;}
+  #statsMenu .sec2 b{color:var(--bone);}
+  #statsMenu .row{display:grid;grid-template-columns:1.6fr .9fr .7fr .8fr .7fr;gap:10px;
+    padding:7px 4px;border-bottom:1px solid rgba(230,224,210,.10);
+    font-size:11px;letter-spacing:.1em;text-transform:uppercase;}
+  #statsMenu .row.head{color:var(--amber);opacity:.7;font-size:10px;border-bottom:1px solid rgba(232,163,61,.35);}
+  #statsMenu .row.me{color:var(--amber);}
+  #statsMenu .row span{text-align:right;}
+  #statsMenu .row span:first-child{text-align:left;}
+  #statsMenu .hint{margin-top:12px;text-align:center;font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;opacity:.45;}
+  #statsMenu .hint b{color:var(--amber);}
+
   #touch{position:absolute;inset:0;display:none;
     --g:max(9px,1.6vmin);
     --b:max(46px,12.2vmin);
@@ -331,6 +349,12 @@
   </div>
 
   <div id="downedIndicators"></div>
+
+  <div id="statsMenu">
+    <div class="sec2">Survivor stats  ·  round <b id="statsRound">1</b></div>
+    <div id="statsRows"></div>
+    <div class="hint">Press <b>I</b> to close</div>
+  </div>
 
   <div id="prompt"></div>
   <div id="netbadge"></div>
@@ -465,7 +489,7 @@
         <b>Left click</b> fire<br><b>Right click</b> aim<br><b>R</b> reload<br><b>F</b> buy or use<br>
         <b>V / Middle click</b> knife<br><b>C / Left Ctrl</b> crouch<br>
         <b>1 2 3</b> switch weapon<br><b>Q</b> next weapon<br><b>E</b> call next round<br>
-        <b>G</b> ping a spot or zombie<br><b>Esc</b> pause
+        <b>G</b> ping a spot or zombie<br><b>I</b> survivor stats<br><b>Esc</b> pause
       </div></div>
       <div><h3>Controller</h3><div>
         <b>Left stick</b> move<br><b>Right stick</b> look<br><b>L3</b> sprint<br><b>A</b> jump<br>
@@ -6135,7 +6159,11 @@ function killZombie(z,dir,part,impulse,noReward,silentNet){
     const p=z.pts[i];
     p.px-=dir.x*impulse; p.py-=dir.y*impulse*.7+.02; p.pz-=dir.z*impulse;
   }
-  if(!noReward) addPoints((part==='head'?90:50)*roundMult(z.round));
+  if(!noReward){
+    addPoints((part==='head'?90:50)*roundMult(z.round));
+    player.kills=(player.kills||0)+1;
+    if(part==='head') player.headshots=(player.headshots||0)+1;
+  }
   const h=z.pts[HEAD];
   spray(h.x,h.y,h.z,dir.x,.4,dir.z,12,bloodMat,1.4);
   const deathDist=Math.hypot(h.x-player.pos.x,h.y-(player.y+player.eye),h.z-player.pos.z);
@@ -7357,6 +7385,40 @@ function renderTeamPoints(){
     '<div'+(r.self?' class="me"':'')+'>'+(r.self?'You':r.name)+' <b>'+r.pts.toLocaleString()+'</b></div>').join('');
   ui.teamPoints.style.display='block';
 }
+// Full stats overlay (I key) - points/kills/headshots/downs for every
+// connected survivor, not just the live points-only scoreboard above.
+// Works solo too (a single row for yourself).
+let statsMenuOpen=false;
+function closeStatsMenu(){
+  statsMenuOpen=false;
+  const e=el('statsMenu'); if(e) e.style.display='none';
+}
+function toggleStatsMenu(){
+  statsMenuOpen=!statsMenuOpen;
+  const e=el('statsMenu'); if(!e) return;
+  if(statsMenuOpen){ renderStatsMenu(); e.style.display='block'; }
+  else e.style.display='none';
+}
+function renderStatsMenu(){
+  const box=el('statsRows'); if(!box) return;
+  const rd=el('statsRound'); if(rd) rd.textContent=String(Math.max(1,game.round));
+  const selfRow={name:'You',pts:player.points,kills:player.kills||0,
+    hs:player.headshots||0,downs:player.downs||0,self:true};
+  const rows=[selfRow];
+  if(net.connected){
+    for(const p of net.players.values()){
+      if(p.id===net.id||p.disconnected) continue;
+      const s=p.state||{};
+      rows.push({name:p.name,pts:Number.isFinite(+s.points)?+s.points:0,
+        kills:Number.isFinite(+s.kills)?+s.kills:0,hs:Number.isFinite(+s.headshots)?+s.headshots:0,
+        downs:Number.isFinite(+s.downs)?+s.downs:0,self:false});
+    }
+  }
+  rows.sort((a,b)=>b.pts-a.pts);
+  box.innerHTML='<div class="row head"><span>Survivor</span><span>Points</span><span>Kills</span><span>Headshots</span><span>Downs</span></div>'+
+    rows.map(r=>'<div class="row'+(r.self?' me':'')+'"><span>'+r.name+'</span><span>'+r.pts.toLocaleString()+
+      '</span><span>'+r.kills+'</span><span>'+r.hs+'</span><span>'+r.downs+'</span></div>').join('');
+}
 // Screen-edge arrows pointing at any downed teammate, so a survivor off
 // clearing zombies elsewhere on a big map actually knows someone needs help.
 const DOWN_ARROW_POOL_SIZE=3; // up to 3 other players in a 4-player room
@@ -7486,6 +7548,7 @@ addEventListener('keydown',e=>{
   if(e.code==='KeyQ') swapTo((player.slot+1)%player.guns.length);
   if(e.code==='KeyE'&&game.toSpawn===0) startRound();
   if(!e.repeat&&e.code==='KeyG') firePing();
+  if(!e.repeat&&e.code==='KeyI') toggleStatsMenu();
   if(e.code==='Space'){
     e.preventDefault();
     if(player.grounded&&!player.downed){
@@ -7854,7 +7917,7 @@ function handleHostGameRequest(e,playerId){
       {authoritative:true,noReward:true});
     const killed=!before&&z.dead;
     const points=(e.noPoints?0:10*roundMult(z.round))+(killed?(part==='head'?90:50)*roundMult(z.round):0);
-    netHostDirect(playerId,{type:'damage_result',points,killed});
+    netHostDirect(playerId,{type:'damage_result',points,killed,head:killed&&part==='head'});
   } else if(e.type==='zombie_kill'){
     const z=netZombie(String(e.id||'')); if(!z||z.dead) return;
     const part=e.part==='head'?'head':'torso',d=Array.isArray(e.dir)?e.dir:[0,0,1];
@@ -7862,11 +7925,11 @@ function handleHostGameRequest(e,playerId){
     if(z.boss){
       const amount=Math.min(1400,z.maxHp*.18);
       damageZombie(z,amount,part,dir,.12,true,{authoritative:true,noReward:true});
-      netHostDirect(playerId,{type:'damage_result',points:10*roundMult(z.round),killed:z.dead});
+      netHostDirect(playerId,{type:'damage_result',points:10*roundMult(z.round),killed:z.dead,head:z.dead&&part==='head'});
       return;
     }
     killZombie(z,dir,part,clamp(+e.impulse||.2,0,.8),true,false);
-    netHostDirect(playerId,{type:'damage_result',points:(part==='head'?90:50)*roundMult(z.round),killed:true});
+    netHostDirect(playerId,{type:'damage_result',points:(part==='head'?90:50)*roundMult(z.round),killed:true,head:part==='head'});
   } else if(e.type==='drop_collect'){
     hostCollectDrop(String(e.id||''),playerId);
   } else if(e.type==='box_roll'){
@@ -7913,6 +7976,7 @@ function handleSharedGameEvent(e){
     activateMapSwitch(String(e.id||''),false);
   } else if(e.type==='damage_result'){
     if(+e.points>0) addPoints(+e.points);
+    if(e.killed){ player.kills=(player.kills||0)+1; if(e.head) player.headshots=(player.headshots||0)+1; }
     showHit(!!e.killed); updHUD();
   } else if(e.type==='player_damage'){
     hurtPlayer(clamp(+e.amount||0,0,100));
@@ -8475,7 +8539,8 @@ function netStep(dt){
   netSend({type:'state',state:{x:player.pos.x,y:player.y,z:player.pos.z,yaw:netYaw(player.yaw),
     pitch:player.pitch,hp:player.hp,downed:player.downed,weapon:g?g.def.id:'',map:currentMap,
     speed:Math.hypot(player.vel.x,player.vel.z),sprint:player.sprint,ads:player.ads,
-    crouched:player.crouched,grounded:player.grounded,points:player.points,downs:player.downs||0}});
+    crouched:player.crouched,grounded:player.grounded,points:player.points,downs:player.downs||0,
+    kills:player.kills||0,headshots:player.headshots||0}});
   el('netbadge').textContent='ONLINE  \u00b7  '+net.code+'  \u00b7  '+net.players.size+'/4';
   el('netbadge').style.opacity=.78;
 }
@@ -8535,10 +8600,12 @@ function loadSettings(){
   applySettings(); syncOptions(); bestLine();
 }
 function showScreen(id){
+  closeStatsMenu(); // any menu screen (pause, game over, ...) supersedes the stats overlay
   for(const s of SCREENS){ const e=el(s); if(e) e.classList.toggle('gone',s!==id); }
   menuScreen=id; menuIdx=0; refreshSel();
 }
 function hideScreens(){
+  closeStatsMenu();
   for(const s of SCREENS){ const e=el(s); if(e) e.classList.add('gone'); }
   menuScreen=null;
 }
@@ -8708,7 +8775,8 @@ function startGame(mapId){
   player.pos.copy(SPAWN_AT); player.vel.set(0,0,0); player.y=SPAWN_AT.y||0; player.vy=0;
   player.crouched=false;player.crouchMix=0;player.eye=1.68;player.nextMelee=0;player.meleeStart=-99;
   player.maxHp=100; player.hp=100; player.alive=true; player.downed=false; player.invuln=0;
-  player.points=gameRules.startPoints; player.perks={}; player.yaw=SPAWN_YAW; player.pitch=0; player.downs=0;
+  player.points=gameRules.startPoints; player.perks={}; player.yaw=SPAWN_YAW; player.pitch=0;
+  player.downs=0; player.kills=0; player.headshots=0;
   player.reloading=false; player.burstLeft=0; player.slot=0;
   player.guns=[{def:DEFS.m1911,ammo:8,res:96,pack:0},{def:DEFS.m4a1,ammo:30,res:270,pack:0}];
   player.slot=1;
