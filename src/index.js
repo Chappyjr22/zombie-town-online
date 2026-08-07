@@ -140,7 +140,7 @@ export class GameRoom extends DurableObject {
       if (exists) return json({ error: "Room already exists" }, 409);
       await this.ctx.storage.put({
         created: true,
-        room: { active: false, map: null, paused: false },
+        room: { active: false, map: null, paused: false, leaderboard: null },
       });
       return json({ ok: true }, 201);
     }
@@ -152,7 +152,7 @@ export class GameRoom extends DurableObject {
       return json({
         exists: true,
         players: this.sockets().length,
-        room: (await this.ctx.storage.get("room")) || { active: false, map: null, paused: false },
+        room: (await this.ctx.storage.get("room")) || { active: false, map: null, paused: false, leaderboard: null },
       });
     }
 
@@ -190,7 +190,7 @@ export class GameRoom extends DurableObject {
       const current = this.attachment(ws);
       return { id: current.id, name: current.name, host: current.host, state: current.state };
     });
-    const room = (await this.ctx.storage.get("room")) || { active: false, map: null, paused: false };
+    const room = (await this.ctx.storage.get("room")) || { active: false, map: null, paused: false, leaderboard: null };
     this.send(server, { type: "welcome", id, name, host, token, players, room });
     this.broadcast({ type: "player_joined", player: { id, name, host } }, server);
 
@@ -262,7 +262,7 @@ export class GameRoom extends DurableObject {
           type: "fire",
           id: player.id,
           weapon: String(message.weapon || "").slice(0, 24),
-          pack: Math.max(0, Math.min(2, Number(message.pack) || 0)),
+          pack: Math.max(0, Math.min(3, Number(message.pack) || 0)),
           yaw: normalizeYaw(message.yaw),
           pitch: Math.max(-Math.PI / 2, Math.min(Math.PI / 2, Number(message.pitch) || 0)),
         },
@@ -282,6 +282,36 @@ export class GameRoom extends DurableObject {
         },
         ws,
       );
+      return;
+    }
+
+    if (message.type === "ping") {
+      // A cosmetic map marker, not game state - broadcast straight to the
+      // room like fire/melee instead of routing through host arbitration.
+      this.broadcast(
+        {
+          type: "ping",
+          owner: player.id,
+          x: Math.max(-250, Math.min(250, Number(message.x) || 0)),
+          y: Math.max(-20, Math.min(80, Number(message.y) || 0)),
+          z: Math.max(-250, Math.min(250, Number(message.z) || 0)),
+          kind: message.kind === "zombie" ? "zombie" : "spot",
+        },
+        ws,
+      );
+      return;
+    }
+
+    if (message.type === "leaderboard_submit" && player.host && message.entry) {
+      const round = Math.max(0, Math.min(9999, Math.floor(Number(message.entry.round)) || 0));
+      const kills = Math.max(0, Math.min(999999, Math.floor(Number(message.entry.kills)) || 0));
+      const room = (await this.ctx.storage.get("room")) || { active: true, map: "town", paused: false, leaderboard: null };
+      const current = room.leaderboard;
+      if (!current || round > current.round || (round === current.round && kills > current.kills)) {
+        room.leaderboard = { round, kills };
+        await this.ctx.storage.put("room", room);
+        this.broadcast({ type: "leaderboard", entry: room.leaderboard });
+      }
       return;
     }
 
@@ -352,7 +382,10 @@ export class GameRoom extends DurableObject {
         return;
       }
       const map = ["town", "nuketown", "blacksire", "laststop"].includes(message.map) ? message.map : "town";
-      const room = { active: true, map, paused: false };
+      // A new match resets everything about the room *except* its leaderboard -
+      // that's meant to track this room's best run across matches, not just one.
+      const previous = (await this.ctx.storage.get("room")) || {};
+      const room = { active: true, map, paused: false, leaderboard: previous.leaderboard || null };
       await this.ctx.storage.put("room", room);
       this.broadcast({ type: "start", map });
     }
