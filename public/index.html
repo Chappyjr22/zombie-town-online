@@ -179,6 +179,12 @@
   .mapart.laststop i:nth-child(2){right:13px;width:79px;height:31px;background:#472027;}
   .mapart.laststop b{position:absolute;left:50%;bottom:10px;margin-left:-25px;width:50px;height:18px;background:#151a1e;border:2px solid #b58e43;}
   .mapart.laststop u{position:absolute;left:14px;right:14px;bottom:7px;height:3px;background:#59616a;box-shadow:0 -8px 0 #2a3036;}
+  .mapart.crossroads{background:linear-gradient(180deg,#9fc3e6 0%,#c9dcee 58%,#b6ada0 58%,#a49a8c 100%);}
+  .mapart.crossroads i{position:absolute;bottom:14px;background:#8a8378;}
+  .mapart.crossroads i:nth-child(1){left:14px;width:20px;height:64px;box-shadow:0 -8px 0 -2px #6f6a5f;}
+  .mapart.crossroads i:nth-child(2){right:16px;width:46px;height:40px;background:#7fa0c2;box-shadow:0 -10px 0 -3px #5c6f86;}
+  .mapart.crossroads b{position:absolute;left:50%;bottom:0;margin-left:-9px;width:18px;height:52px;background:#a2493c;}
+  .mapart.crossroads u{position:absolute;left:50%;bottom:52px;margin-left:-1px;width:2px;height:14px;background:#a2493c;}
   .best{font-size:11px;letter-spacing:.22em;opacity:.5;text-transform:uppercase;margin-top:14px;}
   .best b{color:var(--amber);}
   h2.sec{font-size:22px;letter-spacing:.30em;text-transform:uppercase;margin-bottom:4px;}
@@ -455,6 +461,11 @@
         <div class="mapart laststop"><i></i><i></i><b></b><u></u></div>
         <h4>Last Stop <em>Rain</em></h4>
         <p>A ruined central railway terminal with paid doors, two power circuits, detailed platforms and trains, a maintenance yard, service tunnels, and Pack-a-Punch sealed inside the armored rail vault.</p>
+      </div>
+      <div class="mapcard" data-act="map:crossroads">
+        <div class="mapart crossroads"><i></i><i></i><b></b><u></u></div>
+        <h4>Crossroads <em>Daylight</em></h4>
+        <p>An abandoned city block under a clear sky. A gas station and a church face off across the intersection, a columned civic building anchors a wrecked-car parking lot, and apartment towers box the street in on every side.</p>
       </div>
     </div>
     <div class="btn" data-act="back">Back</div>
@@ -2506,103 +2517,361 @@ function placeTownAsset(file,x,z,rotY,opts){
   }
 }
 
-/* ============ CROSSROADS ============
-   An abandoned city block built from a downloaded low-poly asset pack: a
-   gas station and service booth on one corner, a church on another, a
-   columned civic building with a parking lot on a third, apartment blocks
-   forming the street canyon, and a glass tower skyline behind it all.
-   Buildings are solid, single-mesh exteriors with no authored interiors, so
-   (like this game's cars and wrecks) they're cover and scenery, not rooms
-   to walk into - all buys, perks and Pack-a-Punch sit in the street, the
-   back alley, and the parking lot instead. */
 function buildCrossroads(){
-  BND=40;
+  BND=44;
   scene.background=new THREE.Color(0x9fc3e6);
-  scene.fog=new THREE.Fog(0xaecbe8,60,220); mapFog={near:60,far:220};
-  torch.intensity=0.18;
-  SPAWN_AT.set(0,0,-30); SPAWN_YAW=0;
-  SPAWNS=[[-8,-30],[8,-30],[-20,-24],[20,-24],[-30,-10],[30,-10],
-    [-30,10],[30,10],[-20,24],[20,24],[-8,30],[8,30]];
-  BOX_SPOTS=[[-9,-2],[9,-2],[0,-14],[-9,16],[9,16]];
+  scene.fog=new THREE.Fog(0xaecbe8,60,230); mapFog={near:60,far:230};
+  torch.intensity=0.16;
+  SPAWN_AT.set(-38,0,-10); SPAWN_YAW=-Math.PI/2;
+  SPAWNS=[[-13.6,-37.9],[14,-40],[-21,-37.7],[20,-36],[-36,-20],[38,-20],
+    [-36,0],[36,0],[-37.9,20.7],[40,20],[-20,36],[20,36]];
+  BOX_SPOTS=[[6,0],[-6,10],[-19,-6.3],[-6,26],[16,-14]];
 
-  worldRoot.add(new THREE.HemisphereLight(0xcfe0f4,0x9c8f70,0.85));
-  const sun=new THREE.DirectionalLight(0xfff2d8,1.2); sun.position.set(40,60,-24); worldRoot.add(sun);
-  sunShadow(sun,60);
-  const fill=new THREE.DirectionalLight(0xa8c0dc,0.28); fill.position.set(-30,20,30); worldRoot.add(fill);
+  worldRoot.add(new THREE.HemisphereLight(0xcfe0f4,0x9c8f70,0.9));
+  const sun=new THREE.DirectionalLight(0xfff2d8,1.25); sun.position.set(42,64,-26); worldRoot.add(sun);
+  sunShadow(sun,62);
+  const fill=new THREE.DirectionalLight(0xa8c0dc,0.30); fill.position.set(-32,22,32); worldRoot.add(fill);
 
-  /* ---- ground and streets ---- */
-  const dirt=new THREE.Mesh(new THREE.PlaneGeometry(360,360),M.dirt);
+  /* ---- ground: a wide paved apron under the real road/curb pieces below ---- */
+  const dirt=new THREE.Mesh(new THREE.PlaneGeometry(400,400),M.dirt);
   dirt.receiveShadow=true; dirt.rotation.x=-Math.PI/2; worldRoot.add(dirt); blockers.push(dirt);
-  quad(-BND,-BND,BND,BND,0.015,phong({color:0xb8b0a0}));
+  quad(-BND,-BND,BND,BND,0.015,phong({color:0xb6ada0}));
 
-  placeTownAsset('Road_06.glb',0,0,0);                       // 12x12 intersection tile
-  placeTownAsset('Road_04.glb',0,-15,Math.PI/2);              // south arm
-  placeTownAsset('Road_04.glb',0,15,Math.PI/2);               // north arm
-  placeTownAsset('Road_04.glb',-15,0,0);                     // west arm
-  placeTownAsset('Road_04.glb',15,0,0);                      // east arm
-  placeTownAsset('Road_07.glb',0,-24,Math.PI/2);
-  placeTownAsset('Road_07.glb',0,24,Math.PI/2);
+  /* ---- placed from the pack's own assembled demo scene: every position and
+     rotation below is the real authored transform (converted from Unity's
+     PrefabInstance data), not a guess - only decluttered of the densest
+     repeats (individual fence rails, overhead wire spans, skybox cards)
+     and recentered so the downtown cluster sits near the map origin. ---- */
+  // ATM x3
+  placeTownAsset('ATM.glb',11.31,-19.24,-Math.PI/2,{y:1.55});
+  placeTownAsset('ATM.glb',8.23,17.96,Math.PI,{y:1.53});
+  placeTownAsset('ATM.glb',16.94,6.17,0,{y:1.54});
+  // AmoBox_01 x6
+  placeTownAsset('AmoBox_01.glb',-32.25,23.63,-1.0772);
+  placeTownAsset('AmoBox_01.glb',17.86,-3.19,3.3087);
+  placeTownAsset('AmoBox_01.glb',16.82,-3.39,2.4834);
+  placeTownAsset('AmoBox_01.glb',16.59,-4.49,1.5356);
+  placeTownAsset('AmoBox_01.glb',-32.73,22.84,0);
+  placeTownAsset('AmoBox_01.glb',-33.93,22.83,-0.2059);
+  // AutoService_01 x1
+  placeTownAsset('AutoService_01.glb',19.16,1.76,-Math.PI/2,{collide:[8.93,7.11,3.9]});
+  // Bank_01 x3
+  placeTownAsset('Bank_01.glb',-29.45,-39.89,Math.PI,{collide:[11.98,11.98,3.9]});
+  placeTownAsset('Bank_01.glb',31.01,38.07,0,{collide:[11.98,11.98,3.9]});
+  placeTownAsset('Bank_01.glb',17.2,-24.17,0,{collide:[11.98,11.98,3.9]});
+  // Barrel_01 x12
+  placeTownAsset('Barrel_01.glb',-6.38,-9.4,0,{y:3.73});
+  placeTownAsset('Barrel_01.glb',-18.94,25.81,-1.6264,{y:3.31});
+  placeTownAsset('Barrel_01.glb',16.5,-5.96,0);
+  placeTownAsset('Barrel_01.glb',16.31,3.02,0,{y:5.23});
+  placeTownAsset('Barrel_01.glb',16.09,4.15,0,{y:5.41});
+  placeTownAsset('Barrel_01.glb',16.13,3.64,-1.4428,{y:5.23});
+  placeTownAsset('Barrel_01.glb',-18.71,26.77,0,{y:3.52});
+  placeTownAsset('Barrel_01.glb',-11.52,-15.9,0,{y:3.51});
+  placeTownAsset('Barrel_01.glb',7.35,38.36,0.9933);
+  placeTownAsset('Barrel_01.glb',9.69,10.19,0,{y:4.0});
+  placeTownAsset('Barrel_01.glb',3.61,-18.79,0);
+  placeTownAsset('Barrel_01.glb',-18.76,26.39,0,{y:3.31});
+  // Barrel_02 x5
+  placeTownAsset('Barrel_02.glb',9.6,9.17,0,{y:3.82});
+  placeTownAsset('Barrel_02.glb',-6.34,-10.0,0,{y:3.73});
+  placeTownAsset('Barrel_02.glb',16.51,-6.62,0);
+  placeTownAsset('Barrel_02.glb',-11.62,-15.61,0,{y:3.31});
+  placeTownAsset('Barrel_02.glb',8.12,36.99,0.9933);
+  // Barrier_01 x1
+  placeTownAsset('Barrier_01.glb',-11.38,16.8,-0.6431);
+  // Box_01 x10
+  placeTownAsset('Box_01.glb',-32.12,25.01,0,{y:0.93});
+  placeTownAsset('Box_01.glb',-16.62,-10.11,0,{y:4.38});
+  placeTownAsset('Box_01.glb',9.73,11.09,0,{y:4.47});
+  placeTownAsset('Box_01.glb',11.42,12.3,-0.3525,{y:0.57});
+  placeTownAsset('Box_01.glb',10.66,11.43,-2.5028,{y:0.57});
+  placeTownAsset('Box_01.glb',-24.77,28.13,-1.3179,{y:0.57});
+  placeTownAsset('Box_01.glb',-17.24,27.76,1.3103,{y:0.45});
+  placeTownAsset('Box_01.glb',-17.35,28.81,0,{y:0.45});
+  placeTownAsset('Box_01.glb',-12.6,36.05,-0.4943,{y:0.73});
+  placeTownAsset('Box_01.glb',-24.75,29.19,0,{y:0.57});
+  // Box_02 x10
+  placeTownAsset('Box_02.glb',12.98,17.76,-0.1839,{y:3.75});
+  placeTownAsset('Box_02.glb',0.31,9.63,-0.3757,{y:0.85});
+  placeTownAsset('Box_02.glb',-32.09,25.28,0,{y:0.39});
+  placeTownAsset('Box_02.glb',15.61,2.77,0,{y:0.57});
+  placeTownAsset('Box_02.glb',10.29,8.29,-0.5944,{y:4.47});
+  placeTownAsset('Box_02.glb',-32.11,24.66,-1.3999,{y:0.39});
+  placeTownAsset('Box_02.glb',11.06,11.93,0.6919,{y:1.48});
+  placeTownAsset('Box_02.glb',1.66,22.85,-1.9458,{y:1.27});
+  placeTownAsset('Box_02.glb',10.03,12.17,0.3729,{y:4.47});
+  placeTownAsset('Box_02.glb',1.66,22.85,-0.4928,{y:0.44});
+  // Box_03 x10
+  placeTownAsset('Box_03.glb',13.85,-8.14,3.1837,{y:0.46});
+  placeTownAsset('Box_03.glb',19.9,22.09,3.1837,{y:0.46});
+  placeTownAsset('Box_03.glb',12.84,-9.01,1.6178,{y:0.46});
+  placeTownAsset('Box_03.glb',-17.4,28.5,-2.9706,{y:1.35});
+  placeTownAsset('Box_03.glb',23.23,5.68,0,{y:0.6});
+  placeTownAsset('Box_03.glb',24.23,5.68,3.1837,{y:0.47});
+  placeTownAsset('Box_03.glb',18.9,21.21,1.6178,{y:0.46});
+  placeTownAsset('Box_03.glb',-15.08,-10.17,0,{y:4.37});
+  placeTownAsset('Box_03.glb',20.37,-3.16,0,{y:0.59});
+  placeTownAsset('Box_03.glb',15.69,4.39,0,{y:0.43});
+  // Church_01 x1
+  placeTownAsset('Church_01.glb',-18.38,9.67,Math.PI/2,{collide:[12.87,20.68,3.9]});
+  // CityHall_01 x1
+  placeTownAsset('CityHall_01.glb',0.0,-31.41,0,{collide:[22.6,18.6,3.9]});
+  // Construction_01 x2
+  placeTownAsset('Construction_01.glb',26.94,-37.53,0,{collide:[8.0,12.0,3.9]});
+  placeTownAsset('Construction_01.glb',-12.0,-6.78,Math.PI/2,{collide:[8.0,12.0,3.9]});
+  // Fan_01 x6
+  placeTownAsset('Fan_01.glb',-20.22,-0.88,Math.PI/2,{y:10.0});
+  placeTownAsset('Fan_01.glb',11.46,-2.29,0,{y:5.41});
+  placeTownAsset('Fan_01.glb',16.18,-6.1,Math.PI/2,{y:5.54});
+  placeTownAsset('Fan_01.glb',13.79,-2.29,0,{y:7.75});
+  placeTownAsset('Fan_01.glb',-33.99,36.25,Math.PI,{y:5.38});
+  placeTownAsset('Fan_01.glb',10.66,17.85,Math.PI,{y:5.53});
+  // Fence_02 x5
+  placeTownAsset('Fence_02.glb',-9.25,-0.09,Math.PI/2);
+  placeTownAsset('Fence_02.glb',6.0,33.26,-Math.PI/2);
+  placeTownAsset('Fence_02.glb',6.0,38.26,-Math.PI/2);
+  placeTownAsset('Fence_02.glb',6.0,34.26,-Math.PI/2);
+  placeTownAsset('Fence_02.glb',-9.25,1.91,Math.PI/2);
+  // FlowerBed_01 x7
+  placeTownAsset('FlowerBed_01.glb',-4.34,31.87,0);
+  placeTownAsset('FlowerBed_01.glb',-7.66,4.81,0);
+  placeTownAsset('FlowerBed_01.glb',-4.44,36.57,0);
+  placeTownAsset('FlowerBed_01.glb',-34.5,4.57,0);
+  placeTownAsset('FlowerBed_01.glb',-6.99,14.39,0);
+  placeTownAsset('FlowerBed_01.glb',-34.5,-2.93,0);
+  placeTownAsset('FlowerBed_01.glb',-7.66,0.31,0);
+  // Garbage_01 x4
+  placeTownAsset('Garbage_01.glb',-34.67,15.15,-1.4595);
+  placeTownAsset('Garbage_01.glb',6.95,-0.8,0);
+  placeTownAsset('Garbage_01.glb',-33.22,-9.61,-0.3496);
+  placeTownAsset('Garbage_01.glb',9.06,36.63,4.5465);
+  // Gas_Station_01 x1
+  placeTownAsset('Gas_Station_01.glb',11.81,10.0,-Math.PI/2,{collide:[7.25,8.82,3.9]});
+  // Grass_01 x4
+  placeTownAsset('Grass_01.glb',-7.54,0.19,1.9418);
+  placeTownAsset('Grass_01.glb',-7.73,-21.99,0);
+  placeTownAsset('Grass_01.glb',-34.62,-2.82,-0.1553);
+  placeTownAsset('Grass_01.glb',-4.24,31.77,-0.1291);
+  // House_01 x8
+  placeTownAsset('House_01.glb',-30.18,-6.55,-Math.PI/2,{collide:[7.14,6.37,3.9]});
+  placeTownAsset('House_01.glb',9.58,21.41,-Math.PI/2,{collide:[7.14,6.37,3.9]});
+  placeTownAsset('House_01.glb',-32.61,-25.63,0,{collide:[7.14,6.37,3.9]});
+  placeTownAsset('House_01.glb',24.16,15.73,-Math.PI/2,{collide:[7.14,6.37,3.9]});
+  placeTownAsset('House_01.glb',34.51,19.76,-Math.PI/2,{collide:[7.14,6.37,3.9]});
+  placeTownAsset('House_01.glb',-24.98,-6.55,Math.PI/2,{collide:[7.14,6.37,3.9]});
+  placeTownAsset('House_01.glb',-29.05,19.01,Math.PI/2,{collide:[7.14,6.37,3.9]});
+  placeTownAsset('House_01.glb',-32.41,19.01,-Math.PI/2,{collide:[7.14,6.37,3.9]});
+  // House_02 x1
+  placeTownAsset('House_02.glb',-17.02,-28.73,0,{collide:[11.98,12.47,3.9]});
+  // House_03 x7
+  placeTownAsset('House_03.glb',12.63,-5.1,0,{collide:[7.14,6.29,3.9]});
+  placeTownAsset('House_03.glb',21.85,25.38,0,{collide:[7.14,6.29,3.9]});
+  placeTownAsset('House_03.glb',12.16,35.18,-Math.PI/2,{collide:[7.14,6.29,3.9]});
+  placeTownAsset('House_03.glb',-29.01,25.89,Math.PI/2,{collide:[7.14,6.29,3.9]});
+  placeTownAsset('House_03.glb',31.7,-23.44,Math.PI/2,{collide:[7.14,6.29,3.9]});
+  placeTownAsset('House_03.glb',15.28,26.0,Math.PI,{collide:[7.14,6.29,3.9]});
+  placeTownAsset('House_03.glb',-23.06,-13.36,Math.PI/2,{collide:[7.14,6.29,3.9]});
+  // House_04 x4
+  placeTownAsset('House_04.glb',-23.04,0.22,Math.PI/2,{collide:[7.14,6.29,3.9]});
+  placeTownAsset('House_04.glb',28.63,25.67,0,{collide:[7.14,6.29,3.9]});
+  placeTownAsset('House_04.glb',8.8,28.36,-Math.PI/2,{collide:[7.14,6.29,3.9]});
+  placeTownAsset('House_04.glb',-30.15,0.6,-Math.PI/2,{collide:[7.14,6.29,3.9]});
+  // House_05 x2
+  placeTownAsset('House_05.glb',9.08,-10.56,-3.1416,{collide:[7.07,7.06,3.9]});
+  placeTownAsset('House_05.glb',-28.82,-13.76,Math.PI,{collide:[7.07,7.06,3.9]});
+  // House_06 x4
+  placeTownAsset('House_06.glb',15.35,20.12,Math.PI,{collide:[6.34,7.04,3.9]});
+  placeTownAsset('House_06.glb',-21.17,26.63,0,{collide:[6.34,7.04,3.9]});
+  placeTownAsset('House_06.glb',-29.71,12.18,-Math.PI/2,{collide:[6.34,7.04,3.9]});
+  placeTownAsset('House_06.glb',-9.1,-13.94,Math.PI/2,{collide:[6.34,7.04,3.9]});
+  // House_07 x3
+  placeTownAsset('House_07.glb',26.14,-22.82,0,{collide:[6.34,7.03,3.9]});
+  placeTownAsset('House_07.glb',-26.28,-25.84,0.0349,{collide:[6.34,7.03,3.9]});
+  placeTownAsset('House_07.glb',23.37,9.19,-Math.PI/2,{collide:[6.34,7.03,3.9]});
+  // House_08 x2
+  placeTownAsset('House_08.glb',7.55,-4.3,-Math.PI/2,{collide:[4.24,3.66,3.9]});
+  placeTownAsset('House_08.glb',-31.21,7.23,-Math.PI/2,{collide:[4.24,3.66,3.9]});
+  // Hydrant x3
+  placeTownAsset('Hydrant.glb',-3.93,-10.05,0);
+  placeTownAsset('Hydrant.glb',4.5,39.11,0);
+  placeTownAsset('Hydrant.glb',3.27,31.43,0);
+  // Light_01 x14
+  placeTownAsset('Light_01.glb',-17.63,39.69,Math.PI/2);
+  placeTownAsset('Light_01.glb',-33.27,-0.52,Math.PI);
+  placeTownAsset('Light_01.glb',-10.51,16.34,-Math.PI/2);
+  placeTownAsset('Light_01.glb',-9.08,39.69,Math.PI/2);
+  placeTownAsset('Light_01.glb',12.49,-11.41,0);
+  placeTownAsset('Light_01.glb',10.07,-1.95,-Math.PI/2);
+  placeTownAsset('Light_01.glb',-11.71,-22.53,-Math.PI/2);
+  placeTownAsset('Light_01.glb',22.12,-2.99,Math.PI/2);
+  placeTownAsset('Light_01.glb',4.67,-19.74,-Math.PI/2);
+  placeTownAsset('Light_01.glb',-34.45,14.1,Math.PI);
+  placeTownAsset('Light_01.glb',7.22,17.58,Math.PI/2);
+  placeTownAsset('Light_01.glb',-22.7,-22.53,-Math.PI/2);
+  placeTownAsset('Light_01.glb',-20.02,-16.39,0);
+  placeTownAsset('Light_01.glb',-17.62,16.34,-Math.PI/2);
+  // Mud_01 x3
+  placeTownAsset('Mud_01.glb',19.8,6.61,0);
+  placeTownAsset('Mud_01.glb',9.03,-1.81,0);
+  placeTownAsset('Mud_01.glb',10.78,12.58,0,{y:3.82});
+  // Mud_02 x5
+  placeTownAsset('Mud_02.glb',23.11,11.6,0,{y:3.31});
+  placeTownAsset('Mud_02.glb',-33.24,9.2,0);
+  placeTownAsset('Mud_02.glb',14.45,7.36,0);
+  placeTownAsset('Mud_02.glb',13.12,18.68,0,{y:3.31});
+  placeTownAsset('Mud_02.glb',-18.96,25.25,0,{y:3.31});
+  // OldCar_02 x2
+  placeTownAsset('OldCar_02.glb',-1.53,10.05,0,{collide:[1.98,3.3,3.9]});
+  placeTownAsset('OldCar_02.glb',-16.43,30.74,0.3918,{collide:[1.98,3.3,3.9]});
+  // OldCar_03 x1
+  placeTownAsset('OldCar_03.glb',1.08,9.96,1.0957,{collide:[1.98,3.3,3.9]});
+  // OldCar_04 x2
+  placeTownAsset('OldCar_04.glb',-13.31,35.42,-2.3960,{collide:[1.98,3.3,3.9]});
+  placeTownAsset('OldCar_04.glb',-21.55,-18.67,2.8805,{collide:[1.98,3.3,3.9]});
+  // OldCar_05 x3
+  placeTownAsset('OldCar_05.glb',-8.89,17.96,0.4969,{collide:[1.98,3.3,3.9]});
+  placeTownAsset('OldCar_05.glb',-0.88,-11.12,-0.5257,{collide:[1.98,3.3,3.9]});
+  placeTownAsset('OldCar_05.glb',23.48,-6.91,-2.6277,{collide:[1.98,3.3,3.9]});
+  // OldCar_06 x3
+  placeTownAsset('OldCar_06.glb',-8.03,32.35,-0.6087,{collide:[1.98,3.3,3.9]});
+  placeTownAsset('OldCar_06.glb',10.19,16.31,0,{collide:[1.98,3.3,3.9]});
+  placeTownAsset('OldCar_06.glb',4.96,21.28,-1.0631,{collide:[1.98,3.3,3.9]});
+  // Pallet_01 x3
+  placeTownAsset('Pallet_01.glb',-14.92,-10.15,-1.5338,{y:3.83});
+  placeTownAsset('Pallet_01.glb',-16.54,-9.96,-1.3010,{y:3.83});
+  placeTownAsset('Pallet_01.glb',9.97,12.09,0.3039,{y:3.92});
+  // Pallet_02 x4
+  placeTownAsset('Pallet_02.glb',10.3,8.29,-3.8637,{y:3.92});
+  placeTownAsset('Pallet_02.glb',14.84,-1.6,-1.4927);
+  placeTownAsset('Pallet_02.glb',16.95,3.08,-1.8650);
+  placeTownAsset('Pallet_02.glb',9.66,10.37,-3.0700,{y:3.92});
+  // ParkingBG_01 x1
+  placeTownAsset('ParkingBG_01.glb',-18.0,28.0,-Math.PI/2);
+  // Parking_01 x1
+  placeTownAsset('Parking_01.glb',-5.57,26.2,Math.PI/2);
+  // Plant_01 x4
+  placeTownAsset('Plant_01.glb',7.42,-22.08,0);
+  placeTownAsset('Plant_01.glb',-9.95,-20.68,0);
+  placeTownAsset('Plant_01.glb',-10.57,-24.59,0);
+  placeTownAsset('Plant_01.glb',19.81,6.66,0,{y:0.33});
+  // PowerLines_01 x8
+  placeTownAsset('PowerLines_01.glb',3.35,1.87,Math.PI/2);
+  placeTownAsset('PowerLines_01.glb',5.55,-21.75,Math.PI/2);
+  placeTownAsset('PowerLines_01.glb',3.35,9.84,Math.PI/2);
+  placeTownAsset('PowerLines_01.glb',3.34,33.78,Math.PI/2);
+  placeTownAsset('PowerLines_01.glb',3.35,-6.11,Math.PI/2);
+  placeTownAsset('PowerLines_01.glb',-31.47,36.8,3.3675);
+  placeTownAsset('PowerLines_01.glb',3.35,-14.07,Math.PI/2);
+  placeTownAsset('PowerLines_01.glb',-18.25,33.78,Math.PI);
+  // RoadPart_01 x2
+  placeTownAsset('RoadPart_01.glb',-12.86,-4.4,-0.4006,{y:3.73});
+  placeTownAsset('RoadPart_01.glb',-4.75,-13.37,-0.8497);
+  // RoadPart_03 x1
+  placeTownAsset('RoadPart_03.glb',34.54,7.28,-Math.PI/2);
+  // RoadPart_04 x6
+  placeTownAsset('RoadPart_04.glb',-0.49,4.01,0.6474);
+  placeTownAsset('RoadPart_04.glb',0.44,18.45,0.8966);
+  placeTownAsset('RoadPart_04.glb',-0.56,17.95,0.1440);
+  placeTownAsset('RoadPart_04.glb',-1.8,3.41,2.2191);
+  placeTownAsset('RoadPart_04.glb',-1.06,30.55,0.6492);
+  placeTownAsset('RoadPart_04.glb',0.3,31.01,0.8864);
+  // RoadPart_05 x4
+  placeTownAsset('RoadPart_05.glb',-0.35,21.56,-2.2582);
+  placeTownAsset('RoadPart_05.glb',-21.81,22.15,0);
+  placeTownAsset('RoadPart_05.glb',1.11,-5.8,1.0357);
+  placeTownAsset('RoadPart_05.glb',27.97,11.98,1.7025);
+  // RoadPart_06 x3
+  placeTownAsset('RoadPart_06.glb',-13.03,-10.26,-1.3434,{y:6.93});
+  placeTownAsset('RoadPart_06.glb',5.39,-11.98,0.7838);
+  placeTownAsset('RoadPart_06.glb',8.58,-10.05,2.9944,{y:3.41});
+  // RoadPart_07 x8
+  placeTownAsset('RoadPart_07.glb',4.1,-18.29,0);
+  placeTownAsset('RoadPart_07.glb',21.64,10.99,0.4039,{y:3.31});
+  placeTownAsset('RoadPart_07.glb',-15.64,-10.2,1.8335,{y:6.93});
+  placeTownAsset('RoadPart_07.glb',8.93,-8.51,0.5656,{y:3.41});
+  placeTownAsset('RoadPart_07.glb',-4.02,9.73,1.4488);
+  placeTownAsset('RoadPart_07.glb',14.36,17.66,1.8098,{y:3.29});
+  placeTownAsset('RoadPart_07.glb',-12.01,37.52,0.9455);
+  placeTownAsset('RoadPart_07.glb',-6.34,-8.58,-0.0410,{y:6.93});
+  // RoadSign_01 x2
+  placeTownAsset('RoadSign_01.glb',3.8,2.17,Math.PI/2);
+  placeTownAsset('RoadSign_01.glb',-3.41,26.02,-Math.PI/2);
+  // Road_01 x6
+  placeTownAsset('Road_01.glb',0.0,-6.5,Math.PI);
+  placeTownAsset('Road_01.glb',0.0,-3.5,0);
+  placeTownAsset('Road_01.glb',0.0,38.5,Math.PI);
+  placeTownAsset('Road_01.glb',0.0,-6.5,0);
+  placeTownAsset('Road_01.glb',0.0,-3.5,Math.PI);
+  placeTownAsset('Road_01.glb',0.0,38.5,0);
+  // Road_02 x4
+  placeTownAsset('Road_02.glb',0.0,35.5,Math.PI);
+  placeTownAsset('Road_02.glb',0.0,35.5,0);
+  placeTownAsset('Road_02.glb',0.0,-9.5,Math.PI);
+  placeTownAsset('Road_02.glb',0.0,-9.5,0);
+  // Road_04 x1
+  placeTownAsset('Road_04.glb',0.0,-11.0,0);
+  // Road_05 x1
+  placeTownAsset('Road_05.glb',0.0,28.0,-Math.PI/2);
+  // Road_06 x2
+  placeTownAsset('Road_06.glb',0.0,16.0,Math.PI/2);
+  placeTownAsset('Road_06.glb',0.0,4.0,Math.PI/2);
+  // Rock_01 x3
+  placeTownAsset('Rock_01.glb',-10.63,-21.45,0);
+  placeTownAsset('Rock_01.glb',4.83,-23.61,0);
+  placeTownAsset('Rock_01.glb',-6.6,-23.8,0);
+  // Roof_01 x2
+  placeTownAsset('Roof_01.glb',-33.42,24.09,-Math.PI/2);
+  placeTownAsset('Roof_01.glb',18.0,-4.34,Math.PI);
+  // Stairs_01 x4
+  placeTownAsset('Stairs_01.glb',12.54,-8.1,Math.PI/2,{y:1.0});
+  placeTownAsset('Stairs_01.glb',22.93,5.79,Math.PI,{y:1.0});
+  placeTownAsset('Stairs_01.glb',-24.64,28.13,-1.5346,{y:0.98});
+  placeTownAsset('Stairs_01.glb',18.6,22.12,Math.PI/2,{y:1.0});
+  // Trash_01 x4
+  placeTownAsset('Trash_01.glb',-33.66,14.76,-2.0886);
+  placeTownAsset('Trash_01.glb',8.41,37.81,3.7949);
+  placeTownAsset('Trash_01.glb',-19.39,1.84,2.0719);
+  placeTownAsset('Trash_01.glb',7.92,-1.61,0.0508);
+  // Trash_02 x4
+  placeTownAsset('Trash_02.glb',-17.75,2.67,2.9693);
+  placeTownAsset('Trash_02.glb',-33.73,5.5,-0.4139);
+  placeTownAsset('Trash_02.glb',-32.68,-10.78,-1.5426);
+  placeTownAsset('Trash_02.glb',6.1,-1.17,1.2148);
+  // Tree_01 x4
+  placeTownAsset('Tree_01.glb',-5.51,-24.08,0);
+  placeTownAsset('Tree_01.glb',5.15,-24.37,2.0457);
+  placeTownAsset('Tree_01.glb',10.25,-21.32,0);
+  placeTownAsset('Tree_01.glb',-7.5,-24.37,2.0457);
+  // Tree_02 x9
+  placeTownAsset('Tree_02.glb',-7.68,4.81,2.2396);
+  placeTownAsset('Tree_02.glb',-4.37,31.89,-0.9559);
+  placeTownAsset('Tree_02.glb',-7.68,0.31,3.9387);
+  placeTownAsset('Tree_02.glb',7.77,-22.53,2.2396);
+  placeTownAsset('Tree_02.glb',-7.79,-22.22,2.2396);
+  placeTownAsset('Tree_02.glb',-4.47,36.59,2.2396);
+  placeTownAsset('Tree_02.glb',-34.52,-2.94,0);
+  placeTownAsset('Tree_02.glb',-7.01,14.39,2.2396);
+  placeTownAsset('Tree_02.glb',-34.52,4.56,1.5854);
+  // Wheel_01 x4
+  placeTownAsset('Wheel_01.glb',17.34,2.89,0,{y:0.48});
+  placeTownAsset('Wheel_01.glb',15.19,-1.9,0,{y:0.48});
+  placeTownAsset('Wheel_01.glb',16.93,3.47,0,{y:0.43});
+  placeTownAsset('Wheel_01.glb',14.77,-1.33,0,{y:0.43});
+  // Wheel_02 x5
+  placeTownAsset('Wheel_02.glb',-16.92,32.28,0);
+  placeTownAsset('Wheel_02.glb',14.34,-1.8,0,{y:0.44});
+  placeTownAsset('Wheel_02.glb',16.44,2.83,0,{y:0.44});
+  placeTownAsset('Wheel_02.glb',10.25,17.36,1.5869,{y:0.78});
+  placeTownAsset('Wheel_02.glb',-13.34,36.85,-0.1621);
 
-  /* ---- NW corner: gas station forecourt + service booth out back ---- */
-  placeTownAsset('Gas_Station_01.glb',-16,-16,0,{collide:[7.25,8.82,3.9]});
-  placeTownAsset('AutoService_01.glb',-16,-27,Math.PI,{collide:[8.93,7.11,3.9]});
-  placeTownAsset('Fence_03.glb',-11,-22,Math.PI/2);
-  placeTownAsset('Box_01.glb',-19,-13,0.3); placeTownAsset('Box_02.glb',-18,-12.2,0.5);
-  placeTownAsset('Barrel_01.glb',-13,-19,0);
-
-  /* ---- NE corner: church, the skyline landmark ---- */
-  placeTownAsset('Church_01.glb',18,-18,Math.PI*0.55,{collide:[12.87,20.68,3.9]});
-  placeTownAsset('Tree_01.glb',10,-13,0); placeTownAsset('Tree_02.glb',26,-9,0.3);
-
-  /* ---- SW corner: civic building with a parking lot ---- */
-  placeTownAsset('CityHall_01.glb',-18,20,0,{collide:[22.6,18.6,3.9]});
-  placeTownAsset('ParkingBG_01.glb',-18,32,Math.PI/2);
-  for(const [px,pz,file] of [[-26,30,'OldCar_02.glb'],[-24,35,'Car_01.glb'],[-10,33,'OldCar_04.glb']]){
-    placeTownAsset(file,px,pz,rand(0,TAU),{collide:[1.98,3.30,1.9]});
-  }
-  placeTownAsset('Parking_01.glb',-11,25,0); placeTownAsset('Parking_01_2.glb',-11,25,Math.PI/2);
-  placeTownAsset('Barrier_01.glb',-9,22,Math.PI/2);
-
-  /* ---- SE corner: apartment block backdrop ---- */
-  placeTownAsset('House_05.glb',18,20,Math.PI*0.25,{collide:[7.07,7.06,3.9]});
-  placeTownAsset('House_08.glb',26,26,-0.4,{collide:[4.24,3.66,3.9]});
-  placeTownAsset('Tree_01.glb',12,28,0);
-
-  /* ---- street canyon: mid-rise apartments lining the outer road ---- */
-  placeTownAsset('House_03.glb',-9,-32,0,{collide:[7.14,6.29,3.9]});
-  placeTownAsset('House_04.glb',9,-32,0,{collide:[7.14,6.29,3.9]});
-  placeTownAsset('House_06.glb',-30,-9,Math.PI/2,{collide:[6.34,7.04,3.9]});
-  placeTownAsset('House_07.glb',30,9,-Math.PI/2,{collide:[6.34,7.03,3.9]});
-  placeTownAsset('House_01.glb',30,-24,-Math.PI/2,{collide:[7.14,6.37,3.9]});
-  placeTownAsset('House_03.glb',-30,24,Math.PI/2,{collide:[7.14,6.29,3.9]});
-
-  /* ---- skyline backdrop, set back beyond the play area for scale ---- */
-  placeTownAsset('Bank_01.glb',-44,-44,0.4);
-  placeTownAsset('House_02.glb',46,-40,-0.3);
-  placeTownAsset('Office_01.glb',44,42,0.6);
-
-  /* ---- back alley loot nook, between the gas station and the church ---- */
-  placeTownAsset('Construction_01.glb',2,-30,0,{collide:[8.0,12.0,3.9]});
-  placeTownAsset('Barrel_02.glb',-2,-24,0);
-  placeTownAsset('Trash_01.glb',6,-24,0.6);
-  placeTownAsset('Pallet_01.glb',4,-27,0.2);
-
-  /* ---- street furniture: signs, hydrants, poles, wires, wrecks ---- */
-  placeTownAsset('RoadSign_01.glb',3,-6,Math.PI);
-  placeTownAsset('RoadSign_02.glb',-3,6,0);
-  placeTownAsset('Hydrant.glb',6,3,0);
-  placeTownAsset('Hydrant.glb',-6,-3,0);
-  for(const [lx,lz] of [[-6,-24],[6,24],[-24,6],[24,-6]]){
-    placeTownAsset('Light_01.glb',lx,lz,0);
-  }
-  for(const [px,pz,rot] of [[-4,-14,0],[4,14,0],[-14,4,Math.PI/2],[14,-4,Math.PI/2]]){
-    placeTownAsset('PowerLines_01.glb',px,pz,rot);
-  }
-  for(const [ox,oz,rot,file] of [
-    [-4,-9,Math.PI*0.15,'OldCar_01.glb'],[7,-3,-Math.PI*0.1,'OldCar_03.glb'],
-    [-7,3,Math.PI*0.6,'OldCar_05.glb'],[4,9,Math.PI*0.9,'OldCar_06.glb']]){
-    placeTownAsset(file,ox,oz,rot,{collide:[1.98,3.30,1.9]});
-  }
+  /* ---- rooftop fire barrels the scene stages as real light sources, using
+     this game's own fire/light system in place of the pack's particle prefab
+     (glTF export dropped the particle system, so it's not in the asset pack) ---- */
+  fireBarrel(9.6,9.17,4.63);
+  fireBarrel(16.5,-6.62,0.9);
+  fireBarrel(8.13,37.01,0.86);
+  fireBarrel(-6.38,-10.0,4.57);
 
   /* ---- perimeter ---- */
   fenceRun(-BND,BND,BND,BND);
@@ -2611,22 +2880,22 @@ function buildCrossroads(){
   chain(-BND,-BND,BND,-BND); chain(-BND,BND,BND,BND);
 
   /* ---- buys ---- */
-  addWallBuy('m14',-12.72,2.0,-16,Math.PI/2);
-  addWallBuy('ak74u',12.72,2.0,16,-Math.PI/2);
-  addWallBuy('mp5',-6,2.0,-32.72,0);
-  addWallBuy('galil',6,2.0,32.72,Math.PI);
-  addWallBuy('olympia',-32.72,2.0,-6,Math.PI/2);
-  addWallBuy('rem870',32.72,2.0,6,-Math.PI/2);
-  addAmmoBuy('m1911',3,2.1,-9,0,250);
-  addAmmoBuy('m4a1',-3,2.0,9,Math.PI,400);
+  addWallBuy('m14',8.0,2.0,6.5,Math.PI/2);
+  addWallBuy('ak74u',-22,2.0,10,-Math.PI/2);
+  addWallBuy('mp5',4,2.0,-28.72,0);
+  addWallBuy('galil',-4,2.0,-28.72,Math.PI);
+  addWallBuy('olympia',15,2.0,2,Math.PI/2);
+  addWallBuy('rem870',-30,2.0,-9,Math.PI/2);
+  addAmmoBuy('m1911',3,2.0,-3,0,250);
+  addAmmoBuy('m4a1',-3,2.0,4,Math.PI,400);
 
-  addPerkMachine('revive',0,-33.4,0,0);
-  addPerkMachine('jugg',33.4,0,0,-Math.PI/2);
-  addPerkMachine('speed',-33.4,0,0,Math.PI/2);
-  addPerkMachine('dtap',0,33.4,0,Math.PI);
-  addPerkMachine('stamin',-9,-27,0,0);
-  addPerkMachine('mule',9,27,0,Math.PI);
-  addPackAPunch(2,-33.5,0);
+  addPerkMachine('revive',-38,-4,0,-Math.PI/2);
+  addPerkMachine('jugg',38,0,0,-Math.PI/2);
+  addPerkMachine('speed',-38,0,0,Math.PI/2);
+  addPerkMachine('dtap',0,38,0,Math.PI);
+  addPerkMachine('stamin',20,-15,0,0);
+  addPerkMachine('mule',-20,20,0,Math.PI);
+  addPackAPunch(-12,1.5,0);
 }
 
 /* ============ SHARED MAP PROGRESSION ============
@@ -8356,7 +8625,7 @@ function netHandle(msg){
     handleHostGameRequest(m.event,m.playerId);
   } else if(m.type==='game'){
     handleSharedGameEvent(m.event);
-  } else if(m.type==='start'&&(m.map==='town'||m.map==='wayside'||m.map==='blacksire'||m.map==='laststop')){
+  } else if(m.type==='start'&&(m.map==='town'||m.map==='wayside'||m.map==='blacksire'||m.map==='laststop'||m.map==='crossroads')){
     // A brand new match for the whole room - any loadout snapshot left over
     // from a previous match in this same room code is stale now.
     netClearLoadout(net.code);

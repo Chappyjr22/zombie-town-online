@@ -253,7 +253,7 @@ export class GameRoom extends DurableObject {
         downed: Boolean(source.downed),
         reviving: Boolean(source.reviving),
         weapon: String(source.weapon || "").slice(0, 24),
-        map: ["town", "wayside", "blacksire", "laststop"].includes(source.map) ? source.map : "town",
+        map: ["town", "wayside", "blacksire", "laststop", "crossroads"].includes(source.map) ? source.map : "town",
         speed: number(source.speed, 0, 12),
         sprint: Boolean(source.sprint),
         ads: Boolean(source.ads),
@@ -402,7 +402,7 @@ export class GameRoom extends DurableObject {
         this.send(ws, { type: "error", message: "Only the host can start the match" });
         return;
       }
-      const map = ["town", "wayside", "blacksire", "laststop"].includes(message.map) ? message.map : "town";
+      const map = ["town", "wayside", "blacksire", "laststop", "crossroads"].includes(message.map) ? message.map : "town";
       const rules = cleanRules(message.rules);
       // A new match resets everything about the room *except* its leaderboard -
       // that's meant to track this room's best run across matches, not just one.
