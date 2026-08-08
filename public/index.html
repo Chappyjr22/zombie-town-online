@@ -2520,10 +2520,15 @@ function buildCrossroads(){
   sunShadow(sun,62);
   const fill=new THREE.DirectionalLight(0xa8c0dc,0.30); fill.position.set(-32,22,32); worldRoot.add(fill);
 
-  /* ---- ground: a wide paved apron under the real road/curb pieces below ---- */
+  /* ---- ground: a wide paved apron under the real road/curb pieces below.
+     The ported asset pack's own road tiles only cover a strip near x=0, so a
+     flat solid-color apron used to show through everywhere else (a plain
+     white/gray void far larger than the actual crosswalk/road strip) - use
+     the game's own asphalt texture here instead so the rest of the map at
+     least reads as pavement rather than an untextured plane. ---- */
   const dirt=new THREE.Mesh(new THREE.PlaneGeometry(400,400),M.dirt);
   dirt.receiveShadow=true; dirt.rotation.x=-Math.PI/2; worldRoot.add(dirt); blockers.push(dirt);
-  quad(-BND,-BND,BND,BND,0.015,phong({color:0xb6ada0}));
+  quad(-BND,-BND,BND,BND,0.015,phong({map:T.asphalt}));
 
   /* ---- placed from the pack's own assembled demo scene: every position and
      rotation below is the real authored transform (converted from Unity's
