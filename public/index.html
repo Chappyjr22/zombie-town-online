@@ -3356,7 +3356,8 @@ const playerSampleFiles={
   fireCrackle:['/audio/fire-crackle.ogg'],
   ambienceTown:['/audio/ambience-town.ogg'],
   ambienceWayside:['/audio/ambience-nuketown.mp3'],
-  ambienceBlacksire:['/audio/ambience-blacksire.ogg']
+  ambienceBlacksire:['/audio/ambience-blacksire.ogg'],
+  menuMusic:['/audio/menu-music.mp3']
 };
 const playerSamples={},playerSampleLast={};
 for(const kind in playerSampleFiles){playerSamples[kind]=[];playerSampleLast[kind]=-1;}
@@ -3410,6 +3411,7 @@ function loadPlayerSamples(){
           playerSamples[kind][i]=buf;
           if(kind===mapAmbienceKind(currentMap)&&game.running) startMapAmbience();
           if(kind==='fireCrackle'&&game.running) startFireCrackle();
+          if(kind==='menuMusic') updateMenuMusic();
         }).catch(()=>{});
     });
   }
@@ -3466,72 +3468,31 @@ function startMapAmbience(){
   src.onended=()=>{if(mapAmbienceSource===src){mapAmbienceSource=null;mapAmbienceGain=null;mapAmbienceMap='';}};
 }
 
-/* ---------- menu music: a synthesized dark-ambient drone, since no menu track
-   exists as a file. Runs only while a menu screen is showing and the match
-   isn't live, so it never fights the in-round map ambience. ---------- */
-const menuMusic={active:false,gain:null,filter:null,oscs:[],timer:null};
+/* ---------- menu music: a looping creepy ambience track, played only while
+   a menu screen is showing and the match isn't live, so it never fights the
+   in-round map ambience. ---------- */
+let menuMusicSource=null,menuMusicGain=null;
 function startMenuMusic(){
-  if(!AC||!master||menuMusic.active) return;
-  menuMusic.active=true;
-  const t=AC.currentTime,g=AC.createGain();
-  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.30,t+3.0);
-  g.connect(master);
-  const lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=420; lp.Q.value=.7;
-  lp.connect(g);
-  const oscs=[];
-  for(const f of [55,55.6,82.5,110.2]){
-    const o=AC.createOscillator(),og=AC.createGain();
-    o.type='sawtooth'; o.frequency.value=f; og.gain.value=.075;
-    o.connect(og); og.connect(lp); o.start(t); oscs.push(o);
-  }
-  const lfo=AC.createOscillator(),lfoGain=AC.createGain();
-  lfo.type='sine'; lfo.frequency.value=.035; lfoGain.gain.value=170;
-  lfo.connect(lfoGain); lfoGain.connect(lp.frequency); lfo.start(t); oscs.push(lfo);
-  menuMusic.gain=g; menuMusic.filter=lp; menuMusic.oscs=oscs;
-  scheduleMenuMusicAccent();
-}
-function scheduleMenuMusicAccent(){
-  if(!menuMusic.active) return;
-  menuMusic.timer=setTimeout(()=>{
-    if(!menuMusic.active||!AC) return;
-    playMenuMusicAccent();
-    scheduleMenuMusicAccent();
-  },rand(4,11)*1000);
-}
-function playMenuMusicAccent(){
-  const t=AC.currentTime,dur=rand(2.5,6);
-  const g=AC.createGain(); g.gain.setValueAtTime(0,t);
-  g.gain.linearRampToValueAtTime(rand(.03,.07),t+dur*.35);
-  g.gain.linearRampToValueAtTime(0,t+dur);
-  g.connect(menuMusic.gain);
-  if(Math.random()<.4&&noiseBuf){
-    const src=AC.createBufferSource(),bp=AC.createBiquadFilter();
-    src.buffer=noiseBuf; src.loop=true;
-    bp.type='bandpass'; bp.frequency.value=rand(600,1600); bp.Q.value=1.2;
-    src.connect(bp); bp.connect(g); src.start(t); src.stop(t+dur+.1);
-  }else{
-    const base=rand(340,720);
-    for(const df of [0,7,-11]){
-      const o=AC.createOscillator(); o.type='sine'; o.frequency.value=base+df;
-      o.connect(g); o.start(t); o.stop(t+dur+.1);
-    }
-  }
+  if(!AC||!master||menuMusicSource) return;
+  const buf=(playerSamples.menuMusic||[]).find(Boolean);
+  if(!buf) return;
+  const t=AC.currentTime,src=AC.createBufferSource(),g=AC.createGain();
+  src.buffer=buf; src.loop=true;
+  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.35,t+2.5);
+  src.connect(g); g.connect(master); src.start(t);
+  menuMusicSource=src; menuMusicGain=g;
+  src.onended=()=>{if(menuMusicSource===src){menuMusicSource=null;menuMusicGain=null;}};
 }
 function stopMenuMusic(){
-  if(!menuMusic.active) return;
-  menuMusic.active=false;
-  if(menuMusic.timer) clearTimeout(menuMusic.timer);
-  const oscs=menuMusic.oscs||[],g=menuMusic.gain;
+  if(!menuMusicSource) return;
+  const src=menuMusicSource,g=menuMusicGain;
   if(g&&AC){
     const t=AC.currentTime;
     g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value,t);
     g.gain.linearRampToValueAtTime(.0001,t+1.0);
   }
-  setTimeout(()=>{
-    for(const o of oscs){try{o.stop();}catch(e){} try{o.disconnect();}catch(e){}}
-    if(g){try{g.disconnect();}catch(e){}}
-  },1100);
-  menuMusic.gain=null; menuMusic.filter=null; menuMusic.oscs=[];
+  setTimeout(()=>{try{src.stop();}catch(e){} try{src.disconnect();}catch(e){} try{g.disconnect();}catch(e){}},1100);
+  menuMusicSource=null; menuMusicGain=null;
 }
 function updateMenuMusic(){
   if(!AC) return;
