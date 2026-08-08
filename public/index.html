@@ -2664,6 +2664,11 @@ function buildCrossroads(){
   addPlatform(29.06,30.94,-37.41,-33.25,7.05);
   addPlatform(22.94,30.94,-33.41,-31.53,7.05);
   addRamp(27.14,29.14,-37.33,-33.33,3.6,7.05,'z',true);
+  // Zombies have no idea stairs exist unless a stairBases entry tells them -
+  // without these they'd just pile up at the foot of both flights forever
+  // whenever a player holes up on the landing or the roof.
+  stairBases.push({x:29.74,z:-37.53,tx:29.74,tz:-31.33,ty:3.6,by:0});
+  stairBases.push({x:28.14,z:-33.33,tx:28.14,tz:-37.33,ty:7.05,by:3.6});
   placeTownAsset('Construction_01.glb',-12.0,-6.78,Math.PI/2);
   addPlatform(-18,-6,-10.78,-10.4,3.6);
   addPlatform(-18,-11.92,-10.56,-8.9,3.6);
@@ -2677,6 +2682,8 @@ function buildCrossroads(){
   addPlatform(-7.88,-6,-9.06,-6.9,7.05);
   addPlatform(-18,-6,-7.06,-2.78,7.05);
   addRamp(-11.8,-7.8,-8.98,-6.98,3.6,7.05,'x',true);
+  stairBases.push({x:-12,z:-9.58,tx:-5.8,tz:-9.58,ty:3.6,by:0});
+  stairBases.push({x:-7.8,z:-7.98,tx:-11.8,tz:-7.98,ty:7.05,by:3.6});
   // Fan_01 x6
   placeTownAsset('Fan_01.glb',-20.22,-0.88,Math.PI/2,{y:10.0});
   placeTownAsset('Fan_01.glb',11.46,-2.29,0,{y:5.41});
@@ -9779,27 +9786,84 @@ function updateZombies(dt){
     // the target). Track lack of real progress and briefly widen the search
     // toward a full circle to break out, then drop back to normal tracking.
     if(z.navCheckAt===undefined||game.time>=z.navCheckAt){
-      z.stuckT=(z.navRefDist!==undefined&&dist>=z.navRefDist-0.6)?(z.stuckT||0)+0.8:0;
+      const progressing=z.navRefDist!==undefined&&dist>=z.navRefDist-0.6;
+      z.stuckT=progressing?(z.stuckT||0)+0.8:0;
+      // The distance check alone misses a real failure mode found by
+      // simulating every spawn point on Crossroads: a zombie hugging a
+      // convex corner (a building corner, a small prop) with the target
+      // roughly behind it can settle into a stable orbit - every frame
+      // picks the first unblocked angle near the direct heading, which
+      // right at a corner just keeps rotating that heading a bit further
+      // around instead of ever committing to go past it. That orbit can
+      // incidentally get closer to the target on some frames of the loop,
+      // which keeps resetting stuckT before it ever accumulates, even
+      // though net position barely moves for tens of seconds. Track how far
+      // the zombie has actually traveled from where it was a few checks ago,
+      // independent of the target - that catches circling in place even
+      // when distance-to-target is too noisy to trigger the check above.
+      if(z.orbitAnchor===undefined||Math.hypot(z.pos.x-z.orbitAnchor.x,z.pos.z-z.orbitAnchor.z)>2.5){
+        z.orbitAnchor={x:z.pos.x,z:z.pos.z};z.orbitT=0;
+      }else z.orbitT=(z.orbitT||0)+0.8;
+      // Real progress clears the streak - only repeated, back-to-back stuck
+      // cycles (the actual "walking into the same wall forever" case) should
+      // make the zombie commit harder, not one brief pause.
+      if(!progressing&&(z.orbitT||0)<2.4) z.escapeStreak=0;
       z.navRefDist=dist;z.navCheckAt=game.time+0.8;
     }
     const desired=Math.atan2(dx,dz);
     let angle=desired;
     const probe=clamp(Math.hypot(dx,dz),0.5,1.05);   // shorter look ahead threads doorways better
-    if((z.stuckT||0)>2.4){
+    if((z.stuckT||0)>2.4||(z.orbitT||0)>2.4){
       // Commit to one escape heading for a bit instead of re-deriving it every
       // frame - re-deriving from the (still target-facing) desired angle each
       // frame can flip-flop between two equally-valid ways around a corner
-      // and never actually walk either one.
+      // and never actually walk either one. That alone still deadlocks on
+      // genuinely tight geometry (a narrow alley, a cluttered lot): each 1.6s
+      // escape burst covers barely any ground, stuckT clears just enough to
+      // fall back to normal seeking, which walks straight back into the same
+      // wall and re-triggers an escape - probing the exact same offset order
+      // from the exact same spot, so it picks the exact same short escape
+      // again and ping-pongs between two points forever. Two changes fix it:
+      // escalate how long each successive escape commits for for as long as
+      // the zombie keeps re-triggering escape, and lock in whichever side
+      // (left/right offsets) got it moving so it doesn't re-litigate that
+      // choice every cycle and flip back to the side that already failed.
       if(!(z.escapeUntil>game.time)){
-        let chosen=desired;
-        for(const off of [.85,-.85,1.4,-1.4,2.0,-2.0,2.6,-2.6,3.14]){
+        z.escapeStreak=(z.escapeStreak||0)+1;
+        // A short ~1-unit probe only proves the very next step is clear, not
+        // that the heading actually clears the wall - along a long building
+        // face that's true in almost every direction, so it kept picking
+        // headings that just walked the zombie a step or two along the same
+        // wall before the normal branch walked it straight back. Escalate
+        // how far ahead gets checked with each failed streak, up to a real
+        // building-length lookahead, so a repeatedly-stuck zombie is forced
+        // to find a heading that clears the whole obstacle, not just a step.
+        const farProbe=clamp(1.2+(z.escapeStreak-1)*1.1,1.2,5.5);
+        const clearAt=(a)=>{
+          const sx=Math.sin(a),cz=Math.cos(a);
+          return !blockedAt(z.pos.x+sx*probe,z.pos.z+cz*probe,0.45,z.y)&&
+                 !blockedAt(z.pos.x+sx*farProbe,z.pos.z+cz*farProbe,0.45,z.y);
+        };
+        if(z.escapeBias===undefined) z.escapeBias=clearAt(desired+.85)?1:-1;
+        const b=z.escapeBias;
+        let chosen=desired,found=false;
+        for(const off of [.85*b,1.4*b,2.0*b,2.6*b,3.14,-2.6*b,-2.0*b,-1.4*b,-.85*b]){
+          const a=desired+off;
+          if(clearAt(a)){chosen=a;found=true;break;}
+        }
+        // Nothing clears the full lookahead (a tight pocket, not a long
+        // wall) - fall back to just clearing the next step so it can still
+        // shuffle free instead of freezing on the spot.
+        if(!found) for(const off of [.85*b,1.4*b,2.0*b,2.6*b,3.14,-2.6*b,-2.0*b,-1.4*b,-.85*b]){
           const a=desired+off;
           if(!blockedAt(z.pos.x+Math.sin(a)*probe,z.pos.z+Math.cos(a)*probe,0.45,z.y)){chosen=a;break;}
         }
-        z.escapeAngle=chosen;z.escapeUntil=game.time+1.6;
+        z.escapeAngle=chosen;
+        z.escapeUntil=game.time+1.6+Math.min(z.escapeStreak-1,4)*1.1;
       }
       angle=z.escapeAngle;
     }else{
+      z.escapeBias=undefined;
       for(const off of [0,.42,-.42,.85,-.85,1.4,-1.4,2.0,-2.0]){
         const a=desired+off;
         if(!blockedAt(z.pos.x+Math.sin(a)*probe,z.pos.z+Math.cos(a)*probe,0.45,z.y)){angle=a;break;}
