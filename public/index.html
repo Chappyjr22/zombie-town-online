@@ -10054,6 +10054,16 @@ if(inviteCode){
   showScreen('online'); setNetStatus('Invite ready \u00b7 enter your name and join');
 } else showScreen('menu');
 loop();
+// Read-only hooks for tools/minimaps (see tools/minimaps/README.md) to reach
+// into this module's otherwise-private scope - a dev-time top-down map
+// renderer, not something gameplay touches. Getters because worldRoot/scene/
+// BND/SPAWN_AT are all reassigned by loadMap(), so a plain property captured
+// once here would go stale the moment a map actually loads.
+window.__MAP_TOOLS__={
+  get scene(){return scene;}, get worldRoot(){return worldRoot;},
+  get BND(){return BND;}, get SPAWN_AT(){return SPAWN_AT;},
+  renderer, THREE, MAPS, startGame,
+};
 </script>
 </body>
 </html>
