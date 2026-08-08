@@ -49,6 +49,7 @@
   #slots{font-size:10px;opacity:.45;margin-top:6px;letter-spacing:.16em;}
   #slots b{color:var(--amber);opacity:1;}
   #reloading{font-size:11px;color:var(--amber);opacity:0;margin-top:2px;}
+  #equip{font-size:11px;opacity:.6;margin-top:4px;letter-spacing:.1em;}
 
   #top{left:50%;top:18px;transform:translateX(-50%);text-align:center;}
   #wavebig{font-size:24px;font-weight:700;letter-spacing:.2em;color:var(--blood);}
@@ -305,7 +306,8 @@
   <div class="panel" id="keys">
     <b>WASD</b> move &nbsp; <b>SHIFT</b> sprint &nbsp; <b>SPACE</b> jump<br>
     <b>LMB</b> fire &nbsp; <b>RMB</b> aim &nbsp; <b>R</b> reload &nbsp; <b>F</b> buy<br>
-    <b>1 2 3</b> weapon &nbsp; <b>E</b> call next round &nbsp; <b>ESC</b> pause
+    <b>1 2 3</b> weapon &nbsp; <b>E</b> call next round &nbsp; <b>ESC</b> pause<br>
+    <b>B</b> throw grenade &nbsp; <b>N</b> place claymore
   </div>
 
   <div class="panel" id="teamPoints"></div>
@@ -322,6 +324,7 @@
     <div id="ammo">30 <small>/ 270</small></div>
     <div id="reloading">Reloading</div>
     <div id="slots"></div>
+    <div id="equip"></div>
   </div>
 
   <div id="downedIndicators"></div>
@@ -868,6 +871,28 @@ let SPAWN_AT=new THREE.Vector3(0,0,14);
 let SPAWN_YAW=Math.PI;
 let mapFog={near:18,far:92};
 
+/* ---------- thrown/placed equipment ---------- */
+// Grenade damage is set relative to the War Machine's launched round (420
+// splash) rather than as an independent number, so the two stay in the same
+// ratio if either ever gets rebalanced. Claymores are priced well above
+// grenades on the wall specifically because they hit twice as hard.
+const GRENADE_MAX=4, GRENADE_START=2, GRENADE_DMG=Math.round(420*1.3), GRENADE_RADIUS=5.2;
+const CLAYMORE_MAX=2, CLAYMORE_DMG=GRENADE_DMG*2, CLAYMORE_RADIUS=4.4, CLAYMORE_TRIGGER_R=2.6;
+const GRENADE_WALLBUY_COST=250, CLAYMORE_WALLBUY_COST=5000;
+
+/* ---------- fall damage ----------
+   vy at impact is the free-fall speed, so it's a direct stand-in for fall
+   height (v=sqrt(2*g*h) with g=21 here) without having to track a separate
+   "peak height" - a jump or a hop off a curb tops out well under the safe
+   threshold, while the Construction_01 roof deck (~7m up) lands around
+   vy=-17, comfortably into damage range without needing a second constant. */
+const FALL_DMG_SAFE_VY=-11, FALL_DMG_MAX_VY=-32, FALL_DMG_MAX=95;
+function fallDamageFor(vy){
+  if(vy>=FALL_DMG_SAFE_VY) return 0;
+  const t=(vy-FALL_DMG_SAFE_VY)/(FALL_DMG_MAX_VY-FALL_DMG_SAFE_VY);
+  return clamp(t,0,1)*FALL_DMG_MAX;
+}
+
 function addCollider(minX,maxX,minZ,maxZ,top,bot){colliders.push({minX,maxX,minZ,maxZ,top:top===undefined?99:top,bot:bot===undefined?-99:bot});}
 function addYawCollider(x,z,w,d,rot,top,bot,pad){
   const p=pad||0;
@@ -1386,6 +1411,8 @@ function buildTown(){
   const moon=new THREE.DirectionalLight(0x93aade,0.40); moon.position.set(-40,60,-25); worldRoot.add(moon);
   sunShadow(moon,55);
   SPAWN_AT.set(0,0,14); SPAWN_YAW=Math.PI;
+  addEquipBuy('grenade',SPAWN_AT.x-1.6,0,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
+  addEquipBuy('claymore',SPAWN_AT.x+1.6,0,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
   SPAWNS=[[-38,-38],[38,-38],[-38,38],[38,38],[0,-40],[0,40],[-40,0],[40,0],
     [-26,-38],[26,38],[-38,22],[38,-22]];
   BOX_SPOTS=[[-21,-12],[22,-15],[6,28],[-24,15],[6,-30]];
@@ -2303,6 +2330,8 @@ function buildWayside(){
   scene.fog=new THREE.Fog(0x05060a,15,80); mapFog={near:15,far:80};
   torch.intensity=1.05;
   SPAWN_AT.set(0,0,-27); SPAWN_YAW=0;
+  addEquipBuy('grenade',SPAWN_AT.x-1.6,0,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
+  addEquipBuy('claymore',SPAWN_AT.x+1.6,0,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
   SPAWNS=[[-30,-18],[30,-18],[-30,2],[30,2],[-28,20],[28,20],[0,29],
     [-16,27],[16,27],[-12,-29],[12,-29],[0,-31]];
   BOX_SPOTS=[[-17,-1],[17,-1],[0,-4],[-17,15],[16,15]];
@@ -2493,6 +2522,8 @@ function buildCrossroads(){
   scene.fog=new THREE.Fog(0xaecbe8,60,230); mapFog={near:60,far:230};
   torch.intensity=0.16;
   SPAWN_AT.set(-38,0,-10); SPAWN_YAW=-Math.PI/2;
+  addEquipBuy('grenade',SPAWN_AT.x-1.8,0,SPAWN_AT.z-1.6,SPAWN_YAW+Math.PI);
+  addEquipBuy('claymore',SPAWN_AT.x-1.8,0,SPAWN_AT.z+1.6,SPAWN_YAW+Math.PI);
   SPAWNS=[[-13.6,-37.9],[14,-40],[-21,-37.7],[20,-36],[-36,-20],[38,-20],
     [-36,0],[36,0],[-37.9,20.7],[40,20],[-20,36],[20,36]];
   BOX_SPOTS=[[6,0],[-6,10],[-19,-6.3],[-6,26],[16,-14]];
@@ -2502,10 +2533,15 @@ function buildCrossroads(){
   sunShadow(sun,62);
   const fill=new THREE.DirectionalLight(0xa8c0dc,0.30); fill.position.set(-32,22,32); worldRoot.add(fill);
 
-  /* ---- ground: a wide paved apron under the real road/curb pieces below ---- */
+  /* ---- ground: a wide paved apron under the real road/curb pieces below.
+     The ported asset pack's own road tiles only cover a strip near x=0, so a
+     flat solid-color apron used to show through everywhere else (a plain
+     white/gray void far larger than the actual crosswalk/road strip) - use
+     the game's own asphalt texture here instead so the rest of the map at
+     least reads as pavement rather than an untextured plane. ---- */
   const dirt=new THREE.Mesh(new THREE.PlaneGeometry(400,400),M.dirt);
   dirt.receiveShadow=true; dirt.rotation.x=-Math.PI/2; worldRoot.add(dirt); blockers.push(dirt);
-  quad(-BND,-BND,BND,BND,0.015,phong({color:0xb6ada0}));
+  quad(-BND,-BND,BND,BND,0.015,phong({map:T.asphalt}));
 
   /* ---- placed from the pack's own assembled demo scene: every position and
      rotation below is the real authored transform (converted from Unity's
@@ -2517,12 +2553,12 @@ function buildCrossroads(){
   placeTownAsset('ATM.glb',8.23,17.96,Math.PI,{y:1.53});
   placeTownAsset('ATM.glb',16.94,6.17,0,{y:1.54});
   // AmoBox_01 x6
-  placeTownAsset('AmoBox_01.glb',-32.25,23.63,-1.0772);
-  placeTownAsset('AmoBox_01.glb',17.86,-3.19,3.3087);
-  placeTownAsset('AmoBox_01.glb',16.82,-3.39,2.4834);
-  placeTownAsset('AmoBox_01.glb',16.59,-4.49,1.5356);
-  placeTownAsset('AmoBox_01.glb',-32.73,22.84,0);
-  placeTownAsset('AmoBox_01.glb',-33.93,22.83,-0.2059);
+  placeTownAsset('AmoBox_01.glb',-32.25,23.63,-1.0772,{collide:[0.98,0.51,3.9]});
+  placeTownAsset('AmoBox_01.glb',17.86,-3.19,3.3087,{collide:[0.98,0.51,3.9]});
+  placeTownAsset('AmoBox_01.glb',16.82,-3.39,2.4834,{collide:[0.98,0.51,3.9]});
+  placeTownAsset('AmoBox_01.glb',16.59,-4.49,1.5356,{collide:[0.98,0.51,3.9]});
+  placeTownAsset('AmoBox_01.glb',-32.73,22.84,0,{collide:[0.98,0.51,3.9]});
+  placeTownAsset('AmoBox_01.glb',-33.93,22.83,-0.2059,{collide:[0.98,0.51,3.9]});
   // AutoService_01 x1
   placeTownAsset('AutoService_01.glb',19.16,1.76,-Math.PI/2,{collide:[8.93,7.11,3.9]});
   // Bank_01 x3
@@ -2532,64 +2568,122 @@ function buildCrossroads(){
   // Barrel_01 x12
   placeTownAsset('Barrel_01.glb',-6.38,-9.4,0,{y:3.73});
   placeTownAsset('Barrel_01.glb',-18.94,25.81,-1.6264,{y:3.31});
-  placeTownAsset('Barrel_01.glb',16.5,-5.96,0);
+  placeTownAsset('Barrel_01.glb',16.5,-5.96,0,{collide:[0.61,0.61,3.9]});
   placeTownAsset('Barrel_01.glb',16.31,3.02,0,{y:5.23});
   placeTownAsset('Barrel_01.glb',16.09,4.15,0,{y:5.41});
   placeTownAsset('Barrel_01.glb',16.13,3.64,-1.4428,{y:5.23});
   placeTownAsset('Barrel_01.glb',-18.71,26.77,0,{y:3.52});
   placeTownAsset('Barrel_01.glb',-11.52,-15.9,0,{y:3.51});
-  placeTownAsset('Barrel_01.glb',7.35,38.36,0.9933);
+  placeTownAsset('Barrel_01.glb',7.35,38.36,0.9933,{collide:[0.61,0.61,3.9]});
   placeTownAsset('Barrel_01.glb',9.69,10.19,0,{y:4.0});
-  placeTownAsset('Barrel_01.glb',3.61,-18.79,0);
+  placeTownAsset('Barrel_01.glb',3.61,-18.79,0,{collide:[0.61,0.61,3.9]});
   placeTownAsset('Barrel_01.glb',-18.76,26.39,0,{y:3.31});
   // Barrel_02 x5
   placeTownAsset('Barrel_02.glb',9.6,9.17,0,{y:3.82});
   placeTownAsset('Barrel_02.glb',-6.34,-10.0,0,{y:3.73});
-  placeTownAsset('Barrel_02.glb',16.51,-6.62,0);
+  placeTownAsset('Barrel_02.glb',16.51,-6.62,0,{collide:[0.61,0.61,3.9]});
   placeTownAsset('Barrel_02.glb',-11.62,-15.61,0,{y:3.31});
-  placeTownAsset('Barrel_02.glb',8.12,36.99,0.9933);
+  placeTownAsset('Barrel_02.glb',8.12,36.99,0.9933,{collide:[0.61,0.61,3.9]});
   // Barrier_01 x1
-  placeTownAsset('Barrier_01.glb',-11.38,16.8,-0.6431);
+  placeTownAsset('Barrier_01.glb',-11.38,16.8,-0.6431,{collide:[1.69,0.52,3.9]});
   // Box_01 x10
   placeTownAsset('Box_01.glb',-32.12,25.01,0,{y:0.93});
   placeTownAsset('Box_01.glb',-16.62,-10.11,0,{y:4.38});
   placeTownAsset('Box_01.glb',9.73,11.09,0,{y:4.47});
-  placeTownAsset('Box_01.glb',11.42,12.3,-0.3525,{y:0.57});
-  placeTownAsset('Box_01.glb',10.66,11.43,-2.5028,{y:0.57});
-  placeTownAsset('Box_01.glb',-24.77,28.13,-1.3179,{y:0.57});
-  placeTownAsset('Box_01.glb',-17.24,27.76,1.3103,{y:0.45});
-  placeTownAsset('Box_01.glb',-17.35,28.81,0,{y:0.45});
-  placeTownAsset('Box_01.glb',-12.6,36.05,-0.4943,{y:0.73});
-  placeTownAsset('Box_01.glb',-24.75,29.19,0,{y:0.57});
+  placeTownAsset('Box_01.glb',11.42,12.3,-0.3525,{y:0.57,collide:[0.92,0.91,3.9]});
+  placeTownAsset('Box_01.glb',10.66,11.43,-2.5028,{y:0.57,collide:[0.92,0.91,3.9]});
+  placeTownAsset('Box_01.glb',-24.77,28.13,-1.3179,{y:0.57,collide:[0.92,0.91,3.9]});
+  placeTownAsset('Box_01.glb',-17.24,27.76,1.3103,{y:0.45,collide:[0.92,0.91,3.9]});
+  placeTownAsset('Box_01.glb',-17.35,28.81,0,{y:0.45,collide:[0.92,0.91,3.9]});
+  placeTownAsset('Box_01.glb',-12.6,36.05,-0.4943,{y:0.73,collide:[0.92,0.91,3.9]});
+  placeTownAsset('Box_01.glb',-24.75,29.19,0,{y:0.57,collide:[0.92,0.91,3.9]});
   // Box_02 x10
   placeTownAsset('Box_02.glb',12.98,17.76,-0.1839,{y:3.75});
-  placeTownAsset('Box_02.glb',0.31,9.63,-0.3757,{y:0.85});
-  placeTownAsset('Box_02.glb',-32.09,25.28,0,{y:0.39});
-  placeTownAsset('Box_02.glb',15.61,2.77,0,{y:0.57});
+  placeTownAsset('Box_02.glb',0.31,9.63,-0.3757,{y:0.85,collide:[0.92,0.91,3.9]});
+  placeTownAsset('Box_02.glb',-32.09,25.28,0,{y:0.39,collide:[0.92,0.91,3.9]});
+  placeTownAsset('Box_02.glb',15.61,2.77,0,{y:0.57,collide:[0.92,0.91,3.9]});
   placeTownAsset('Box_02.glb',10.29,8.29,-0.5944,{y:4.47});
-  placeTownAsset('Box_02.glb',-32.11,24.66,-1.3999,{y:0.39});
+  placeTownAsset('Box_02.glb',-32.11,24.66,-1.3999,{y:0.39,collide:[0.92,0.91,3.9]});
   placeTownAsset('Box_02.glb',11.06,11.93,0.6919,{y:1.48});
   placeTownAsset('Box_02.glb',1.66,22.85,-1.9458,{y:1.27});
   placeTownAsset('Box_02.glb',10.03,12.17,0.3729,{y:4.47});
-  placeTownAsset('Box_02.glb',1.66,22.85,-0.4928,{y:0.44});
+  placeTownAsset('Box_02.glb',1.66,22.85,-0.4928,{y:0.44,collide:[0.92,0.91,3.9]});
   // Box_03 x10
-  placeTownAsset('Box_03.glb',13.85,-8.14,3.1837,{y:0.46});
-  placeTownAsset('Box_03.glb',19.9,22.09,3.1837,{y:0.46});
-  placeTownAsset('Box_03.glb',12.84,-9.01,1.6178,{y:0.46});
+  placeTownAsset('Box_03.glb',13.85,-8.14,3.1837,{y:0.46,collide:[0.91,0.91,3.9]});
+  placeTownAsset('Box_03.glb',19.9,22.09,3.1837,{y:0.46,collide:[0.91,0.91,3.9]});
+  placeTownAsset('Box_03.glb',12.84,-9.01,1.6178,{y:0.46,collide:[0.91,0.91,3.9]});
   placeTownAsset('Box_03.glb',-17.4,28.5,-2.9706,{y:1.35});
-  placeTownAsset('Box_03.glb',23.23,5.68,0,{y:0.6});
-  placeTownAsset('Box_03.glb',24.23,5.68,3.1837,{y:0.47});
-  placeTownAsset('Box_03.glb',18.9,21.21,1.6178,{y:0.46});
+  placeTownAsset('Box_03.glb',23.23,5.68,0,{y:0.6,collide:[0.91,0.91,3.9]});
+  placeTownAsset('Box_03.glb',24.23,5.68,3.1837,{y:0.47,collide:[0.91,0.91,3.9]});
+  placeTownAsset('Box_03.glb',18.9,21.21,1.6178,{y:0.46,collide:[0.91,0.91,3.9]});
   placeTownAsset('Box_03.glb',-15.08,-10.17,0,{y:4.37});
-  placeTownAsset('Box_03.glb',20.37,-3.16,0,{y:0.59});
-  placeTownAsset('Box_03.glb',15.69,4.39,0,{y:0.43});
+  placeTownAsset('Box_03.glb',20.37,-3.16,0,{y:0.59,collide:[0.91,0.91,3.9]});
+  placeTownAsset('Box_03.glb',15.69,4.39,0,{y:0.43,collide:[0.91,0.91,3.9]});
   // Church_01 x1
   placeTownAsset('Church_01.glb',-18.38,9.67,Math.PI/2,{collide:[12.87,20.68,3.9]});
   // CityHall_01 x1
   placeTownAsset('CityHall_01.glb',0.0,-31.41,0,{collide:[22.6,18.6,3.9]});
-  // Construction_01 x2
-  placeTownAsset('Construction_01.glb',26.94,-37.53,0,{collide:[8.0,12.0,3.9]});
-  placeTownAsset('Construction_01.glb',-12.0,-6.78,Math.PI/2,{collide:[8.0,12.0,3.9]});
+  // Construction_01 x2 - an open scaffold shell (no walls), so unlike every
+  // other building here it gets no blanket footprint collider: that used to
+  // wall players out of the whole thing. Its real geometry (read from the
+  // glTF itself) is a ground floor, two switchback flights of stairs, and
+  // two upper floor slabs (y=3.6 landing, y=7.05 roof deck) - modeled with
+  // the same platform/ramp system the hand-built maps use for multi-level
+  // structures, so it's walkable and climbable all the way to the top.
+  // groundAt() takes the *highest* reachable surface at a given x/z, so a
+  // floor platform spanning the same footprint as the stairwell below it
+  // permanently outranks the ramp there and descending is impossible - the
+  // first fix for that carved out a hole far bigger than the actual stair
+  // tread (basically the whole landing), which just moved the bug: it now
+  // reads as "fall through the instant you reach the top", because that
+  // whole landing had no floor at all, not just the narrow ramp strip.
+  // Each floor is carved into pieces that leave open ONLY the exact ramp
+  // footprint the player is meant to climb through - the y=3.6 landing has
+  // to exclude both ramps (flight 1 arrives there, flight 2 departs from
+  // it), while the roof deck only needs to exclude flight 2 (flight 1 tops
+  // out well below it, so the deck already outranks it everywhere).
+  // The two ramps don't share the same x-span (flight 2 is narrower and sits
+  // west of flight 1), so treating "flight1 ∪ flight2" as a single bounding
+  // rectangle - what the previous pass did - excludes real floor between
+  // them along with the actual stairs, which is exactly the gap that let
+  // players fall through immediately north of flight 2's top. These pieces
+  // are generated by sweeping z into bands between every hole boundary and
+  // only excluding each ramp's own x-range within the band it's actually
+  // in, so nothing but the real stair footprint is ever left unfloored.
+  placeTownAsset('Construction_01.glb',26.94,-37.53,0);
+  addPlatform(22.94,30.94,-43.53,-37.45,3.6);
+  addPlatform(22.94,28.92,-37.61,-37.25,3.6);
+  addPlatform(30.56,30.94,-37.61,-37.25,3.6);
+  addPlatform(22.94,27.22,-37.41,-33.25,3.6);
+  addPlatform(30.56,30.94,-37.41,-33.25,3.6);
+  addPlatform(22.94,28.92,-33.41,-31.53,3.6);
+  addPlatform(30.56,30.94,-33.41,-31.53,3.6);
+  addRamp(28.84,30.64,-37.53,-31.33,0,3.6,'z',false);
+  addPlatform(22.94,30.94,-43.53,-37.25,7.05);
+  addPlatform(22.94,27.22,-37.41,-33.25,7.05);
+  addPlatform(29.06,30.94,-37.41,-33.25,7.05);
+  addPlatform(22.94,30.94,-33.41,-31.53,7.05);
+  addRamp(27.14,29.14,-37.33,-33.33,3.6,7.05,'z',true);
+  // Zombies have no idea stairs exist unless a stairBases entry tells them -
+  // without these they'd just pile up at the foot of both flights forever
+  // whenever a player holes up on the landing or the roof.
+  stairBases.push({x:29.74,z:-37.53,tx:29.74,tz:-31.33,ty:3.6,by:0});
+  stairBases.push({x:28.14,z:-33.33,tx:28.14,tz:-37.33,ty:7.05,by:3.6});
+  placeTownAsset('Construction_01.glb',-12.0,-6.78,Math.PI/2);
+  addPlatform(-18,-6,-10.78,-10.4,3.6);
+  addPlatform(-18,-11.92,-10.56,-8.9,3.6);
+  addPlatform(-18,-11.92,-9.06,-8.6,3.6);
+  addPlatform(-18,-11.72,-8.76,-6.9,3.6);
+  addPlatform(-7.88,-6,-8.76,-6.9,3.6);
+  addPlatform(-18,-6,-7.06,-2.78,3.6);
+  addRamp(-12,-5.8,-10.48,-8.68,0,3.6,'x',false);
+  addPlatform(-18,-6,-10.78,-8.9,7.05);
+  addPlatform(-18,-11.72,-9.06,-6.9,7.05);
+  addPlatform(-7.88,-6,-9.06,-6.9,7.05);
+  addPlatform(-18,-6,-7.06,-2.78,7.05);
+  addRamp(-11.8,-7.8,-8.98,-6.98,3.6,7.05,'x',true);
+  stairBases.push({x:-12,z:-9.58,tx:-5.8,tz:-9.58,ty:3.6,by:0});
+  stairBases.push({x:-7.8,z:-7.98,tx:-11.8,tz:-7.98,ty:7.05,by:3.6});
   // Fan_01 x6
   placeTownAsset('Fan_01.glb',-20.22,-0.88,Math.PI/2,{y:10.0});
   placeTownAsset('Fan_01.glb',11.46,-2.29,0,{y:5.41});
@@ -2612,10 +2706,10 @@ function buildCrossroads(){
   placeTownAsset('FlowerBed_01.glb',-34.5,-2.93,0);
   placeTownAsset('FlowerBed_01.glb',-7.66,0.31,0);
   // Garbage_01 x4
-  placeTownAsset('Garbage_01.glb',-34.67,15.15,-1.4595);
-  placeTownAsset('Garbage_01.glb',6.95,-0.8,0);
-  placeTownAsset('Garbage_01.glb',-33.22,-9.61,-0.3496);
-  placeTownAsset('Garbage_01.glb',9.06,36.63,4.5465);
+  placeTownAsset('Garbage_01.glb',-34.67,15.15,-1.4595,{collide:[1.28,1.27,3.9]});
+  placeTownAsset('Garbage_01.glb',6.95,-0.8,0,{collide:[1.28,1.27,3.9]});
+  placeTownAsset('Garbage_01.glb',-33.22,-9.61,-0.3496,{collide:[1.28,1.27,3.9]});
+  placeTownAsset('Garbage_01.glb',9.06,36.63,4.5465,{collide:[1.28,1.27,3.9]});
   // Gas_Station_01 x1
   placeTownAsset('Gas_Station_01.glb',11.81,10.0,-Math.PI/2,{collide:[7.25,8.82,3.9]});
   // Grass_01 x4
@@ -2663,9 +2757,9 @@ function buildCrossroads(){
   placeTownAsset('House_08.glb',7.55,-4.3,-Math.PI/2,{collide:[4.24,3.66,3.9]});
   placeTownAsset('House_08.glb',-31.21,7.23,-Math.PI/2,{collide:[4.24,3.66,3.9]});
   // Hydrant x3
-  placeTownAsset('Hydrant.glb',-3.93,-10.05,0);
-  placeTownAsset('Hydrant.glb',4.5,39.11,0);
-  placeTownAsset('Hydrant.glb',3.27,31.43,0);
+  placeTownAsset('Hydrant.glb',-3.93,-10.05,0,{collide:[0.44,0.41,3.9]});
+  placeTownAsset('Hydrant.glb',4.5,39.11,0,{collide:[0.44,0.41,3.9]});
+  placeTownAsset('Hydrant.glb',3.27,31.43,0,{collide:[0.44,0.41,3.9]});
   // Light_01 x14
   placeTownAsset('Light_01.glb',-17.63,39.69,Math.PI/2);
   placeTownAsset('Light_01.glb',-33.27,-0.52,Math.PI);
@@ -2713,8 +2807,8 @@ function buildCrossroads(){
   placeTownAsset('Pallet_01.glb',9.97,12.09,0.3039,{y:3.92});
   // Pallet_02 x4
   placeTownAsset('Pallet_02.glb',10.3,8.29,-3.8637,{y:3.92});
-  placeTownAsset('Pallet_02.glb',14.84,-1.6,-1.4927);
-  placeTownAsset('Pallet_02.glb',16.95,3.08,-1.8650);
+  placeTownAsset('Pallet_02.glb',14.84,-1.6,-1.4927,{collide:[1.25,1.50,3.9]});
+  placeTownAsset('Pallet_02.glb',16.95,3.08,-1.8650,{collide:[1.25,1.50,3.9]});
   placeTownAsset('Pallet_02.glb',9.66,10.37,-3.0700,{y:3.92});
   // ParkingBG_01 x1
   placeTownAsset('ParkingBG_01.glb',-18.0,28.0,-Math.PI/2);
@@ -2765,8 +2859,8 @@ function buildCrossroads(){
   placeTownAsset('RoadPart_07.glb',-12.01,37.52,0.9455);
   placeTownAsset('RoadPart_07.glb',-6.34,-8.58,-0.0410,{y:6.93});
   // RoadSign_01 x2
-  placeTownAsset('RoadSign_01.glb',3.8,2.17,Math.PI/2);
-  placeTownAsset('RoadSign_01.glb',-3.41,26.02,-Math.PI/2);
+  placeTownAsset('RoadSign_01.glb',3.8,2.17,Math.PI/2,{collide:[0.64,0.11,3.9]});
+  placeTownAsset('RoadSign_01.glb',-3.41,26.02,-Math.PI/2,{collide:[0.64,0.11,3.9]});
   // Road_01 x6
   placeTownAsset('Road_01.glb',0.0,-6.5,Math.PI);
   placeTownAsset('Road_01.glb',0.0,-3.5,0);
@@ -2787,9 +2881,9 @@ function buildCrossroads(){
   placeTownAsset('Road_06.glb',0.0,16.0,Math.PI/2);
   placeTownAsset('Road_06.glb',0.0,4.0,Math.PI/2);
   // Rock_01 x3
-  placeTownAsset('Rock_01.glb',-10.63,-21.45,0);
-  placeTownAsset('Rock_01.glb',4.83,-23.61,0);
-  placeTownAsset('Rock_01.glb',-6.6,-23.8,0);
+  placeTownAsset('Rock_01.glb',-10.63,-21.45,0,{collide:[1.43,1.39,3.9]});
+  placeTownAsset('Rock_01.glb',4.83,-23.61,0,{collide:[1.43,1.39,3.9]});
+  placeTownAsset('Rock_01.glb',-6.6,-23.8,0,{collide:[1.43,1.39,3.9]});
   // Roof_01 x2
   placeTownAsset('Roof_01.glb',-33.42,24.09,-Math.PI/2);
   placeTownAsset('Roof_01.glb',18.0,-4.34,Math.PI);
@@ -2799,15 +2893,15 @@ function buildCrossroads(){
   placeTownAsset('Stairs_01.glb',-24.64,28.13,-1.5346,{y:0.98});
   placeTownAsset('Stairs_01.glb',18.6,22.12,Math.PI/2,{y:1.0});
   // Trash_01 x4
-  placeTownAsset('Trash_01.glb',-33.66,14.76,-2.0886);
-  placeTownAsset('Trash_01.glb',8.41,37.81,3.7949);
-  placeTownAsset('Trash_01.glb',-19.39,1.84,2.0719);
-  placeTownAsset('Trash_01.glb',7.92,-1.61,0.0508);
+  placeTownAsset('Trash_01.glb',-33.66,14.76,-2.0886,{collide:[1.62,1.41,3.9]});
+  placeTownAsset('Trash_01.glb',8.41,37.81,3.7949,{collide:[1.62,1.41,3.9]});
+  placeTownAsset('Trash_01.glb',-19.39,1.84,2.0719,{collide:[1.62,1.41,3.9]});
+  placeTownAsset('Trash_01.glb',7.92,-1.61,0.0508,{collide:[1.62,1.41,3.9]});
   // Trash_02 x4
-  placeTownAsset('Trash_02.glb',-17.75,2.67,2.9693);
-  placeTownAsset('Trash_02.glb',-33.73,5.5,-0.4139);
-  placeTownAsset('Trash_02.glb',-32.68,-10.78,-1.5426);
-  placeTownAsset('Trash_02.glb',6.1,-1.17,1.2148);
+  placeTownAsset('Trash_02.glb',-17.75,2.67,2.9693,{collide:[1.64,1.03,3.9]});
+  placeTownAsset('Trash_02.glb',-33.73,5.5,-0.4139,{collide:[1.64,1.03,3.9]});
+  placeTownAsset('Trash_02.glb',-32.68,-10.78,-1.5426,{collide:[1.64,1.03,3.9]});
+  placeTownAsset('Trash_02.glb',6.1,-1.17,1.2148,{collide:[1.64,1.03,3.9]});
   // Tree_01 x4
   placeTownAsset('Tree_01.glb',-5.51,-24.08,0);
   placeTownAsset('Tree_01.glb',5.15,-24.37,2.0457);
@@ -2829,11 +2923,11 @@ function buildCrossroads(){
   placeTownAsset('Wheel_01.glb',16.93,3.47,0,{y:0.43});
   placeTownAsset('Wheel_01.glb',14.77,-1.33,0,{y:0.43});
   // Wheel_02 x5
-  placeTownAsset('Wheel_02.glb',-16.92,32.28,0);
+  placeTownAsset('Wheel_02.glb',-16.92,32.28,0,{collide:[0.27,0.56,3.9]});
   placeTownAsset('Wheel_02.glb',14.34,-1.8,0,{y:0.44});
   placeTownAsset('Wheel_02.glb',16.44,2.83,0,{y:0.44});
   placeTownAsset('Wheel_02.glb',10.25,17.36,1.5869,{y:0.78});
-  placeTownAsset('Wheel_02.glb',-13.34,36.85,-0.1621);
+  placeTownAsset('Wheel_02.glb',-13.34,36.85,-0.1621,{collide:[0.27,0.56,3.9]});
 
   /* ---- rooftop fire barrels the scene stages as real light sources, using
      this game's own fire/light system in place of the pack's particle prefab
@@ -3038,6 +3132,8 @@ function buildLastStop(){
   scene.fog=new THREE.Fog(0x151e28,34,126);mapFog={near:34,far:126};
   torch.intensity=1.22;
   SPAWN_AT.set(0,0,41);SPAWN_YAW=Math.PI;
+  addEquipBuy('grenade',SPAWN_AT.x-1.6,0,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
+  addEquipBuy('claymore',SPAWN_AT.x+1.6,0,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
   SPAWNS=[
     [-18,47],[18,47],[-21,39],[21,39],[-12,34],[12,34],
     [-19,27,0,'front'],[19,27,0,'front'],[-10,20,0,'front'],[10,20,0,'front'],
@@ -3369,6 +3465,8 @@ function buildBlacksire(){
   scene.fog=new THREE.Fog(0x111a25,24,112); mapFog={near:24,far:112};
   torch.intensity=.82;
   SPAWN_AT.set(0,SY,33); SPAWN_YAW=Math.PI;
+  addEquipBuy('grenade',SPAWN_AT.x-1.6,SY,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
+  addEquipBuy('claymore',SPAWN_AT.x+1.6,SY,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
   SPAWNS=[
     [-42,-34,SY],[42,-34,SY],[-42,34,SY],[42,34,SY],[-42,0,SY],[42,0,SY],
     [-25,-42,SY],[25,-42,SY],[-25,42,SY],[25,42,SY],
@@ -5270,6 +5368,7 @@ const player={
   guns:[], slot:0, firing:false, semiHeld:false,
   nextShot:0, reloadEnd:0, reloading:false, shellsLeft:0,
   nextMelee:0,meleeStart:-99,
+  grenades:GRENADE_START, claymores:0, nextThrow:0, nextClaymore:0,
   burstLeft:0, burstNext:0,
   recoilPitch:0, recoilYaw:0, kick:0,
   alive:true, downed:false, downEnd:0, invuln:0, landDip:0, jumpAt:0,
@@ -6368,6 +6467,60 @@ function stepBooms(dt){
     if(t>=1){scene.remove(b.m); releaseDynamicLight(b.L); b.m.material.dispose(); b.m.geometry.dispose(); booms.splice(i,1);}
   }
 }
+/* ---------- claymores ----------
+   Placed traps stay in a flat list forever (not the pooled projectile/boom
+   arrays above) since unlike a thrown grenade they live for the rest of the
+   round instead of a few seconds. Only the owner's own client ever arms and
+   detonates its own claymore - that mirrors how every other piece of combat
+   here resolves damage client-side and reports it to the host - but every
+   client renders every claymore's mesh so teammates can actually see them. */
+const claymores=[];
+function buildClaymoreMesh(pos,yaw){
+  const geo=mergeGeos([
+    pc(PROP_BOX,0,0,.14,0,-.30,0,0,.34,.05,.18),
+    pc(PROP_BOX,0,-.13,.045,.05,0,0,0,.025,.09,.025),
+    pc(PROP_BOX,0,.13,.045,.05,0,0,0,.025,.09,.025),
+    pc(PROP_BOX,1,0,.185,-.06,-.30,0,0,.07,.03,.01)
+  ]);
+  const mesh=new THREE.Mesh(geo,[M.dark,M.taillight]);
+  mesh.position.copy(pos); mesh.rotation.y=yaw; scene.add(mesh);
+  return mesh;
+}
+function placeClaymoreMesh(pos,yaw,cid,mine){
+  const mesh=buildClaymoreMesh(pos,yaw);
+  const cm={mesh,pos:pos.clone(),cid,mine,armTime:mine?game.time+.5:0,gone:false};
+  claymores.push(cm);
+  return cm;
+}
+function removeClaymore(cid){
+  for(let i=claymores.length-1;i>=0;i--){
+    const cm=claymores[i];
+    if(cm.cid!==cid) continue;
+    scene.remove(cm.mesh); cm.mesh.geometry.dispose();
+    claymores.splice(i,1);
+  }
+}
+function detonateClaymore(cm){
+  if(cm.gone) return; cm.gone=true;
+  explode(cm.pos,CLAYMORE_DMG,CLAYMORE_RADIUS,'nade',null,false);
+  if(net.connected) netSend({type:'claymore_boom',cid:cm.cid,x:cm.pos.x,y:cm.pos.y,z:cm.pos.z});
+  removeClaymore(cm.cid);
+}
+function stepClaymores(dt){
+  for(let i=claymores.length-1;i>=0;i--){
+    const cm=claymores[i];
+    if(!cm.mine||cm.gone||game.time<cm.armTime) continue;
+    for(const z of zombies){
+      if(z.dead) continue;
+      const c=z.pts[CHEST];
+      if(Math.hypot(c.x-cm.pos.x,c.y-cm.pos.y,c.z-cm.pos.z)<CLAYMORE_TRIGGER_R){ detonateClaymore(cm); break; }
+    }
+  }
+}
+function clearClaymores(){
+  for(const cm of claymores){ scene.remove(cm.mesh); cm.mesh.geometry.dispose(); }
+  claymores.length=0;
+}
 function makeBolt(points,col){
   const pts=[];
   for(let i=0;i<points.length-1;i++){
@@ -6529,6 +6682,32 @@ function tryMelee(){
   }
   sfxMelee(!!best);
   if(net.connected)netSend({type:'melee',yaw:netYaw(player.yaw),pitch:player.pitch,hit:!!best});
+}
+function tryThrowGrenade(){
+  if(!game.running||!player.alive||player.downed||game.time<player.nextThrow) return;
+  if(player.grenades<=0){ sfxDeny(); toast('Out of grenades'); return; }
+  player.nextThrow=game.time+.8; player.grenades--;
+  camera.getWorldDirection(_dir); _org.copy(camera.position);
+  const o=_org.clone().add(_dir.clone().multiplyScalar(.6));
+  spawnProj('nade',o,_dir,{dmg:0,splash:GRENADE_DMG,splashR:GRENADE_RADIUS},1);
+  sfxTone(500,260,.14,.16,'triangle');
+  if(net.connected) netSend({type:'grenade',yaw:netYaw(player.yaw),pitch:player.pitch});
+  updHUD();
+}
+function tryPlaceClaymore(){
+  if(!game.running||!player.alive||player.downed||game.time<player.nextClaymore) return;
+  if(player.claymores<=0){ sfxDeny(); toast('Out of claymores'); return; }
+  camera.getWorldDirection(_dir); _org.copy(camera.position);
+  const px=player.pos.x+_dir.x*1.4,pz=player.pos.z+_dir.z*1.4;
+  if(blockedAt(px,pz,.3,player.y)){ sfxDeny(); toast('No room to place a claymore'); return; }
+  player.nextClaymore=game.time+.8; player.claymores--;
+  const fl=groundAt(px,pz,player.y,.4);
+  const pos=new THREE.Vector3(px,fl+.02,pz);
+  const cid=(net.id||'local')+'-'+Math.random().toString(36).slice(2,8);
+  placeClaymoreMesh(pos,player.yaw,cid,true);
+  sfxTone(420,220,.12,.14,'square');
+  if(net.connected) netSend({type:'claymore_place',cid,x:pos.x,y:pos.y,z:pos.z,yaw:netYaw(player.yaw)});
+  updHUD();
 }
 function tryFire(){
   const g=curGun(); if(!g) return;
@@ -6731,6 +6910,45 @@ function addAmmoBuy(defId,x,y,z,rot,price){
     label(){return 'Buy '+d.name+' ammo';}, cost(){return price;},
     buy(){ const own=player.guns.find(g=>g.def===d);
       if(own) own.res=resOf(own); else giveGun(d.id); toast(d.name+' ammo'); }});
+}
+function equipTex(title,price,accent){
+  return tex(320,192,(g,w,h)=>{
+    g.clearRect(0,0,w,h);
+    g.fillStyle='rgba(18,20,24,.88)'; g.fillRect(0,0,w,h);
+    g.strokeStyle='rgba(232,226,208,.55)'; g.lineWidth=3; g.strokeRect(6,6,w-12,h-12);
+    g.fillStyle=accent; g.beginPath(); g.arc(w/2,68,32,0,TAU); g.fill();
+    g.fillStyle='rgba(232,226,208,.92)'; g.font='bold 24px Arial'; g.textAlign='center';
+    g.fillText(title.toUpperCase(),w/2,148);
+    g.font='bold 30px Arial';
+    g.fillText(String(price),w/2,180);
+  });
+}
+// A freestanding crate rather than a wall plaque - unlike guns, grenades and
+// claymores don't need a wall to hang on, and picking a spot near each map's
+// own SPAWN_AT/SPAWN_YAW (open by construction, since players land there)
+// sidesteps having to know every map's wall layout by heart.
+function addEquipBuy(kind,x,y,z,rot){
+  const isGrenade=kind==='grenade';
+  const title=isGrenade?'Frag Grenades':'Claymores';
+  const cost=isGrenade?GRENADE_WALLBUY_COST:CLAYMORE_WALLBUY_COST;
+  const crateGeo=mergeGeos([
+    pc(PROP_BOX,0,0,.22,0,0,0,0,.62,.44,.42),
+    pc(PROP_BOX,1,0,.46,0,0,0,0,.66,.05,.46)
+  ]);
+  const crate=new THREE.Mesh(crateGeo,[M.boxWood,M.boxMetal]);
+  crate.position.set(x,y,z); crate.rotation.y=rot; worldRoot.add(crate); blockers.push(crate);
+  addYawCollider(x,z,0.7,0.55,rot,y+0.5,y,0.02);
+  const nx=Math.sin(rot),nz=Math.cos(rot);
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(0.9,0.62),
+    new THREE.MeshBasicMaterial({map:equipTex(title,cost,isGrenade?'#e8a33d':'#a3231e'),transparent:true,opacity:.9}));
+  sign.position.set(x+nx*0.23,y+0.62,z+nz*0.23); sign.rotation.y=rot; worldRoot.add(sign);
+  interactables.push({x,y:y-.1,z,r:2.6,kind:'equipbuy',
+    can(){ return isGrenade?player.grenades<GRENADE_MAX:player.claymores<CLAYMORE_MAX; },
+    label(){ return 'Buy '+title; }, cost(){ return cost; },
+    buy(){
+      if(isGrenade){ player.grenades=GRENADE_MAX; toast('Grenades resupplied'); }
+      else{ player.claymores=CLAYMORE_MAX; toast('Claymores resupplied'); }
+    }});
 }
 function setMapPerkPower(on){
   for(const m of mapProgress.perkMachines){
@@ -7581,7 +7799,7 @@ function stepDrops(dt){
 }
 function applyCollectedDrop(k,collector){
   sfxPowerup(k); toast(DROPS[k].name);
-  if(k==='maxammo'){ for(const g of player.guns){g.res=resOf(g); g.ammo=magOf(g);} }
+  if(k==='maxammo'){ for(const g of player.guns){g.res=resOf(g); g.ammo=magOf(g);} player.grenades=GRENADE_MAX; player.claymores=CLAYMORE_MAX; }
   else if(k==='nuke'){
     if(!net.connected||net.host){
       for(let i=zombies.length-1;i>=0;i--){
@@ -7603,7 +7821,7 @@ function collectDrop(k){ applyCollectedDrop(k,net.id); }
 /* ---------- HUD ---------- */
 const el=id=>document.getElementById(id);
 const ui={hp:el('hpfill'),ammo:el('ammo'),gunname:el('gunname'),reloading:el('reloading'),
-  slots:el('slots'),pts:el('ptsval'),perks:el('perks'),wavebig:el('wavebig'),left:el('left'),
+  slots:el('slots'),equip:el('equip'),pts:el('ptsval'),perks:el('perks'),wavebig:el('wavebig'),left:el('left'),
   mult:el('ptsmult'),invuln:el('invuln'),cross:el('cross'),reddot:el('reddot'),hit:el('hitmark'),vig:el('vig'),downed:el('downed'),
   scope:el('scope'),banner:el('banner'),toast:el('toast'),prompt:el('prompt'),buffs:el('buffs'),
   bossHud:el('bossHud'),bossFill:el('bossFill'),bossName:el('bossName'),teamPoints:el('teamPoints'),flashWhite:0};
@@ -7639,6 +7857,7 @@ function updHUD(){
   ui.reloading.style.opacity=player.reloading?1:0;
   ui.slots.innerHTML=player.guns.map((w,i)=>
     (i===player.slot?'<b>':'')+(i+1)+' '+w.def.name+((w.pack||0)?' '+'\u2726'.repeat(w.pack):'')+(i===player.slot?'</b>':'')).join(' &nbsp; ');
+  ui.equip.textContent='NADE '+player.grenades+'/'+GRENADE_MAX+'   MINE '+player.claymores+'/'+CLAYMORE_MAX;
   renderTeamPoints();
 }
 // CoD-Zombies-style scoreboard: everyone's current points, refreshed both on
@@ -7811,6 +8030,8 @@ addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(!game.running) return;
   if(!e.repeat&&(e.code==='KeyV')) tryMelee();
+  if(!e.repeat&&e.code==='KeyB') tryThrowGrenade();
+  if(!e.repeat&&e.code==='KeyN') tryPlaceClaymore();
   if(!e.repeat&&(e.code==='KeyC'||e.code==='ControlLeft')) toggleCrouch();
   if(e.code==='KeyR') tryReload();
   if(e.code==='KeyF') doBuy();
@@ -8453,6 +8674,23 @@ function remoteMelee(id,event){
   const dist=Math.hypot(r.g.position.x-player.pos.x,r.g.position.y-player.y,r.g.position.z-player.pos.z);
   if(dist<38)sfxMelee(!!event.hit,clamp(1-dist/38,.06,.55));
 }
+function remoteGrenade(id,event){
+  const r=net.remotes.get(id); if(!r||!r.g.visible) return;
+  if(Number.isFinite(+event.yaw)){r.yaw=netYaw(+event.yaw);r.g.rotation.y=r.yaw;}
+  if(Number.isFinite(+event.pitch))r.pitch=clamp(+event.pitch,-1.2,1.2);
+  const {org,dir}=remoteFireOriginDir(r);
+  spawnProj('nade',org.clone().add(dir.clone().multiplyScalar(.6)),dir,{dmg:0,splash:GRENADE_DMG,splashR:GRENADE_RADIUS},1,true);
+}
+function remoteClaymorePlace(id,event){
+  if(id===net.id) return;
+  const pos=new THREE.Vector3(+event.x||0,+event.y||0,+event.z||0);
+  placeClaymoreMesh(pos,netYaw(+event.yaw||0),String(event.cid||''),false);
+}
+function remoteClaymoreBoom(event){
+  const pos=new THREE.Vector3(+event.x||0,+event.y||0,+event.z||0);
+  explode(pos,0,CLAYMORE_RADIUS,'nade',null,true);
+  removeClaymore(String(event.cid||''));
+}
 function removeRemotePlayer(id){
   const r=net.remotes.get(id); if(!r) return;
   if(r.mixer) r.mixer.stopAllAction();
@@ -8591,6 +8829,12 @@ function netHandle(msg){
     remoteFire(String(m.id||''),m);
   } else if(m.type==='melee'){
     remoteMelee(String(m.id||''),m);
+  } else if(m.type==='grenade'){
+    remoteGrenade(String(m.id||''),m);
+  } else if(m.type==='claymore_place'){
+    remoteClaymorePlace(String(m.id||''),m);
+  } else if(m.type==='claymore_boom'){
+    remoteClaymoreBoom(m);
   } else if(m.type==='game_request'){
     handleHostGameRequest(m.event,m.playerId);
   } else if(m.type==='game'){
@@ -9053,9 +9297,11 @@ function startGame(mapId){
   // pings are added straight to `scene`, not worldRoot, so map reload's
   // worldRoot swap won't clean these up on its own - dispose explicitly.
   for(const p of pings) disposePing(p); pings.length=0;
+  clearClaymores();
   player.pos.copy(SPAWN_AT); player.vel.set(0,0,0); player.y=SPAWN_AT.y||0; player.vy=0;
   player.crouched=false;player.crouchMix=0;player.eye=1.68;player.nextMelee=0;player.meleeStart=-99;
   player.maxHp=100; player.hp=100; player.alive=true; player.downed=false; player.invuln=0;
+  player.grenades=GRENADE_START; player.claymores=0; player.nextThrow=0; player.nextClaymore=0;
   player.points=gameRules.startPoints; player.perks={}; player.yaw=SPAWN_YAW; player.pitch=0;
   player.downs=0; player.kills=0; player.headshots=0;
   player.reloading=false; player.burstLeft=0; player.slot=0;
@@ -9245,7 +9491,7 @@ function loop(){
     updateRounds(dt);
     updateZombies(dt);
     updateLightCulling();
-    stepParts(dt); stepProjectiles(dt); stepBooms(dt); stepBolts(dt);
+    stepParts(dt); stepProjectiles(dt); stepBooms(dt); stepBolts(dt); stepClaymores(dt);
     stepDrops(dt); stepBox(dt); stepPap(dt); stepPings(dt); updateInteract(); updateDownedIndicators();
   }
   updateFireCrackle();
@@ -9307,6 +9553,10 @@ function updatePlayer(dt){
   player.vy-=21*dt; player.y+=player.vy*dt;
   if(player.y<=gh){
     if(!player.grounded&&player.vy<-6) player.landDip=Math.min(0.9,-player.vy/14); // knees on landing
+    if(!player.grounded){
+      const dmg=fallDamageFor(player.vy);
+      if(dmg>0) hurtPlayer(dmg);
+    }
     player.y=gh; player.vy=0; player.grounded=true;
   } else player.grounded=false;
   player.landDip=lerp(player.landDip||0,0,1-Math.pow(0.0006,dt));
@@ -9536,27 +9786,84 @@ function updateZombies(dt){
     // the target). Track lack of real progress and briefly widen the search
     // toward a full circle to break out, then drop back to normal tracking.
     if(z.navCheckAt===undefined||game.time>=z.navCheckAt){
-      z.stuckT=(z.navRefDist!==undefined&&dist>=z.navRefDist-0.6)?(z.stuckT||0)+0.8:0;
+      const progressing=z.navRefDist!==undefined&&dist>=z.navRefDist-0.6;
+      z.stuckT=progressing?(z.stuckT||0)+0.8:0;
+      // The distance check alone misses a real failure mode found by
+      // simulating every spawn point on Crossroads: a zombie hugging a
+      // convex corner (a building corner, a small prop) with the target
+      // roughly behind it can settle into a stable orbit - every frame
+      // picks the first unblocked angle near the direct heading, which
+      // right at a corner just keeps rotating that heading a bit further
+      // around instead of ever committing to go past it. That orbit can
+      // incidentally get closer to the target on some frames of the loop,
+      // which keeps resetting stuckT before it ever accumulates, even
+      // though net position barely moves for tens of seconds. Track how far
+      // the zombie has actually traveled from where it was a few checks ago,
+      // independent of the target - that catches circling in place even
+      // when distance-to-target is too noisy to trigger the check above.
+      if(z.orbitAnchor===undefined||Math.hypot(z.pos.x-z.orbitAnchor.x,z.pos.z-z.orbitAnchor.z)>2.5){
+        z.orbitAnchor={x:z.pos.x,z:z.pos.z};z.orbitT=0;
+      }else z.orbitT=(z.orbitT||0)+0.8;
+      // Real progress clears the streak - only repeated, back-to-back stuck
+      // cycles (the actual "walking into the same wall forever" case) should
+      // make the zombie commit harder, not one brief pause.
+      if(!progressing&&(z.orbitT||0)<2.4) z.escapeStreak=0;
       z.navRefDist=dist;z.navCheckAt=game.time+0.8;
     }
     const desired=Math.atan2(dx,dz);
     let angle=desired;
     const probe=clamp(Math.hypot(dx,dz),0.5,1.05);   // shorter look ahead threads doorways better
-    if((z.stuckT||0)>2.4){
+    if((z.stuckT||0)>2.4||(z.orbitT||0)>2.4){
       // Commit to one escape heading for a bit instead of re-deriving it every
       // frame - re-deriving from the (still target-facing) desired angle each
       // frame can flip-flop between two equally-valid ways around a corner
-      // and never actually walk either one.
+      // and never actually walk either one. That alone still deadlocks on
+      // genuinely tight geometry (a narrow alley, a cluttered lot): each 1.6s
+      // escape burst covers barely any ground, stuckT clears just enough to
+      // fall back to normal seeking, which walks straight back into the same
+      // wall and re-triggers an escape - probing the exact same offset order
+      // from the exact same spot, so it picks the exact same short escape
+      // again and ping-pongs between two points forever. Two changes fix it:
+      // escalate how long each successive escape commits for for as long as
+      // the zombie keeps re-triggering escape, and lock in whichever side
+      // (left/right offsets) got it moving so it doesn't re-litigate that
+      // choice every cycle and flip back to the side that already failed.
       if(!(z.escapeUntil>game.time)){
-        let chosen=desired;
-        for(const off of [.85,-.85,1.4,-1.4,2.0,-2.0,2.6,-2.6,3.14]){
+        z.escapeStreak=(z.escapeStreak||0)+1;
+        // A short ~1-unit probe only proves the very next step is clear, not
+        // that the heading actually clears the wall - along a long building
+        // face that's true in almost every direction, so it kept picking
+        // headings that just walked the zombie a step or two along the same
+        // wall before the normal branch walked it straight back. Escalate
+        // how far ahead gets checked with each failed streak, up to a real
+        // building-length lookahead, so a repeatedly-stuck zombie is forced
+        // to find a heading that clears the whole obstacle, not just a step.
+        const farProbe=clamp(1.2+(z.escapeStreak-1)*1.1,1.2,5.5);
+        const clearAt=(a)=>{
+          const sx=Math.sin(a),cz=Math.cos(a);
+          return !blockedAt(z.pos.x+sx*probe,z.pos.z+cz*probe,0.45,z.y)&&
+                 !blockedAt(z.pos.x+sx*farProbe,z.pos.z+cz*farProbe,0.45,z.y);
+        };
+        if(z.escapeBias===undefined) z.escapeBias=clearAt(desired+.85)?1:-1;
+        const b=z.escapeBias;
+        let chosen=desired,found=false;
+        for(const off of [.85*b,1.4*b,2.0*b,2.6*b,3.14,-2.6*b,-2.0*b,-1.4*b,-.85*b]){
+          const a=desired+off;
+          if(clearAt(a)){chosen=a;found=true;break;}
+        }
+        // Nothing clears the full lookahead (a tight pocket, not a long
+        // wall) - fall back to just clearing the next step so it can still
+        // shuffle free instead of freezing on the spot.
+        if(!found) for(const off of [.85*b,1.4*b,2.0*b,2.6*b,3.14,-2.6*b,-2.0*b,-1.4*b,-.85*b]){
           const a=desired+off;
           if(!blockedAt(z.pos.x+Math.sin(a)*probe,z.pos.z+Math.cos(a)*probe,0.45,z.y)){chosen=a;break;}
         }
-        z.escapeAngle=chosen;z.escapeUntil=game.time+1.6;
+        z.escapeAngle=chosen;
+        z.escapeUntil=game.time+1.6+Math.min(z.escapeStreak-1,4)*1.1;
       }
       angle=z.escapeAngle;
     }else{
+      z.escapeBias=undefined;
       for(const off of [0,.42,-.42,.85,-.85,1.4,-1.4,2.0,-2.0]){
         const a=desired+off;
         if(!blockedAt(z.pos.x+Math.sin(a)*probe,z.pos.z+Math.cos(a)*probe,0.45,z.y)){angle=a;break;}
@@ -9747,6 +10054,16 @@ if(inviteCode){
   showScreen('online'); setNetStatus('Invite ready \u00b7 enter your name and join');
 } else showScreen('menu');
 loop();
+// Read-only hooks for tools/minimaps (see tools/minimaps/README.md) to reach
+// into this module's otherwise-private scope - a dev-time top-down map
+// renderer, not something gameplay touches. Getters because worldRoot/scene/
+// BND/SPAWN_AT are all reassigned by loadMap(), so a plain property captured
+// once here would go stale the moment a map actually loads.
+window.__MAP_TOOLS__={
+  get scene(){return scene;}, get worldRoot(){return worldRoot;},
+  get BND(){return BND;}, get SPAWN_AT(){return SPAWN_AT;},
+  renderer, THREE, MAPS, startGame,
+};
 </script>
 </body>
 </html>
