@@ -153,32 +153,8 @@
   .mapcard h4{font-size:15px;letter-spacing:.24em;text-transform:uppercase;margin:12px 14px 4px;}
   .mapcard h4 em{font-style:normal;font-size:9px;letter-spacing:.2em;color:var(--amber);opacity:.85;margin-left:8px;}
   .mapcard p{font-size:11px;line-height:1.65;opacity:.62;margin:0 14px;letter-spacing:.02em;}
-  .mapart{height:96px;position:relative;overflow:hidden;}
-  .mapart.town{background:linear-gradient(180deg,#10141f 0%,#1b2130 100%);}
-  .mapart.town i{position:absolute;bottom:12px;background:#2b3040;border-top:2px solid #3c4356;}
-  .mapart.town i:nth-child(1){left:16px;width:58px;height:44px;}
-  .mapart.town i:nth-child(2){right:16px;width:58px;height:52px;}
-  .mapart.town i:nth-child(3){left:50%;margin-left:-22px;width:44px;height:30px;}
-  .mapart.town b{position:absolute;left:50%;bottom:44px;margin-left:-7px;width:14px;height:20px;border-radius:50% 50% 40% 40%;
-    background:radial-gradient(circle at 50% 70%,#ffd27a,#e8672a 60%,rgba(232,103,42,0) 72%);}
-  .mapart.nuke{background:linear-gradient(180deg,#8fb6d8 0%,#c9d6cd 62%,#9c8b64 62%,#8a7a56 100%);}
-  .mapart.nuke i{position:absolute;bottom:14px;width:56px;height:38px;}
-  .mapart.nuke i:nth-child(1){left:12px;background:#d9b455;box-shadow:0 -12px 0 -4px #4a4238;}
-  .mapart.nuke i:nth-child(2){right:12px;background:#5f9a94;box-shadow:0 -12px 0 -4px #4a4238;}
-  .mapart.nuke b{position:absolute;left:50%;bottom:0;margin-left:-13px;width:26px;height:36px;background:#55565a;}
-  .mapart.nuke u{position:absolute;left:50%;top:8px;margin-left:-3px;width:6px;height:36px;background:#8f96a0;}
-  .mapart.blacksire{background:linear-gradient(180deg,#111a25 0%,#253443 55%,#11161c 56%,#080b0f 100%);}
-  .mapart.blacksire i{position:absolute;bottom:13px;background:#27323b;border-top:2px solid #7e2630;}
-  .mapart.blacksire i:nth-child(1){left:14px;width:72px;height:36px;box-shadow:18px -16px 0 -12px #222d37;}
-  .mapart.blacksire i:nth-child(2){right:14px;width:66px;height:43px;box-shadow:-17px -20px 0 -15px #222d37;}
-  .mapart.blacksire b{position:absolute;left:50%;bottom:0;margin-left:-19px;width:38px;height:30px;background:#090c11;border:2px solid #653039;}
-  .mapart.blacksire u{position:absolute;left:50%;top:7px;margin-left:-2px;width:4px;height:43px;background:#8797a6;box-shadow:0 0 8px #bddef5;}
-  .mapart.laststop{background:linear-gradient(180deg,#0b1117 0%,#243342 53%,#11161b 54%,#080a0c 100%);}
-  .mapart.laststop i{position:absolute;bottom:13px;background:#55575a;border-top:2px solid #a48142;}
-  .mapart.laststop i:nth-child(1){left:12px;width:112px;height:43px;box-shadow:0 -13px 0 -7px #77736b;}
-  .mapart.laststop i:nth-child(2){right:13px;width:79px;height:31px;background:#472027;}
-  .mapart.laststop b{position:absolute;left:50%;bottom:10px;margin-left:-25px;width:50px;height:18px;background:#151a1e;border:2px solid #b58e43;}
-  .mapart.laststop u{position:absolute;left:14px;right:14px;bottom:7px;height:3px;background:#59616a;box-shadow:0 -8px 0 #2a3036;}
+  .mapart{height:152px;position:relative;overflow:hidden;background:#10141f;}
+  .mapart img{width:100%;height:100%;object-fit:cover;display:block;}
   .best{font-size:11px;letter-spacing:.22em;opacity:.5;text-transform:uppercase;margin-top:14px;}
   .best b{color:var(--amber);}
   h2.sec{font-size:22px;letter-spacing:.30em;text-transform:uppercase;margin-bottom:4px;}
@@ -434,27 +410,32 @@
 <div class="screen gone" id="mapsel">
   <div class="card">
     <h2 class="sec">Choose a map</h2>
-    <div class="sub">Four very different problems</div>
+    <div class="sub">Five very different problems</div>
     <div class="maps">
       <div class="mapcard" data-act="map:town">
-        <div class="mapart town"><i></i><i></i><i></i><b></b></div>
+        <div class="mapart"><img src="/images/maps/town.jpg" alt="" loading="lazy"></div>
         <h4>Town <em>Night</em></h4>
         <p>A burning fountain in a dead crossroads. Five buildings, a bank vault, a church tower, and a bar with an upstairs balcony you can reach by jump pad.</p>
       </div>
-      <div class="mapcard" data-act="map:nuketown">
-        <div class="mapart nuke"><i></i><i></i><b></b><u></u></div>
-        <h4>Nuketown <em>Daylight</em></h4>
-        <p>Trinity Ave, in a bomb test range. Two two-storey houses either side, a school bus and a moving van parked in the middle of the road as cover, three ways up to each bedroom, alleys behind the garages, back yard gardens and a lot of mannequins.</p>
+      <div class="mapcard" data-act="map:wayside">
+        <div class="mapart"><img src="/images/maps/wayside.jpg" alt="" loading="lazy"></div>
+        <h4>Wayside <em>Night</em></h4>
+        <p>An isolated highway gas station, dead of night. A lit fuel canopy over the pump island, a convenience store and diner facing off across the apron, a garage bay hiding Pack-a-Punch, and a fenced motel row out back.</p>
       </div>
       <div class="mapcard" data-act="map:blacksire">
-        <div class="mapart blacksire"><i></i><i></i><b></b><u></u></div>
+        <div class="mapart"><img src="/images/maps/blacksire.jpg" alt="" loading="lazy"></div>
         <h4>Blacksire <em>Storm</em></h4>
         <p>A classified military research compound split between a rain-lashed checkpoint and the containment lab below. Loop through barracks, garage, communications, generator rooms, test cells, and a lockdown zone that gets meaner every fourth round.</p>
       </div>
       <div class="mapcard" data-act="map:laststop">
-        <div class="mapart laststop"><i></i><i></i><b></b><u></u></div>
+        <div class="mapart"><img src="/images/maps/laststop.jpg" alt="" loading="lazy"></div>
         <h4>Last Stop <em>Rain</em></h4>
         <p>A ruined central railway terminal with paid doors, two power circuits, detailed platforms and trains, a maintenance yard, service tunnels, and Pack-a-Punch sealed inside the armored rail vault.</p>
+      </div>
+      <div class="mapcard" data-act="map:crossroads">
+        <div class="mapart"><img src="/images/maps/crossroads.jpg" alt="" loading="lazy"></div>
+        <h4>Crossroads <em>Daylight</em></h4>
+        <p>An abandoned city block under a clear sky. A gas station and a church face off across the intersection, a columned civic building anchors a wrecked-car parking lot, and apartment towers box the street in on every side.</p>
       </div>
     </div>
     <div class="btn" data-act="back">Back</div>
@@ -1950,7 +1931,7 @@ function testTower(x,z){
   g.position.set(x,0,z); worldRoot.add(g);
 }
 
-/* ---------- Nuketown vehicles ---------- */
+/* ---------- large vehicle props ---------- */
 function schoolBus(x,z,rot){
   const R=rot||0,g=new THREE.Group(),box=new THREE.BoxGeometry(1,1,1);
   const bodyGeo=mergeGeos([
@@ -2303,75 +2284,6 @@ function streetSign(x,z,rot,top,bottom){
     p.position.set(x,y,z); p.rotation.y=r; worldRoot.add(p);
   }
 }
-/* the clock in the middle of the map, as in Nuketown Zombies */
-let nukeClock=null;
-function clockPost(x,z){
-  cyl(0.10,0.13,4.2,x,2.1,z,M.dark,true);
-  const cv=document.createElement('canvas'); cv.width=128; cv.height=128;
-  const ctx=cv.getContext('2d');
-  const t=new THREE.CanvasTexture(cv); t.colorSpace=THREE.SRGBColorSpace;
-  for(const r of [0,Math.PI]){
-    const f=new THREE.Mesh(new THREE.CircleGeometry(0.52,20),new THREE.MeshBasicMaterial({map:t}));
-    f.position.set(x,4.5,z+(r?-0.09:0.09)); f.rotation.y=r; worldRoot.add(f);
-  }
-  const rim=new THREE.Mesh(new THREE.CylinderGeometry(0.58,0.58,0.2,20),M.metal);
-  rim.rotation.x=Math.PI/2; rim.position.set(x,4.5,z); worldRoot.add(rim); blockers.push(rim);
-  nukeClock={ctx,tex:t,last:-1};
-  drawNukeClock(0);
-}
-function drawNukeClock(round){
-  if(!nukeClock) return;
-  const c=nukeClock.ctx, S=128, R=S/2;
-  c.fillStyle='#e8e2cc'; c.beginPath(); c.arc(R,R,R-3,0,6.3); c.fill();
-  c.strokeStyle='#2b2a26'; c.lineWidth=3; c.beginPath(); c.arc(R,R,R-5,0,6.3); c.stroke();
-  for(let i=0;i<12;i++){
-    const a=i/12*6.283-Math.PI/2;
-    c.strokeStyle='#2b2a26'; c.lineWidth=i%3?2:4;
-    c.beginPath(); c.moveTo(R+Math.cos(a)*(R-12),R+Math.sin(a)*(R-12));
-    c.lineTo(R+Math.cos(a)*(R-20),R+Math.sin(a)*(R-20)); c.stroke();
-  }
-  const a=(round%12)/12*6.283-Math.PI/2;
-  c.strokeStyle='#8a2f22'; c.lineWidth=5; c.lineCap='round';
-  c.beginPath(); c.moveTo(R,R); c.lineTo(R+Math.cos(a)*(R-26),R+Math.sin(a)*(R-26)); c.stroke();
-  c.fillStyle='#2b2a26'; c.beginPath(); c.arc(R,R,5,0,6.3); c.fill();
-  nukeClock.tex.needsUpdate=true;
-}
-/* the Welcome sign carries a live headcount, like the original's population counter */
-let nukeSign=null;
-function welcomeSign(x,z,rot){
-  const g=new THREE.Group();
-  for(const sx of [-2.6,2.6]) {
-    const p=new THREE.Mesh(new THREE.BoxGeometry(0.22,4.4,0.22),M.plank);
-    p.position.set(sx,2.2,0); g.add(p); blockers.push(p);
-  }
-  const cv=document.createElement('canvas'); cv.width=384; cv.height=192;
-  const ctx=cv.getContext('2d');
-  const texS=new THREE.CanvasTexture(cv); texS.colorSpace=THREE.SRGBColorSpace;
-  const board=new THREE.Mesh(new THREE.BoxGeometry(5.6,2.8,0.16),new THREE.MeshBasicMaterial({map:texS}));
-  board.position.y=3.0; g.add(board); blockers.push(board);
-  const back=new THREE.Mesh(new THREE.BoxGeometry(5.6,2.8,0.12),phong({color:0x8a8064}));
-  back.position.set(0,3.0,-0.1); g.add(back);
-  g.position.set(x,0,z); g.rotation.y=rot||0; worldRoot.add(g);
-  addCollider(x-2.8,x+2.8,z-0.4,z+0.4,4.4);
-  nukeSign={ctx,tex:texS,last:-1};
-  drawNukeSign(0);
-}
-function drawNukeSign(n){
-  if(!nukeSign) return;
-  const c=nukeSign.ctx, W=384, H=192;
-  c.fillStyle='#e6dcc0'; c.fillRect(0,0,W,H);
-  c.strokeStyle='#8a2f22'; c.lineWidth=8; c.strokeRect(10,10,W-20,H-20);
-  c.fillStyle='#8a2f22'; c.font='bold 34px Arial'; c.textAlign='center';
-  c.fillText('WELCOME TO',W/2,54);
-  c.fillStyle='#233a5c'; c.font='bold 52px Arial';
-  c.fillText('NUKETOWN',W/2,104);
-  c.fillStyle='#3a3a34'; c.font='bold 20px Arial';
-  c.fillText('POPULATION',W/2,140);
-  c.fillStyle='#1a1a18'; c.fillRect(W/2-52,148,104,32);
-  c.fillStyle='#e8c14a'; c.font='bold 26px Arial';
-  c.fillText(String(n).padStart(2,'0'),W/2,172);
-  nukeSign.tex.needsUpdate=true;
-}
 /* mannequins move between games, as they do in the original */
 let mannequins=[], mannSpots=[];
 function placeMannequins(){
@@ -2385,253 +2297,575 @@ function placeMannequins(){
   }
 }
 
-/* ============ NUKETOWN ============
-   Rebuilt from reference: a cul-de-sac closed at one end by the Welcome sign and
-   the clock tower, two two-storey houses facing each other across it, carports
-   rather than closed garages, and a rear deck under a lattice pergola reached by
-   a straight outside stair. Both large vehicles sit in the turning circle. */
-function buildNuketown(){
-  BND=34;
-  scene.background=new THREE.Color(0xa8c6de);
-  scene.fog=new THREE.Fog(0xc6d6e2,55,220); mapFog={near:55,far:220};
-  torch.intensity=0.20;
-  SPAWN_AT.set(-26,0,0); SPAWN_YAW=-Math.PI/2;
-  SPAWNS=[[-30,-8],[-30,8],[30,8],[30,-8],[-28,12],[28,-12],
-    [0,-20],[-14,-18],[14,18],[0,17],[-31,0],[31,0]];
-  BOX_SPOTS=[[-14.5,2.5],[14.5,-2.5],[0,-8],[-27,-6],[27,6]];
-  mannequins=[]; nukeSign=null; nukeClock=null;
-  mannSpots=[[-9.4,-4],[9.4,4],[-9.4,3],[9.4,-3],[-4.5,10],[4.5,-10],
-    [-2.5,-16],[2.5,16],[-13,-10],[13,10],[-18,10],[18,-10],
-    [-26,4],[26,-4],[-28,-8],[28,8],[-7,14],[7,-14],[0,16],[-19,-11]];
+function buildWayside(){
+  BND=32;
+  scene.background=new THREE.Color(0x05060a);
+  scene.fog=new THREE.Fog(0x05060a,15,80); mapFog={near:15,far:80};
+  torch.intensity=1.05;
+  SPAWN_AT.set(0,0,-27); SPAWN_YAW=0;
+  SPAWNS=[[-30,-18],[30,-18],[-30,2],[30,2],[-28,20],[28,20],[0,29],
+    [-16,27],[16,27],[-12,-29],[12,-29],[0,-31]];
+  BOX_SPOTS=[[-17,-1],[17,-1],[0,-4],[-17,15],[16,15]];
 
-  worldRoot.add(new THREE.HemisphereLight(0xc0dbf8,0x8d8164,0.95));
-  const sun=new THREE.DirectionalLight(0xfff2d6,1.15); sun.position.set(38,58,-28); worldRoot.add(sun);
-  sunShadow(sun,55);
-  const fill=new THREE.DirectionalLight(0xa0b8d6,0.30); fill.position.set(-34,22,32); worldRoot.add(fill);
+  worldRoot.add(new THREE.HemisphereLight(0x1c2436,0x0a0906,0.55));
+  const moon=new THREE.DirectionalLight(0x93aade,0.42); moon.position.set(-34,52,-22); worldRoot.add(moon);
+  sunShadow(moon,50);
 
-  /* ---- ground: straight run of road opening into the turning circle ---- */
-  const dirt=new THREE.Mesh(new THREE.PlaneGeometry(360,360),M.dirt);
-  dirt.receiveShadow=true;
-  dirt.rotation.x=-Math.PI/2; worldRoot.add(dirt); blockers.push(dirt);
+  /* ---- ground: paved apron with a road strip running in from the south ---- */
+  const dirt=new THREE.Mesh(new THREE.PlaneGeometry(300,300),M.dirt);
+  dirt.receiveShadow=true; dirt.rotation.x=-Math.PI/2; worldRoot.add(dirt); blockers.push(dirt);
+  const asphalt=phong({map:T.asphalt});
+  quad(-BND,-BND,BND,BND,0.02,asphalt);
   const road=phong({map:T.roadDay});
-  quad(-6.5,-24,6.5,13,0.03,road);
-  const circle=new THREE.Mesh(new THREE.CircleGeometry(9.6,36),road);
-  circle.rotation.x=-Math.PI/2; circle.position.set(0,0.03,13); worldRoot.add(circle); blockers.push(circle);
-  const kerb=new THREE.Mesh(new THREE.RingGeometry(9.6,10.8,36),M.concrete);
-  kerb.rotation.x=-Math.PI/2; kerb.position.set(0,0.05,13); worldRoot.add(kerb); blockers.push(kerb);
-  quad(-8,-24,-6.5,13,0.05,M.concrete); quad(6.5,-24,8,13,0.05,M.concrete);
-  quad(-11,-11,-8,9,0.02,M.lawn); quad(8,-9,11,11,0.02,M.lawn);
-  quad(-33,-13,-21,13,0.02,M.lawn); quad(21,-13,33,13,0.02,M.lawn);
-  quad(-15,7.5,-6.5,12.5,0.04,M.concrete); quad(6.5,-12.5,15,-7.5,0.04,M.concrete);
-  quad(-11,-6,-8,-2,0.04,M.concrete); quad(8,2,11,6,0.04,M.concrete);
-  for(let z=-22;z<4;z+=4.4){
+  quad(-5,-BND,5,-14,0.03,road);
+  for(let z=-BND+2;z<-15;z+=4.4){
     const l=new THREE.Mesh(new THREE.PlaneGeometry(0.18,2.2),new THREE.MeshBasicMaterial({color:0xd2c476}));
     l.rotation.x=-Math.PI/2; l.position.set(0,0.06,z); worldRoot.add(l);
   }
 
-  /* ---- one house, built twice, second rotated 180 degrees ---- */
-  function nkHouse(m,mat,upper){
-    const T=v=>m*v;
-    const rr=(a,b)=>[Math.min(T(a),T(b)),Math.max(T(a),T(b))];
-    const H=3.1, F2=3.4, HU=2.9, TOP=F2+HU;
-    const [hx1,hx2]=rr(-21,-11), [hz1,hz2]=rr(-9,7);
-    const fx=T(-11), bkx=T(-21);
-
-    /* ground floor: living room off the front door, kitchen at the rear */
-    wallRun(fx,hz1,fx,hz2,H,mat,[{c:T(-4),w:2.4},{c:T(2),w:2.4,sill:1.0}]);
-    wallRun(bkx,hz1,bkx,hz2,H,mat,[{c:T(-1),w:2.3},{c:T(4),w:2.0,sill:1.0}]);
-    const [sx1,sx2]=rr(-21,-11);
-    wallRun(sx1,T(-9),sx2,T(-9),H,mat,[{c:T(-16),w:2.0,sill:1.0}]);
-    wallRun(sx1,T(7),sx2,T(7),H,mat,[{c:T(-18),w:2.2},{c:T(-13),w:2.0,sill:1.0}]);
-    floorSlab(hx1+0.2,hz1+0.2,hx2-0.2,hz2-0.2,0.06,M.plank);
-    wallRun(T(-16.5),hz1+0.2,T(-16.5),hz2-0.2,H,M.sidingW,[{c:T(1),w:2.2}]);
-    roomLight(T(-13.5),2.9,T(-1),0xfff4dc,0.6,15);
-    roomLight(T(-18.5),2.9,T(2),0xfff4dc,0.5,14);
-
-    /* interior stairs: enclosed straight flight, landing at the top */
-    const [stx1,stx2]=rr(-15.4,-12.8), [stz1,stz2]=rr(-8.6,-3.6);
-    staircase(stx1,stx2,stz1,stz2,0.08,F2,M.plank,T(-12.7),
-      [[T(-12.4),T(-4)],[T(-19.6),T(-1)]],
-      [Math.min(T(-21.2),T(-10.8)),Math.min(T(-9.2),T(7.2)),Math.max(T(-21.2),T(-10.8)),Math.max(T(-9.2),T(7.2))],
-      m<0);
-    const [swz1,swz2]=rr(-8.8,-3.4);
-    wallRun(T(-15.6),swz1,T(-15.6),swz2,H,M.sidingW,[],0);   // wall enclosing the stair
-    const [f2x1,f2x2]=rr(-21,-11), [f2z1,f2z2]=rr(-3.9,7);
-    floorSlab(f2x1+0.2,f2z1,f2x2-0.2,f2z2-0.2,F2,M.plank);
-    const [g2x1,g2x2]=rr(-21,-15.8), [g2z1,g2z2]=rr(-9,-3.9);
-    floorSlab(g2x1+0.2,g2z1+0.2,g2x2,g2z2,F2,M.plank);
-    const [rlz1,rlz2]=rr(-9.1,-3.8);
-    addCollider(Math.min(T(-15.95),T(-15.65)),Math.max(T(-15.95),T(-15.65)),rlz1,rlz2,F2+1.1,F2);
-    for(let i=0;i<7;i++){
-      const p=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.95,0.09),M.plank);
-      p.position.set(T(-15.8),F2+0.48,lerp(rlz1+0.3,rlz2-0.3,i/6)); worldRoot.add(p); blockers.push(p);
-    }
-    /* upper floor: bedroom over the cul-de-sac, study at the rear */
-    wallRun(fx,hz1,fx,hz2,HU,upper,[{c:T(1),w:3.0,sill:0.5,boards:false},{c:T(-6),w:1.9,sill:0.9,boards:false}],F2);
-    wallRun(bkx,hz1,bkx,hz2,HU,upper,[{c:T(-1),w:2.2},{c:T(4),w:1.9,sill:0.9,boards:false}],F2);
-    wallRun(sx1,T(-9),sx2,T(-9),HU,upper,[{c:T(-18),w:1.9,sill:0.9,boards:false}],F2);
-    wallRun(sx1,T(7),sx2,T(7),HU,upper,[{c:T(-14),w:1.9,sill:0.9,boards:false}],F2);
-    wallRun(T(-16.5),T(-3.9),T(-16.5),hz2-0.2,HU,M.sidingW,[{c:T(2),w:2.2}],F2);
-    roomLight(T(-13.5),F2+2.5,T(2),0xfff4dc,0.5,14);
-    roomLight(T(-18.5),F2+2.5,T(2),0xfff4dc,0.45,13);
-    gable(hx1,hz1,hx2,hz2,TOP,1.6,M.shingle);
-
-    /* rear deck under a lattice pergola, straight stair down to the lawn */
-    const [dkx1,dkx2]=rr(-23.8,-21), [dkz1,dkz2]=rr(-5,3);
-    quad(dkx1,dkz1,dkx2,dkz2,F2,M.plank); addPlatform(dkx1,dkx2,dkz1,dkz2,F2);
-    const deck=new THREE.Mesh(new THREE.BoxGeometry(dkx2-dkx1,0.16,dkz2-dkz1),M.plank);
-    deck.position.set((dkx1+dkx2)/2,F2-0.09,(dkz1+dkz2)/2); worldRoot.add(deck); blockers.push(deck);
-    for(const px of [dkx1+0.12,dkx2-0.12]){
-      const p=new THREE.Mesh(new THREE.BoxGeometry(0.16,F2,0.16),M.plank);
-      p.position.set(px,F2/2,dkz1+0.2); worldRoot.add(p); blockers.push(p);
-      const q=new THREE.Mesh(new THREE.BoxGeometry(0.16,F2,0.16),M.plank);
-      q.position.set(px,F2/2,dkz2-0.2); worldRoot.add(q); blockers.push(q);
-    }
-    for(let i=0;i<10;i++){
-      const p=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.95,0.09),M.plank);
-      p.position.set(T(-23.7),F2+0.5,lerp(dkz1+0.2,dkz2-0.2,i/9)); worldRoot.add(p); blockers.push(p);
-    }
-    const drail=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,dkz2-dkz1),M.plank);
-    drail.position.set(T(-23.7),F2+1.0,(dkz1+dkz2)/2); worldRoot.add(drail); blockers.push(drail);
-    pergola(dkx1,dkz1,dkx2,dkz2,F2);
-    const [exx1,exx2]=rr(-23.6,-21.8), [exz1,exz2]=rr(-10.6,-5.2);
-    staircase(exx1,exx2,exz1,exz2,0.06,F2,M.plank,T(-23.5),
-      [[T(-24.6),T(-9)],[T(-24.6),T(-9)]],
-      [Math.min(T(-33),T(-21)),Math.min(T(-13),T(13)),Math.max(T(-33),T(-21)),Math.max(T(-13),T(13))],
-      m<0);
-
-    /* garage behind a carport */
-    const [gx1,gx2]=rr(-21,-15), [gz1,gz2]=rr(9.4,15);
-    wallRun(T(-15),gz1,T(-15),gz2,2.9,M.sidingW,[{c:T(12.2),w:3.8,head:2.7}]);
-    wallRun(bkx,gz1,bkx,gz2,2.9,M.sidingW,[{c:T(12.6),w:2.1}]);
-    wallRun(gx1,T(15),gx2,T(15),2.9,M.sidingW,[{c:T(-18),w:1.9,sill:1.05}]);
-    wallRun(gx1,T(9.4),gx2,T(9.4),2.9,M.sidingW,[{c:T(-18),w:2.4}]);   // gap side, open to the passage
-    gable(gx1,gz1,gx2,gz2,2.9,0.9,M.shingle);
-    floorSlab(gx1+0.2,gz1+0.2,gx2-0.2,gz2-0.2,0.06,M.concrete);
-    roomLight(T(-18),2.4,T(12.2),0xffe8c0,0.5,12);
-    quad(Math.min(T(-21),T(-15)),Math.min(T(7),T(9.4)),Math.max(T(-21),T(-15)),Math.max(T(7),T(9.4)),0.04,M.concrete);
-    carport(T(-11.7),T(11.6),6.6,5.2,0);
-    car(T(-11.6),T(11.8),Math.PI/2,m>0?0x6a7a58:0x8a9aa4);
-    // full height stone chimney on the street corner, as on both houses
-    bx(1.5,TOP+2.4,1.5,T(-11.9),(TOP+2.4)/2,T(-8.2),M.stone);
-    bx(1.7,0.4,1.7,T(-11.9),TOP+2.5,T(-8.2),M.concrete,false);
-
-    /* stone feature wall and patio by the front door */
-    bx(0.5,2.6,4.0,T(-10.6),1.3,T(4.6),M.stone);
-    bx(1.1,0.9,0.7,T(-9.6),0.45,T(1.6),M.metal);      // barbecue
-    mailbox(T(-8.6),T(-6.6),m>0?13:11,m>0?'MASON':'WOODS');
-
-    /* narrow side alley, street to back garden through a picket gate */
-    quad(Math.min(T(-22),T(-8.4)),Math.min(T(-12.6),T(-9.4)),
-         Math.max(T(-22),T(-8.4)),Math.max(T(-12.6),T(-9.4)),0.02,M.dirt);
-    picket(Math.min(T(-22),T(-11.8)),Math.min(T(-12.8),T(-12.8)),
-           Math.max(T(-22),T(-11.8)),Math.max(T(-12.8),T(-12.8)));
-    picket(Math.min(T(-10.2),T(-8.2)),Math.min(T(-12.8),T(-12.8)),
-           Math.max(T(-10.2),T(-8.2)),Math.max(T(-12.8),T(-12.8)));
-    for(let i=0;i<3;i++) hedge(T(-13.5-i*3.0),T(-9.9),1.8,0.7);
-    bx(1.5,0.1,0.1,T(-17),0.55,T(-11.5),M.plank,false);
-    bx(0.1,0.55,0.1,T(-17.6),0.28,T(-11.5),M.plank,false);
-    bx(0.1,0.55,0.1,T(-16.4),0.28,T(-11.5),M.plank,false);
-    bx(2.4,0.7,0.6,T(-9.9),0.35,T(-6.4),M.concrete);
-
-    /* furniture */
-    bx(0.95,0.70,2.2,T(-12.2),0.41,T(0.6),phong({color:m>0?0x5f6a4a:0x6a4a3a}));
-    bx(0.32,0.55,2.2,T(-11.7),0.78,T(0.6),phong({color:m>0?0x5f6a4a:0x6a4a3a}),false);
-    bx(1.0,0.40,0.9,T(-13.6),0.26,T(0.6),M.wood);
-    bx(0.28,0.85,1.4,T(-15.2),0.79,T(3.4),M.dark);
-    bx(0.8,0.92,2.4,T(-20.3),0.52,T(3.2),M.trim);
-    bx(0.9,1.85,0.9,T(-20.2),0.99,T(5.6),phong({color:0xd2d6da}));
-    bx(1.5,0.75,1.1,T(-18.4),0.38,T(4.6),M.wood);
-    if(m<0){
-      bx(1.7,0.42,1.4,T(-13.0),F2+0.34,T(5.0),phong({color:0x4a4f5c}));
-      bx(1.7,0.42,1.4,T(-13.0),F2+1.36,T(5.0),phong({color:0x4a4f5c}),false);
-      for(const dz of [-0.62,0.62]) for(const dx of [-0.78,0.78])
-        bx(0.09,1.75,0.09,T(-13.0+dx),F2+0.88,T(5.0+dz),M.plank,false);
-    } else {
-      bx(1.7,0.50,1.5,T(-13.0),F2+0.31,T(5.0),phong({color:0x4a4f5c}));
-      bx(1.7,0.70,0.18,T(-13.0),F2+0.60,T(5.9),M.wood,false);
-    }
-    bx(1.3,0.75,0.7,T(-19.6),F2+0.38,T(5.4),M.wood);
-    if(m<0){
-      bx(0.5,3.0,3.0,T(-16.2),1.5,T(-5.2),M.concrete);        // stone chimney breast
-      bx(0.34,1.05,1.5,T(-15.9),0.53,T(-5.2),M.dark,false);   // hearth
-      bx(0.26,1.9,2.4,T(-20.5),F2+0.95,T(-1.0),M.trim);       // shelving unit upstairs
-    } else {
-      bx(0.28,0.95,4.2,T(-15.75),0.48,T(-6.0),M.metal,false); // open stair rail
-    }
-
-    /* back garden */
-    gazebo(T(-27),T(5),m>0?0.2:Math.PI+0.2);
-    trellis(T(-29.5),T(-2),m>0?1.57:-1.57);
-    trellis(T(-31),T(1.6),m>0?1.57:-1.57);
-    if(m>0) falloutShelter(-31,9,0.15); else { shed(27.6,-9.6,Math.PI-0.3,true); swingSet(29,3,1.6); }
-    picket(Math.min(T(-33),T(-33)),Math.min(T(-13),T(13)),Math.max(T(-33),T(-33)),Math.max(T(-13),T(13)));
-    picket(Math.min(T(-33),T(-21)),Math.min(T(-13),T(-13)),Math.max(T(-33),T(-21)),Math.max(T(-13),T(-13)));
-    picket(Math.min(T(-33),T(-21)),Math.min(T(13),T(13)),Math.max(T(-33),T(-21)),Math.max(T(13),T(13)));
-
+  /* ---- fuel canopy over a central pump island ---- */
+  const canX1=-5.5,canX2=5.5,canZ1=-9,canZ2=1;
+  for(const [cx,cz] of [[canX1+0.7,canZ1+0.7],[canX2-0.7,canZ1+0.7],[canX1+0.7,canZ2-0.7],[canX2-0.7,canZ2-0.7]]){
+    cyl(0.3,0.34,4.3,cx,2.15,cz,M.metal,true);
   }
-  nkHouse(1,M.sidingT,M.upperGrey);    // green house, number 13
-  nkHouse(-1,M.sidingY,M.upperCream);  // yellow house, number 11
-
-  /* ---- the turning circle: both vehicles, angled ---- */
-  schoolBus(3.3,8.8,-0.15);
-  movingTruck(-3.2,5.4,0);
-  movingClutter(-9.2,1.4);
-  jeep(6.4,3.2,0.9);
-  jeep(-1.0,-17.4,0.15);
-  car(7.6,-3.0,1.45,0x9aa4ad);
-  clockPost(0,20.4);
-  welcomeSign(0,17.6,0);
-  streetSign(7.6,-6.0,0,'Trinity Ave','Elm St');
-  for(const s of [-1,1]){
-    const p=new THREE.Mesh(new THREE.BoxGeometry(1.0,1.9,1.0),M.concrete);
-    p.position.set(s*4.2,0.95,16.6); worldRoot.add(p); blockers.push(p);
-    addCollider(s*4.2-0.6,s*4.2+0.6,16.0,17.2,2.1);
-    const ball=new THREE.Mesh(new THREE.SphereGeometry(0.44,12,10),M.concrete);
-    ball.position.set(s*4.2,2.14,16.6); worldRoot.add(ball);
+  roofSlab(canX1,canZ1,canX2,canZ2,4.3);
+  bx(1.3,0.3,7.6,0,0.15,(canZ1+canZ2)/2,M.concrete);
+  for(const pz of [canZ1+2.4,canZ2-2.4]){
+    bx(0.9,1.2,0.55,0,0.75,pz,M.metal);
+    roomLight(0,2.6,pz,0xfff0c0,0.55,9);
+    for(const side of [-1,1]){
+      const hose=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.9,6),M.dark);
+      hose.rotation.z=Math.PI/2.4*side; hose.position.set(side*0.55,0.9,pz); worldRoot.add(hose);
+    }
   }
-  for(const [lx,lz] of [[-8.6,10],[8.6,10],[-8.6,-2],[8.6,-2],[-8.6,-14],[8.6,-14]]){
-    cyl(0.09,0.11,3.6,lx,1.8,lz,M.dark,true);
-    const lantern=new THREE.Mesh(new THREE.CylinderGeometry(0.20,0.26,0.42,8),
-      phong({color:0xe8e2cc,emissive:0x5a4420,emissiveIntensity:0.8}));
-    lantern.position.set(lx,3.78,lz); worldRoot.add(lantern);
-    const cap=new THREE.Mesh(new THREE.ConeGeometry(0.30,0.22,8),M.dark);
-    cap.position.set(lx,4.08,lz); worldRoot.add(cap);
-    const knob=new THREE.Mesh(new THREE.SphereGeometry(0.08,8,6),M.dark);
-    knob.position.set(lx,4.24,lz); worldRoot.add(knob);
-  }
-  sandbags(-3.6,-22.4,0.1,5); sandbags(3.6,-22.4,0.1,5);
-  for(let i=0;i<20;i++) mannequins.push(mannequin(0,0,0,randi(0,2)));
-  placeMannequins();
-  testTower(16,-80); testTower(-40,-96);
 
-  chain(-BND,-BND,-8,-BND); chain(8,-BND,BND,-BND);
-  chain(-BND,BND,BND,BND);
-  chain(-BND,-BND,-BND,BND); chain(BND,-BND,BND,BND);
+  /* ---- convenience store (west), facing the canopy ---- */
+  (function store(){
+    const x1=-24,x2=-10,z1=-8,z2=6,h=5.0;
+    wallRun(x1,z1,x2,z1,h,M.brick,[{c:-17,w:2.4,sill:1.0}]);
+    wallRun(x1,z2,x2,z2,h,M.brick,[{c:-17,w:2.6,sill:1.0}]);
+    wallRun(x1,z1,x1,z2,h,M.brick,[{c:0,w:2.2,sill:1.0}]);
+    wallRun(x2,z1,x2,z2,h,M.brick,[{c:-3,w:3.2},{c:2,w:2.4,sill:1.0}]);
+    roofSlab(x1,z1,x2,z2,h);
+    floorSlab(x1+0.2,z1+0.2,x2-0.2,z2-0.2,0.04,M.tile);
+    bx(9,1.05,0.9,-17,0.55,3.0,M.concrete);
+    for(let i=0;i<3;i++) bx(0.7,2.0,4.6,-22+i*3.0,1.0,-4.4,M.plank);
+    roomLight(-17,3.6,-1,0xffe8c0,0.85,20);
+    signBoard('Fuel Mart',-9.6,5.0,-1,Math.PI/2,7);
+  })();
+
+  /* ---- diner (east), mirrors the store ---- */
+  (function diner(){
+    const x1=10,x2=24,z1=-8,z2=6,h=5.0;
+    wallRun(x1,z1,x2,z1,h,M.side,[{c:17,w:2.4,sill:1.0}]);
+    wallRun(x1,z2,x2,z2,h,M.side,[{c:17,w:2.6,sill:1.0}]);
+    wallRun(x1,z1,x1,z2,h,M.side,[{c:-3,w:3.2},{c:2,w:2.4,sill:1.0}]);
+    wallRun(x2,z1,x2,z2,h,M.side,[{c:0,w:2.2,sill:1.0}]);
+    roofSlab(x1,z1,x2,z2,h);
+    floorSlab(x1+0.2,z1+0.2,x2-0.2,z2-0.2,0.04,M.plank);
+    bx(9,1.05,0.9,17,0.55,3.0,M.concrete);
+    for(let i=0;i<3;i++) bx(1.6,0.75,2.2,12.4,0.4,-5.4+i*3.6,M.rust);
+    roomLight(17,3.6,-1,0xfff0c0,0.85,20);
+    signBoard('Diner',9.6,5.0,-1,-Math.PI/2,6);
+  })();
+
+  /* ---- garage bay (behind the store), open front, Pack-a-Punch inside ---- */
+  (function garage(){
+    const x1=-24,x2=-12,z1=10,z2=20,h=4.6;
+    wallRun(x1,z1,x2,z1,h,M.sidingW,[{c:-18,w:9.0,head:h}]);   // wide open front, faces the lot
+    wallRun(x1,z2,x2,z2,h,M.sidingW,[{c:-18,w:2.2,sill:1.0}]);
+    wallRun(x1,z1,x1,z2,h,M.sidingW,[]);
+    wallRun(x2,z1,x2,z2,h,M.sidingW,[{c:14,w:2.0,sill:1.0}]);
+    roofSlab(x1,z1,x2,z2,h);
+    floorSlab(x1+0.2,z1+0.2,x2-0.2,z2-0.2,0.04,M.concrete);
+    for(let i=0;i<3;i++) bx(0.7,1.7,3.2,-14.5,0.85,12.2+i*2.6,M.plank);
+    wreck(-22,13,0,0x5c5f66);
+    roomLight(-18,3.6,15,0xffe0a0,0.7,16);
+    signBoard('Garage',-24.7,4.6,15,Math.PI/2,6);
+  })();
+
+  /* ---- break room (behind the diner), mirrors the garage ---- */
+  (function breakRoom(){
+    const x1=12,x2=24,z1=10,z2=20,h=4.2;
+    wallRun(x1,z1,x2,z1,h,M.sidingT,[{c:18,w:2.6}]);
+    wallRun(x1,z2,x2,z2,h,M.sidingT,[{c:18,w:2.2,sill:1.0}]);
+    wallRun(x1,z1,x1,z2,h,M.sidingT,[{c:14,w:2.0,sill:1.0}]);
+    wallRun(x2,z1,x2,z2,h,M.sidingT,[]);
+    roofSlab(x1,z1,x2,z2,h);
+    floorSlab(x1+0.2,z1+0.2,x2-0.2,z2-0.2,0.04,M.plank);
+    bx(2.2,0.75,1.0,18,0.4,17.6,M.wood);
+    crate(15,12.6,0.85,0.4); crate(21,12.6,0.85,-0.3);
+    roomLight(18,3.4,15,0xffe8c0,0.7,15);
+  })();
+
+  /* ---- motel row along the back fence, decorative ---- */
+  for(let i=0;i<5;i++){
+    const mx=-16+i*8;
+    bx(3.2,2.5,3.0,mx,1.25,26,M.stucco);
+    bx(0.9,1.9,0.08,mx,0.95,24.55,phong({color:0x2e3a4a}));
+    const win=new THREE.Mesh(new THREE.PlaneGeometry(0.9,0.9),new THREE.MeshBasicMaterial({
+      color:i%2?0xffcf8a:0x18202c}));
+    win.position.set(mx-0.9,1.5,24.51); worldRoot.add(win);
+    if(i%2) roomLight(mx,1.6,25.2,0xffcf8a,0.4,8);
+  }
+  bx(42,0.16,1.4,0,3.0,24.9,M.roof,false);
+  for(let i=0;i<6;i++) bx(0.12,3.0,0.12,-19+i*7.6,1.5,24.9,M.metal);
+
+  /* ---- perimeter ---- */
+  fenceRun(-BND,BND,BND,BND);
+  fenceRun(-BND,10,-BND,BND);
+  fenceRun(BND,10,BND,BND);
+  chain(-BND,-BND,-6,-BND); chain(6,-BND,BND,-BND);
+  chain(-BND,-BND,-BND,10); chain(BND,-BND,BND,10);
+
+  /* ---- entrance sign and scatter ---- */
+  for(const sx of [-3.2,3.2]){
+    const p=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.16,5.2,10),M.dark);
+    p.position.set(sx,2.6,-BND+3.5); worldRoot.add(p); blockers.push(p);
+    addCollider(sx-0.2,sx+0.2,-BND+3.3,-BND+3.7,5.2,0);
+  }
+  signBoard('Wayside Fuel',0,4.4,-BND+3.5,0,6.4);
+  pole(-BND+2,-2); pole(BND-2,6); pole(-BND+3,18); pole(BND-3,22);
+  car(-6,-19,0.3,0x6a7a58);
+  car(6,-22,-0.4,0x8a3a2e);
+  wreck(0,-BND+9,0.1,0x4a4640);
+  dumpster(-13.5,7.5,Math.PI/2); dumpster(21.5,8,-Math.PI/2);
+  trashcan(-11.5,-0.5); trashcan(19.5,-6.5);
+  crate(-8.5,-6.5,0.7); crate(-8.5,-4.5,0.55,0.6);
+  phoneBooth(9.2,-6.5,Math.PI/2);
+  rubble(6,-14,3); rubble(-16,20,2.4);
 
   /* ---- buys ---- */
-  addWallBuy('m14',-10.72,2.0,-7.4,Math.PI/2);
-  addWallBuy('ak74u',10.72,2.0,7.4,-Math.PI/2);
-  addWallBuy('mp5',-17.5,2.0,-8.72,0);
-  addWallBuy('galil',17.5,2.0,8.72,Math.PI);
-  addWallBuy('olympia',-20.72,1.9,10.0,Math.PI/2);
-  addWallBuy('rem870',20.72,1.9,-10.0,-Math.PI/2);
-  addAmmoBuy('m1911',-4.9,2.1,4.6,-Math.PI/2,250);
-  addAmmoBuy('m4a1',-13.0,2.0,6.72,Math.PI,400);
+  addWallBuy('m14',-10.72,2.0,-3,Math.PI/2);
+  addWallBuy('ak74u',10.72,2.0,2,-Math.PI/2);
+  addWallBuy('mp5',-24.72,2.0,-1,Math.PI/2);
+  addWallBuy('galil',24.72,2.0,-1,-Math.PI/2);
+  addWallBuy('olympia',-17,2.0,6.72,0);
+  addWallBuy('rem870',17,2.0,-8.72,Math.PI);
+  addAmmoBuy('m1911',-4.9,2.1,-6.3,0,250);
+  addAmmoBuy('m4a1',4.9,2.1,-6.3,Math.PI,400);
 
-  addPerkMachine('revive',-26.6,-6.0,0,-Math.PI/2);
-  addPerkMachine('jugg',19.2,2.2,0,Math.PI/2);
-  addPerkMachine('speed',-19.2,-2.2,0,-Math.PI/2);
-  addPerkMachine('dtap',-19.6,12.0,0,0);
-  addPerkMachine('stamin',-12.4,6.0,3.4,0);
-  addPerkMachine('mule',12.4,-6.0,3.4,Math.PI);
-  addPackAPunch(6.6,17.2,-Math.PI/2);               // edge of the turning circle
+  addPerkMachine('revive',0,-11.4,0,0);
+  addPerkMachine('jugg',22.6,2.2,0,-Math.PI/2);
+  addPerkMachine('speed',-22.6,2.2,0,Math.PI/2);
+  addPerkMachine('dtap',-14,19.4,0,Math.PI);
+  addPerkMachine('stamin',22,15,0,-Math.PI/2);
+  addPerkMachine('mule',-2,2,0,0);
+  addPackAPunch(-18,17.5,Math.PI/2);
+}
 
-  const n=280, g2=new THREE.BufferGeometry(), p2=new Float32Array(n*3);
-  for(let i=0;i<n;i++){ p2[i*3]=rand(-BND,BND); p2[i*3+1]=rand(0,16); p2[i*3+2]=rand(-BND,BND); }
-  g2.setAttribute('position',new THREE.BufferAttribute(p2,3));
-  const pts=new THREE.Points(g2,new THREE.PointsMaterial({color:0xf2e6ca,size:0.07,transparent:true,opacity:0.32}));
-  worldRoot.add(pts); window.__ash={pts,arr:p2,n};
+/* ---------- shared town-asset loader: sourced glTF pieces for Crossroads.
+   Cached per file so repeated instances (road tiles, cars, trees) reuse the
+   parsed template and only clone; collision is registered synchronously
+   from a known footprint so movement blocking exists immediately, the same
+   moment the async visual mesh is still in flight (mirrors loadSourcedWeapon's
+   box-based approach, just applied to static world props instead). ---------- */
+const TOWN_ASSET_PATH='/models/lowpoly-town/Models/';
+const townGltfLoader=new GLTFLoader();
+const townAssetCache={};
+function loadTownAssetTemplate(file){
+  if(!townAssetCache[file]){
+    townAssetCache[file]=new Promise((resolve,reject)=>{
+      townGltfLoader.load(TOWN_ASSET_PATH+file,gltf=>resolve(gltf.scene),undefined,reject);
+    });
+  }
+  return townAssetCache[file];
+}
+function placeTownAsset(file,x,z,rotY,opts){
+  opts=opts||{};
+  loadTownAssetTemplate(file).then(template=>{
+    const obj=template.clone(true);
+    obj.position.set(x,opts.y||0,z);
+    obj.rotation.y=rotY||0;
+    if(opts.scale)obj.scale.setScalar(opts.scale);
+    obj.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; blockers.push(o); } });
+    worldRoot.add(obj);
+  }).catch(err=>console.warn('town asset failed to load: '+file,err));
+  if(opts.collide){
+    const [w,d,top]=opts.collide;
+    addYawCollider(x,z,w,d,rotY||0,top===undefined?2.4:top,0,0.04);
+  }
+}
+
+function buildCrossroads(){
+  BND=44;
+  scene.background=new THREE.Color(0x9fc3e6);
+  scene.fog=new THREE.Fog(0xaecbe8,60,230); mapFog={near:60,far:230};
+  torch.intensity=0.16;
+  SPAWN_AT.set(-38,0,-10); SPAWN_YAW=-Math.PI/2;
+  SPAWNS=[[-13.6,-37.9],[14,-40],[-21,-37.7],[20,-36],[-36,-20],[38,-20],
+    [-36,0],[36,0],[-37.9,20.7],[40,20],[-20,36],[20,36]];
+  BOX_SPOTS=[[6,0],[-6,10],[-19,-6.3],[-6,26],[16,-14]];
+
+  worldRoot.add(new THREE.HemisphereLight(0xcfe0f4,0x9c8f70,0.9));
+  const sun=new THREE.DirectionalLight(0xfff2d8,1.25); sun.position.set(42,64,-26); worldRoot.add(sun);
+  sunShadow(sun,62);
+  const fill=new THREE.DirectionalLight(0xa8c0dc,0.30); fill.position.set(-32,22,32); worldRoot.add(fill);
+
+  /* ---- ground: a wide paved apron under the real road/curb pieces below ---- */
+  const dirt=new THREE.Mesh(new THREE.PlaneGeometry(400,400),M.dirt);
+  dirt.receiveShadow=true; dirt.rotation.x=-Math.PI/2; worldRoot.add(dirt); blockers.push(dirt);
+  quad(-BND,-BND,BND,BND,0.015,phong({color:0xb6ada0}));
+
+  /* ---- placed from the pack's own assembled demo scene: every position and
+     rotation below is the real authored transform (converted from Unity's
+     PrefabInstance data), not a guess - only decluttered of the densest
+     repeats (individual fence rails, overhead wire spans, skybox cards)
+     and recentered so the downtown cluster sits near the map origin. ---- */
+  // ATM x3
+  placeTownAsset('ATM.glb',11.31,-19.24,-Math.PI/2,{y:1.55});
+  placeTownAsset('ATM.glb',8.23,17.96,Math.PI,{y:1.53});
+  placeTownAsset('ATM.glb',16.94,6.17,0,{y:1.54});
+  // AmoBox_01 x6
+  placeTownAsset('AmoBox_01.glb',-32.25,23.63,-1.0772);
+  placeTownAsset('AmoBox_01.glb',17.86,-3.19,3.3087);
+  placeTownAsset('AmoBox_01.glb',16.82,-3.39,2.4834);
+  placeTownAsset('AmoBox_01.glb',16.59,-4.49,1.5356);
+  placeTownAsset('AmoBox_01.glb',-32.73,22.84,0);
+  placeTownAsset('AmoBox_01.glb',-33.93,22.83,-0.2059);
+  // AutoService_01 x1
+  placeTownAsset('AutoService_01.glb',19.16,1.76,-Math.PI/2,{collide:[8.93,7.11,3.9]});
+  // Bank_01 x3
+  placeTownAsset('Bank_01.glb',-29.45,-39.89,Math.PI,{collide:[11.98,11.98,3.9]});
+  placeTownAsset('Bank_01.glb',31.01,38.07,0,{collide:[11.98,11.98,3.9]});
+  placeTownAsset('Bank_01.glb',17.2,-24.17,0,{collide:[11.98,11.98,3.9]});
+  // Barrel_01 x12
+  placeTownAsset('Barrel_01.glb',-6.38,-9.4,0,{y:3.73});
+  placeTownAsset('Barrel_01.glb',-18.94,25.81,-1.6264,{y:3.31});
+  placeTownAsset('Barrel_01.glb',16.5,-5.96,0);
+  placeTownAsset('Barrel_01.glb',16.31,3.02,0,{y:5.23});
+  placeTownAsset('Barrel_01.glb',16.09,4.15,0,{y:5.41});
+  placeTownAsset('Barrel_01.glb',16.13,3.64,-1.4428,{y:5.23});
+  placeTownAsset('Barrel_01.glb',-18.71,26.77,0,{y:3.52});
+  placeTownAsset('Barrel_01.glb',-11.52,-15.9,0,{y:3.51});
+  placeTownAsset('Barrel_01.glb',7.35,38.36,0.9933);
+  placeTownAsset('Barrel_01.glb',9.69,10.19,0,{y:4.0});
+  placeTownAsset('Barrel_01.glb',3.61,-18.79,0);
+  placeTownAsset('Barrel_01.glb',-18.76,26.39,0,{y:3.31});
+  // Barrel_02 x5
+  placeTownAsset('Barrel_02.glb',9.6,9.17,0,{y:3.82});
+  placeTownAsset('Barrel_02.glb',-6.34,-10.0,0,{y:3.73});
+  placeTownAsset('Barrel_02.glb',16.51,-6.62,0);
+  placeTownAsset('Barrel_02.glb',-11.62,-15.61,0,{y:3.31});
+  placeTownAsset('Barrel_02.glb',8.12,36.99,0.9933);
+  // Barrier_01 x1
+  placeTownAsset('Barrier_01.glb',-11.38,16.8,-0.6431);
+  // Box_01 x10
+  placeTownAsset('Box_01.glb',-32.12,25.01,0,{y:0.93});
+  placeTownAsset('Box_01.glb',-16.62,-10.11,0,{y:4.38});
+  placeTownAsset('Box_01.glb',9.73,11.09,0,{y:4.47});
+  placeTownAsset('Box_01.glb',11.42,12.3,-0.3525,{y:0.57});
+  placeTownAsset('Box_01.glb',10.66,11.43,-2.5028,{y:0.57});
+  placeTownAsset('Box_01.glb',-24.77,28.13,-1.3179,{y:0.57});
+  placeTownAsset('Box_01.glb',-17.24,27.76,1.3103,{y:0.45});
+  placeTownAsset('Box_01.glb',-17.35,28.81,0,{y:0.45});
+  placeTownAsset('Box_01.glb',-12.6,36.05,-0.4943,{y:0.73});
+  placeTownAsset('Box_01.glb',-24.75,29.19,0,{y:0.57});
+  // Box_02 x10
+  placeTownAsset('Box_02.glb',12.98,17.76,-0.1839,{y:3.75});
+  placeTownAsset('Box_02.glb',0.31,9.63,-0.3757,{y:0.85});
+  placeTownAsset('Box_02.glb',-32.09,25.28,0,{y:0.39});
+  placeTownAsset('Box_02.glb',15.61,2.77,0,{y:0.57});
+  placeTownAsset('Box_02.glb',10.29,8.29,-0.5944,{y:4.47});
+  placeTownAsset('Box_02.glb',-32.11,24.66,-1.3999,{y:0.39});
+  placeTownAsset('Box_02.glb',11.06,11.93,0.6919,{y:1.48});
+  placeTownAsset('Box_02.glb',1.66,22.85,-1.9458,{y:1.27});
+  placeTownAsset('Box_02.glb',10.03,12.17,0.3729,{y:4.47});
+  placeTownAsset('Box_02.glb',1.66,22.85,-0.4928,{y:0.44});
+  // Box_03 x10
+  placeTownAsset('Box_03.glb',13.85,-8.14,3.1837,{y:0.46});
+  placeTownAsset('Box_03.glb',19.9,22.09,3.1837,{y:0.46});
+  placeTownAsset('Box_03.glb',12.84,-9.01,1.6178,{y:0.46});
+  placeTownAsset('Box_03.glb',-17.4,28.5,-2.9706,{y:1.35});
+  placeTownAsset('Box_03.glb',23.23,5.68,0,{y:0.6});
+  placeTownAsset('Box_03.glb',24.23,5.68,3.1837,{y:0.47});
+  placeTownAsset('Box_03.glb',18.9,21.21,1.6178,{y:0.46});
+  placeTownAsset('Box_03.glb',-15.08,-10.17,0,{y:4.37});
+  placeTownAsset('Box_03.glb',20.37,-3.16,0,{y:0.59});
+  placeTownAsset('Box_03.glb',15.69,4.39,0,{y:0.43});
+  // Church_01 x1
+  placeTownAsset('Church_01.glb',-18.38,9.67,Math.PI/2,{collide:[12.87,20.68,3.9]});
+  // CityHall_01 x1
+  placeTownAsset('CityHall_01.glb',0.0,-31.41,0,{collide:[22.6,18.6,3.9]});
+  // Construction_01 x2
+  placeTownAsset('Construction_01.glb',26.94,-37.53,0,{collide:[8.0,12.0,3.9]});
+  placeTownAsset('Construction_01.glb',-12.0,-6.78,Math.PI/2,{collide:[8.0,12.0,3.9]});
+  // Fan_01 x6
+  placeTownAsset('Fan_01.glb',-20.22,-0.88,Math.PI/2,{y:10.0});
+  placeTownAsset('Fan_01.glb',11.46,-2.29,0,{y:5.41});
+  placeTownAsset('Fan_01.glb',16.18,-6.1,Math.PI/2,{y:5.54});
+  placeTownAsset('Fan_01.glb',13.79,-2.29,0,{y:7.75});
+  placeTownAsset('Fan_01.glb',-33.99,36.25,Math.PI,{y:5.38});
+  placeTownAsset('Fan_01.glb',10.66,17.85,Math.PI,{y:5.53});
+  // Fence_02 x5
+  placeTownAsset('Fence_02.glb',-9.25,-0.09,Math.PI/2);
+  placeTownAsset('Fence_02.glb',6.0,33.26,-Math.PI/2);
+  placeTownAsset('Fence_02.glb',6.0,38.26,-Math.PI/2);
+  placeTownAsset('Fence_02.glb',6.0,34.26,-Math.PI/2);
+  placeTownAsset('Fence_02.glb',-9.25,1.91,Math.PI/2);
+  // FlowerBed_01 x7
+  placeTownAsset('FlowerBed_01.glb',-4.34,31.87,0);
+  placeTownAsset('FlowerBed_01.glb',-7.66,4.81,0);
+  placeTownAsset('FlowerBed_01.glb',-4.44,36.57,0);
+  placeTownAsset('FlowerBed_01.glb',-34.5,4.57,0);
+  placeTownAsset('FlowerBed_01.glb',-6.99,14.39,0);
+  placeTownAsset('FlowerBed_01.glb',-34.5,-2.93,0);
+  placeTownAsset('FlowerBed_01.glb',-7.66,0.31,0);
+  // Garbage_01 x4
+  placeTownAsset('Garbage_01.glb',-34.67,15.15,-1.4595);
+  placeTownAsset('Garbage_01.glb',6.95,-0.8,0);
+  placeTownAsset('Garbage_01.glb',-33.22,-9.61,-0.3496);
+  placeTownAsset('Garbage_01.glb',9.06,36.63,4.5465);
+  // Gas_Station_01 x1
+  placeTownAsset('Gas_Station_01.glb',11.81,10.0,-Math.PI/2,{collide:[7.25,8.82,3.9]});
+  // Grass_01 x4
+  placeTownAsset('Grass_01.glb',-7.54,0.19,1.9418);
+  placeTownAsset('Grass_01.glb',-7.73,-21.99,0);
+  placeTownAsset('Grass_01.glb',-34.62,-2.82,-0.1553);
+  placeTownAsset('Grass_01.glb',-4.24,31.77,-0.1291);
+  // House_01 x8
+  placeTownAsset('House_01.glb',-30.18,-6.55,-Math.PI/2,{collide:[7.14,6.37,3.9]});
+  placeTownAsset('House_01.glb',9.58,21.41,-Math.PI/2,{collide:[7.14,6.37,3.9]});
+  placeTownAsset('House_01.glb',-32.61,-25.63,0,{collide:[7.14,6.37,3.9]});
+  placeTownAsset('House_01.glb',24.16,15.73,-Math.PI/2,{collide:[7.14,6.37,3.9]});
+  placeTownAsset('House_01.glb',34.51,19.76,-Math.PI/2,{collide:[7.14,6.37,3.9]});
+  placeTownAsset('House_01.glb',-24.98,-6.55,Math.PI/2,{collide:[7.14,6.37,3.9]});
+  placeTownAsset('House_01.glb',-29.05,19.01,Math.PI/2,{collide:[7.14,6.37,3.9]});
+  placeTownAsset('House_01.glb',-32.41,19.01,-Math.PI/2,{collide:[7.14,6.37,3.9]});
+  // House_02 x1
+  placeTownAsset('House_02.glb',-17.02,-28.73,0,{collide:[11.98,12.47,3.9]});
+  // House_03 x7
+  placeTownAsset('House_03.glb',12.63,-5.1,0,{collide:[7.14,6.29,3.9]});
+  placeTownAsset('House_03.glb',21.85,25.38,0,{collide:[7.14,6.29,3.9]});
+  placeTownAsset('House_03.glb',12.16,35.18,-Math.PI/2,{collide:[7.14,6.29,3.9]});
+  placeTownAsset('House_03.glb',-29.01,25.89,Math.PI/2,{collide:[7.14,6.29,3.9]});
+  placeTownAsset('House_03.glb',31.7,-23.44,Math.PI/2,{collide:[7.14,6.29,3.9]});
+  placeTownAsset('House_03.glb',15.28,26.0,Math.PI,{collide:[7.14,6.29,3.9]});
+  placeTownAsset('House_03.glb',-23.06,-13.36,Math.PI/2,{collide:[7.14,6.29,3.9]});
+  // House_04 x4
+  placeTownAsset('House_04.glb',-23.04,0.22,Math.PI/2,{collide:[7.14,6.29,3.9]});
+  placeTownAsset('House_04.glb',28.63,25.67,0,{collide:[7.14,6.29,3.9]});
+  placeTownAsset('House_04.glb',8.8,28.36,-Math.PI/2,{collide:[7.14,6.29,3.9]});
+  placeTownAsset('House_04.glb',-30.15,0.6,-Math.PI/2,{collide:[7.14,6.29,3.9]});
+  // House_05 x2
+  placeTownAsset('House_05.glb',9.08,-10.56,-3.1416,{collide:[7.07,7.06,3.9]});
+  placeTownAsset('House_05.glb',-28.82,-13.76,Math.PI,{collide:[7.07,7.06,3.9]});
+  // House_06 x4
+  placeTownAsset('House_06.glb',15.35,20.12,Math.PI,{collide:[6.34,7.04,3.9]});
+  placeTownAsset('House_06.glb',-21.17,26.63,0,{collide:[6.34,7.04,3.9]});
+  placeTownAsset('House_06.glb',-29.71,12.18,-Math.PI/2,{collide:[6.34,7.04,3.9]});
+  placeTownAsset('House_06.glb',-9.1,-13.94,Math.PI/2,{collide:[6.34,7.04,3.9]});
+  // House_07 x3
+  placeTownAsset('House_07.glb',26.14,-22.82,0,{collide:[6.34,7.03,3.9]});
+  placeTownAsset('House_07.glb',-26.28,-25.84,0.0349,{collide:[6.34,7.03,3.9]});
+  placeTownAsset('House_07.glb',23.37,9.19,-Math.PI/2,{collide:[6.34,7.03,3.9]});
+  // House_08 x2
+  placeTownAsset('House_08.glb',7.55,-4.3,-Math.PI/2,{collide:[4.24,3.66,3.9]});
+  placeTownAsset('House_08.glb',-31.21,7.23,-Math.PI/2,{collide:[4.24,3.66,3.9]});
+  // Hydrant x3
+  placeTownAsset('Hydrant.glb',-3.93,-10.05,0);
+  placeTownAsset('Hydrant.glb',4.5,39.11,0);
+  placeTownAsset('Hydrant.glb',3.27,31.43,0);
+  // Light_01 x14
+  placeTownAsset('Light_01.glb',-17.63,39.69,Math.PI/2);
+  placeTownAsset('Light_01.glb',-33.27,-0.52,Math.PI);
+  placeTownAsset('Light_01.glb',-10.51,16.34,-Math.PI/2);
+  placeTownAsset('Light_01.glb',-9.08,39.69,Math.PI/2);
+  placeTownAsset('Light_01.glb',12.49,-11.41,0);
+  placeTownAsset('Light_01.glb',10.07,-1.95,-Math.PI/2);
+  placeTownAsset('Light_01.glb',-11.71,-22.53,-Math.PI/2);
+  placeTownAsset('Light_01.glb',22.12,-2.99,Math.PI/2);
+  placeTownAsset('Light_01.glb',4.67,-19.74,-Math.PI/2);
+  placeTownAsset('Light_01.glb',-34.45,14.1,Math.PI);
+  placeTownAsset('Light_01.glb',7.22,17.58,Math.PI/2);
+  placeTownAsset('Light_01.glb',-22.7,-22.53,-Math.PI/2);
+  placeTownAsset('Light_01.glb',-20.02,-16.39,0);
+  placeTownAsset('Light_01.glb',-17.62,16.34,-Math.PI/2);
+  // Mud_01 x3
+  placeTownAsset('Mud_01.glb',19.8,6.61,0);
+  placeTownAsset('Mud_01.glb',9.03,-1.81,0);
+  placeTownAsset('Mud_01.glb',10.78,12.58,0,{y:3.82});
+  // Mud_02 x5
+  placeTownAsset('Mud_02.glb',23.11,11.6,0,{y:3.31});
+  placeTownAsset('Mud_02.glb',-33.24,9.2,0);
+  placeTownAsset('Mud_02.glb',14.45,7.36,0);
+  placeTownAsset('Mud_02.glb',13.12,18.68,0,{y:3.31});
+  placeTownAsset('Mud_02.glb',-18.96,25.25,0,{y:3.31});
+  // OldCar_02 x2
+  placeTownAsset('OldCar_02.glb',-1.53,10.05,0,{collide:[1.98,3.3,3.9]});
+  placeTownAsset('OldCar_02.glb',-16.43,30.74,0.3918,{collide:[1.98,3.3,3.9]});
+  // OldCar_03 x1
+  placeTownAsset('OldCar_03.glb',1.08,9.96,1.0957,{collide:[1.98,3.3,3.9]});
+  // OldCar_04 x2
+  placeTownAsset('OldCar_04.glb',-13.31,35.42,-2.3960,{collide:[1.98,3.3,3.9]});
+  placeTownAsset('OldCar_04.glb',-21.55,-18.67,2.8805,{collide:[1.98,3.3,3.9]});
+  // OldCar_05 x3
+  placeTownAsset('OldCar_05.glb',-8.89,17.96,0.4969,{collide:[1.98,3.3,3.9]});
+  placeTownAsset('OldCar_05.glb',-0.88,-11.12,-0.5257,{collide:[1.98,3.3,3.9]});
+  placeTownAsset('OldCar_05.glb',23.48,-6.91,-2.6277,{collide:[1.98,3.3,3.9]});
+  // OldCar_06 x3
+  placeTownAsset('OldCar_06.glb',-8.03,32.35,-0.6087,{collide:[1.98,3.3,3.9]});
+  placeTownAsset('OldCar_06.glb',10.19,16.31,0,{collide:[1.98,3.3,3.9]});
+  placeTownAsset('OldCar_06.glb',4.96,21.28,-1.0631,{collide:[1.98,3.3,3.9]});
+  // Pallet_01 x3
+  placeTownAsset('Pallet_01.glb',-14.92,-10.15,-1.5338,{y:3.83});
+  placeTownAsset('Pallet_01.glb',-16.54,-9.96,-1.3010,{y:3.83});
+  placeTownAsset('Pallet_01.glb',9.97,12.09,0.3039,{y:3.92});
+  // Pallet_02 x4
+  placeTownAsset('Pallet_02.glb',10.3,8.29,-3.8637,{y:3.92});
+  placeTownAsset('Pallet_02.glb',14.84,-1.6,-1.4927);
+  placeTownAsset('Pallet_02.glb',16.95,3.08,-1.8650);
+  placeTownAsset('Pallet_02.glb',9.66,10.37,-3.0700,{y:3.92});
+  // ParkingBG_01 x1
+  placeTownAsset('ParkingBG_01.glb',-18.0,28.0,-Math.PI/2);
+  // Parking_01 x1
+  placeTownAsset('Parking_01.glb',-5.57,26.2,Math.PI/2);
+  // Plant_01 x4
+  placeTownAsset('Plant_01.glb',7.42,-22.08,0);
+  placeTownAsset('Plant_01.glb',-9.95,-20.68,0);
+  placeTownAsset('Plant_01.glb',-10.57,-24.59,0);
+  placeTownAsset('Plant_01.glb',19.81,6.66,0,{y:0.33});
+  // PowerLines_01 x8
+  placeTownAsset('PowerLines_01.glb',3.35,1.87,Math.PI/2);
+  placeTownAsset('PowerLines_01.glb',5.55,-21.75,Math.PI/2);
+  placeTownAsset('PowerLines_01.glb',3.35,9.84,Math.PI/2);
+  placeTownAsset('PowerLines_01.glb',3.34,33.78,Math.PI/2);
+  placeTownAsset('PowerLines_01.glb',3.35,-6.11,Math.PI/2);
+  placeTownAsset('PowerLines_01.glb',-31.47,36.8,3.3675);
+  placeTownAsset('PowerLines_01.glb',3.35,-14.07,Math.PI/2);
+  placeTownAsset('PowerLines_01.glb',-18.25,33.78,Math.PI);
+  // RoadPart_01 x2
+  placeTownAsset('RoadPart_01.glb',-12.86,-4.4,-0.4006,{y:3.73});
+  placeTownAsset('RoadPart_01.glb',-4.75,-13.37,-0.8497);
+  // RoadPart_03 x1
+  placeTownAsset('RoadPart_03.glb',34.54,7.28,-Math.PI/2);
+  // RoadPart_04 x6
+  placeTownAsset('RoadPart_04.glb',-0.49,4.01,0.6474);
+  placeTownAsset('RoadPart_04.glb',0.44,18.45,0.8966);
+  placeTownAsset('RoadPart_04.glb',-0.56,17.95,0.1440);
+  placeTownAsset('RoadPart_04.glb',-1.8,3.41,2.2191);
+  placeTownAsset('RoadPart_04.glb',-1.06,30.55,0.6492);
+  placeTownAsset('RoadPart_04.glb',0.3,31.01,0.8864);
+  // RoadPart_05 x4
+  placeTownAsset('RoadPart_05.glb',-0.35,21.56,-2.2582);
+  placeTownAsset('RoadPart_05.glb',-21.81,22.15,0);
+  placeTownAsset('RoadPart_05.glb',1.11,-5.8,1.0357);
+  placeTownAsset('RoadPart_05.glb',27.97,11.98,1.7025);
+  // RoadPart_06 x3
+  placeTownAsset('RoadPart_06.glb',-13.03,-10.26,-1.3434,{y:6.93});
+  placeTownAsset('RoadPart_06.glb',5.39,-11.98,0.7838);
+  placeTownAsset('RoadPart_06.glb',8.58,-10.05,2.9944,{y:3.41});
+  // RoadPart_07 x8
+  placeTownAsset('RoadPart_07.glb',4.1,-18.29,0);
+  placeTownAsset('RoadPart_07.glb',21.64,10.99,0.4039,{y:3.31});
+  placeTownAsset('RoadPart_07.glb',-15.64,-10.2,1.8335,{y:6.93});
+  placeTownAsset('RoadPart_07.glb',8.93,-8.51,0.5656,{y:3.41});
+  placeTownAsset('RoadPart_07.glb',-4.02,9.73,1.4488);
+  placeTownAsset('RoadPart_07.glb',14.36,17.66,1.8098,{y:3.29});
+  placeTownAsset('RoadPart_07.glb',-12.01,37.52,0.9455);
+  placeTownAsset('RoadPart_07.glb',-6.34,-8.58,-0.0410,{y:6.93});
+  // RoadSign_01 x2
+  placeTownAsset('RoadSign_01.glb',3.8,2.17,Math.PI/2);
+  placeTownAsset('RoadSign_01.glb',-3.41,26.02,-Math.PI/2);
+  // Road_01 x6
+  placeTownAsset('Road_01.glb',0.0,-6.5,Math.PI);
+  placeTownAsset('Road_01.glb',0.0,-3.5,0);
+  placeTownAsset('Road_01.glb',0.0,38.5,Math.PI);
+  placeTownAsset('Road_01.glb',0.0,-6.5,0);
+  placeTownAsset('Road_01.glb',0.0,-3.5,Math.PI);
+  placeTownAsset('Road_01.glb',0.0,38.5,0);
+  // Road_02 x4
+  placeTownAsset('Road_02.glb',0.0,35.5,Math.PI);
+  placeTownAsset('Road_02.glb',0.0,35.5,0);
+  placeTownAsset('Road_02.glb',0.0,-9.5,Math.PI);
+  placeTownAsset('Road_02.glb',0.0,-9.5,0);
+  // Road_04 x1
+  placeTownAsset('Road_04.glb',0.0,-11.0,0);
+  // Road_05 x1
+  placeTownAsset('Road_05.glb',0.0,28.0,-Math.PI/2);
+  // Road_06 x2
+  placeTownAsset('Road_06.glb',0.0,16.0,Math.PI/2);
+  placeTownAsset('Road_06.glb',0.0,4.0,Math.PI/2);
+  // Rock_01 x3
+  placeTownAsset('Rock_01.glb',-10.63,-21.45,0);
+  placeTownAsset('Rock_01.glb',4.83,-23.61,0);
+  placeTownAsset('Rock_01.glb',-6.6,-23.8,0);
+  // Roof_01 x2
+  placeTownAsset('Roof_01.glb',-33.42,24.09,-Math.PI/2);
+  placeTownAsset('Roof_01.glb',18.0,-4.34,Math.PI);
+  // Stairs_01 x4
+  placeTownAsset('Stairs_01.glb',12.54,-8.1,Math.PI/2,{y:1.0});
+  placeTownAsset('Stairs_01.glb',22.93,5.79,Math.PI,{y:1.0});
+  placeTownAsset('Stairs_01.glb',-24.64,28.13,-1.5346,{y:0.98});
+  placeTownAsset('Stairs_01.glb',18.6,22.12,Math.PI/2,{y:1.0});
+  // Trash_01 x4
+  placeTownAsset('Trash_01.glb',-33.66,14.76,-2.0886);
+  placeTownAsset('Trash_01.glb',8.41,37.81,3.7949);
+  placeTownAsset('Trash_01.glb',-19.39,1.84,2.0719);
+  placeTownAsset('Trash_01.glb',7.92,-1.61,0.0508);
+  // Trash_02 x4
+  placeTownAsset('Trash_02.glb',-17.75,2.67,2.9693);
+  placeTownAsset('Trash_02.glb',-33.73,5.5,-0.4139);
+  placeTownAsset('Trash_02.glb',-32.68,-10.78,-1.5426);
+  placeTownAsset('Trash_02.glb',6.1,-1.17,1.2148);
+  // Tree_01 x4
+  placeTownAsset('Tree_01.glb',-5.51,-24.08,0);
+  placeTownAsset('Tree_01.glb',5.15,-24.37,2.0457);
+  placeTownAsset('Tree_01.glb',10.25,-21.32,0);
+  placeTownAsset('Tree_01.glb',-7.5,-24.37,2.0457);
+  // Tree_02 x9
+  placeTownAsset('Tree_02.glb',-7.68,4.81,2.2396);
+  placeTownAsset('Tree_02.glb',-4.37,31.89,-0.9559);
+  placeTownAsset('Tree_02.glb',-7.68,0.31,3.9387);
+  placeTownAsset('Tree_02.glb',7.77,-22.53,2.2396);
+  placeTownAsset('Tree_02.glb',-7.79,-22.22,2.2396);
+  placeTownAsset('Tree_02.glb',-4.47,36.59,2.2396);
+  placeTownAsset('Tree_02.glb',-34.52,-2.94,0);
+  placeTownAsset('Tree_02.glb',-7.01,14.39,2.2396);
+  placeTownAsset('Tree_02.glb',-34.52,4.56,1.5854);
+  // Wheel_01 x4
+  placeTownAsset('Wheel_01.glb',17.34,2.89,0,{y:0.48});
+  placeTownAsset('Wheel_01.glb',15.19,-1.9,0,{y:0.48});
+  placeTownAsset('Wheel_01.glb',16.93,3.47,0,{y:0.43});
+  placeTownAsset('Wheel_01.glb',14.77,-1.33,0,{y:0.43});
+  // Wheel_02 x5
+  placeTownAsset('Wheel_02.glb',-16.92,32.28,0);
+  placeTownAsset('Wheel_02.glb',14.34,-1.8,0,{y:0.44});
+  placeTownAsset('Wheel_02.glb',16.44,2.83,0,{y:0.44});
+  placeTownAsset('Wheel_02.glb',10.25,17.36,1.5869,{y:0.78});
+  placeTownAsset('Wheel_02.glb',-13.34,36.85,-0.1621);
+
+  /* ---- rooftop fire barrels the scene stages as real light sources, using
+     this game's own fire/light system in place of the pack's particle prefab
+     (glTF export dropped the particle system, so it's not in the asset pack) ---- */
+  fireBarrel(9.6,9.17,4.63);
+  fireBarrel(16.5,-6.62,0.9);
+  fireBarrel(8.13,37.01,0.86);
+  fireBarrel(-6.38,-10.0,4.57);
+
+  /* ---- perimeter ---- */
+  fenceRun(-BND,BND,BND,BND);
+  fenceRun(-BND,-BND,-BND,BND);
+  fenceRun(BND,-BND,BND,BND);
+  chain(-BND,-BND,BND,-BND); chain(-BND,BND,BND,BND);
+
+  /* ---- buys ---- */
+  addWallBuy('m14',8.0,2.0,6.5,Math.PI/2);
+  addWallBuy('ak74u',-22,2.0,10,-Math.PI/2);
+  addWallBuy('mp5',4,2.0,-28.72,0);
+  addWallBuy('galil',-4,2.0,-28.72,Math.PI);
+  addWallBuy('olympia',15,2.0,2,Math.PI/2);
+  addWallBuy('rem870',-30,2.0,-9,Math.PI/2);
+  addAmmoBuy('m1911',3,2.0,-3,0,250);
+  addAmmoBuy('m4a1',-3,2.0,4,Math.PI,400);
+
+  addPerkMachine('revive',-38,-4,0,-Math.PI/2);
+  addPerkMachine('jugg',38,0,0,-Math.PI/2);
+  addPerkMachine('speed',-38,0,0,Math.PI/2);
+  addPerkMachine('dtap',0,38,0,Math.PI);
+  addPerkMachine('stamin',20,-15,0,0);
+  addPerkMachine('mule',-20,20,0,Math.PI);
+  addPackAPunch(-12,1.5,0);
 }
 
 /* ============ SHARED MAP PROGRESSION ============
@@ -2816,7 +3050,7 @@ function buildLastStop(){
     [-16,23,0,-Math.PI/2],[25,10,0,Math.PI/2],[-34,-10,0,-Math.PI/2],
     [37,-27,0,Math.PI/2],[13,-39,0,Math.PI]
   ];
-  mannequins=[];nukeSign=null;nukeClock=null;
+  mannequins=[];
 
   worldRoot.add(new THREE.HemisphereLight(0x7890a8,0x11171d,.98));
   const moon=new THREE.DirectionalLight(0xb9cde3,.56);moon.position.set(-36,52,24);worldRoot.add(moon);sunShadow(moon,58);
@@ -3146,7 +3380,7 @@ function buildBlacksire(){
     [-31,18,SY,-Math.PI/2],[31,18,SY,Math.PI/2],
     [-28,-24,0,-Math.PI/2],[24,-11,0,Math.PI/2],[0,-27,0,Math.PI]
   ];
-  mannequins=[]; nukeSign=null; nukeClock=null;
+  mannequins=[];
 
   worldRoot.add(new THREE.HemisphereLight(0x536b83,0x090d12,.58));
   const stormFill=new THREE.DirectionalLight(0x9db8d2,.34);
@@ -3382,15 +3616,18 @@ const MAPS={
   town:{name:'Town',time:'Night',
     blurb:'A burning fountain in a dead crossroads. Five buildings, a bank vault, a church tower, and a bar with an upstairs balcony you can reach by jump pad.',
     build:buildTown},
-  nuketown:{name:'Nuketown',time:'Daylight',
-    blurb:'Two suburban houses across a cul-de-sac in a bomb test range. Small, open, and full of mannequins. Nowhere to hide and nothing between you and them but a picket fence.',
-    build:buildNuketown},
+  wayside:{name:'Wayside',time:'Night',
+    blurb:'An isolated highway gas station, dead of night. A fuel canopy and pump island in the open, a store and diner facing each other, a garage bay hiding Pack-a-Punch, and a fenced motel row out back.',
+    build:buildWayside},
   blacksire:{name:'Blacksire',time:'Storm',
     blurb:'A classified military research compound above a buried containment lab. Hold the checkpoint, loop through four surface buildings, descend to specimen storage, and survive containment lockdown.',
     build:buildBlacksire},
   laststop:{name:'Last Stop',time:'Rain',
     blurb:'A ruined central railway terminal with paid routes, two power circuits, detailed platforms and trains, service tunnels, a maintenance yard, and Pack-a-Punch inside the armored rail vault.',
-    build:buildLastStop}
+    build:buildLastStop},
+  crossroads:{name:'Crossroads',time:'Daylight',
+    blurb:'An abandoned city block under a clear sky. A gas station and a church face off across the intersection, a columned civic building anchors a wrecked-car parking lot, and apartment towers box the street in on every side.',
+    build:buildCrossroads}
 };
 let currentMap='town';
 function clearWorld(){
@@ -3516,8 +3753,9 @@ const playerSampleFiles={
   powerFireSale:['/audio/power-firesale.mp3'],
   fireCrackle:['/audio/fire-crackle.ogg'],
   ambienceTown:['/audio/ambience-town.ogg'],
-  ambienceNuketown:['/audio/ambience-nuketown.mp3'],
-  ambienceBlacksire:['/audio/ambience-blacksire.ogg']
+  ambienceWayside:['/audio/ambience-nuketown.mp3'],
+  ambienceBlacksire:['/audio/ambience-blacksire.ogg'],
+  menuMusic:['/audio/menu-music.mp3']
 };
 const playerSamples={},playerSampleLast={};
 for(const kind in playerSampleFiles){playerSamples[kind]=[];playerSampleLast[kind]=-1;}
@@ -3534,6 +3772,7 @@ function initAudio(){
   loadPlayerSamples();
   preloadRoundSample();
   decodeRoundSample();
+  updateMenuMusic();
 }
 function preloadRoundSample(){
   if(roundSample||roundSampleBytes||roundSampleLoading) return;
@@ -3570,6 +3809,7 @@ function loadPlayerSamples(){
           playerSamples[kind][i]=buf;
           if(kind===mapAmbienceKind(currentMap)&&game.running) startMapAmbience();
           if(kind==='fireCrackle'&&game.running) startFireCrackle();
+          if(kind==='menuMusic') updateMenuMusic();
         }).catch(()=>{});
     });
   }
@@ -3597,7 +3837,7 @@ function playPlayerSample(kind,volume,rate,delay,maxDuration){
 }
 let mapAmbienceSource=null,mapAmbienceGain=null,mapAmbienceMap='';
 function mapAmbienceKind(id){
-  return id==='nuketown'?'ambienceNuketown':((id==='blacksire'||id==='laststop')?'ambienceBlacksire':'ambienceTown');
+  return id==='wayside'?'ambienceWayside':((id==='blacksire'||id==='laststop')?'ambienceBlacksire':'ambienceTown');
 }
 function stopMapAmbience(){
   if(mapAmbienceSource){
@@ -3616,7 +3856,7 @@ function startMapAmbience(){
   const t=AC.currentTime,src=AC.createBufferSource(),hp=AC.createBiquadFilter(),
     lp=AC.createBiquadFilter(),g=AC.createGain();
   // Source recordings are naturally quiet, so normalize each map bed to a clearly audible background level.
-  const cfg=currentMap==='blacksire'?[48,4200,1.30]:(currentMap==='laststop'?[58,3900,.42]:(currentMap==='nuketown'?[62,6200,.60]:[80,4600,.20]));
+  const cfg=currentMap==='blacksire'?[48,4200,1.30]:(currentMap==='laststop'?[58,3900,.42]:(currentMap==='wayside'?[62,6200,.60]:[80,4600,.20]));
   src.buffer=buf;src.loop=true;
   hp.type='highpass';hp.frequency.value=cfg[0];
   lp.type='lowpass';lp.frequency.value=cfg[1];lp.Q.value=.45;
@@ -3624,6 +3864,38 @@ function startMapAmbience(){
   src.connect(hp);hp.connect(lp);lp.connect(g);g.connect(master);src.start(t);
   mapAmbienceSource=src;mapAmbienceGain=g;mapAmbienceMap=currentMap;
   src.onended=()=>{if(mapAmbienceSource===src){mapAmbienceSource=null;mapAmbienceGain=null;mapAmbienceMap='';}};
+}
+
+/* ---------- menu music: a looping creepy ambience track, played only while
+   a menu screen is showing and the match isn't live, so it never fights the
+   in-round map ambience. ---------- */
+let menuMusicSource=null,menuMusicGain=null;
+function startMenuMusic(){
+  if(!AC||!master||menuMusicSource) return;
+  const buf=(playerSamples.menuMusic||[]).find(Boolean);
+  if(!buf) return;
+  const t=AC.currentTime,src=AC.createBufferSource(),g=AC.createGain();
+  src.buffer=buf; src.loop=true;
+  g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.35,t+2.5);
+  src.connect(g); g.connect(master); src.start(t);
+  menuMusicSource=src; menuMusicGain=g;
+  src.onended=()=>{if(menuMusicSource===src){menuMusicSource=null;menuMusicGain=null;}};
+}
+function stopMenuMusic(){
+  if(!menuMusicSource) return;
+  const src=menuMusicSource,g=menuMusicGain;
+  if(g&&AC){
+    const t=AC.currentTime;
+    g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value,t);
+    g.gain.linearRampToValueAtTime(.0001,t+1.0);
+  }
+  setTimeout(()=>{try{src.stop();}catch(e){} try{src.disconnect();}catch(e){} try{g.disconnect();}catch(e){}},1100);
+  menuMusicSource=null; menuMusicGain=null;
+}
+function updateMenuMusic(){
+  if(!AC) return;
+  if(game.running||!menuScreen){ stopMenuMusic(); return; }
+  startMenuMusic();
 }
 
 let fireCrackleSource=null,fireCrackleGain=null,fireCracklePan=null;
@@ -8323,7 +8595,7 @@ function netHandle(msg){
     handleHostGameRequest(m.event,m.playerId);
   } else if(m.type==='game'){
     handleSharedGameEvent(m.event);
-  } else if(m.type==='start'&&(m.map==='town'||m.map==='nuketown'||m.map==='blacksire'||m.map==='laststop')){
+  } else if(m.type==='start'&&(m.map==='town'||m.map==='wayside'||m.map==='blacksire'||m.map==='laststop'||m.map==='crossroads')){
     // A brand new match for the whole room - any loadout snapshot left over
     // from a previous match in this same room code is stale now.
     netClearLoadout(net.code);
@@ -8610,11 +8882,13 @@ function showScreen(id){
   closeStatsMenu(); // any menu screen (pause, game over, ...) supersedes the stats overlay
   for(const s of SCREENS){ const e=el(s); if(e) e.classList.toggle('gone',s!==id); }
   menuScreen=id; menuIdx=0; refreshSel();
+  updateMenuMusic();
 }
 function hideScreens(){
   closeStatsMenu();
   for(const s of SCREENS){ const e=el(s); if(e) e.classList.add('gone'); }
   menuScreen=null;
+  updateMenuMusic();
 }
 function menuItems(){
   if(!menuScreen) return [];
@@ -9117,9 +9391,6 @@ function updRoundHUD(){
   let alive=game.toSpawn;
   for(const z of zombies) if(!z.dead) alive++;
   ui.wavebig.textContent='ROUND '+String(game.round).padStart(2,'0');
-  const pop=game.kills%100;
-  if(nukeSign&&nukeSign.last!==pop){ nukeSign.last=pop; drawNukeSign(pop); }
-  if(nukeClock&&nukeClock.last!==game.round){ nukeClock.last=game.round; drawNukeClock(game.round); }
   ui.left.textContent=(alive>0?alive+' remaining':'clear')+'  \u00b7  next in '+Math.max(0,Math.ceil(game.roundTimer))+'s'+(alive===0?'  \u00b7  press E':'');
   const boss=zombies.find(z=>z.boss&&!z.dead);
   ui.bossHud.style.opacity=boss?1:0;
