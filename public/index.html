@@ -49,6 +49,7 @@
   #slots{font-size:10px;opacity:.45;margin-top:6px;letter-spacing:.16em;}
   #slots b{color:var(--amber);opacity:1;}
   #reloading{font-size:11px;color:var(--amber);opacity:0;margin-top:2px;}
+  #equip{font-size:11px;opacity:.6;margin-top:4px;letter-spacing:.1em;}
 
   #top{left:50%;top:18px;transform:translateX(-50%);text-align:center;}
   #wavebig{font-size:24px;font-weight:700;letter-spacing:.2em;color:var(--blood);}
@@ -305,7 +306,8 @@
   <div class="panel" id="keys">
     <b>WASD</b> move &nbsp; <b>SHIFT</b> sprint &nbsp; <b>SPACE</b> jump<br>
     <b>LMB</b> fire &nbsp; <b>RMB</b> aim &nbsp; <b>R</b> reload &nbsp; <b>F</b> buy<br>
-    <b>1 2 3</b> weapon &nbsp; <b>E</b> call next round &nbsp; <b>ESC</b> pause
+    <b>1 2 3</b> weapon &nbsp; <b>E</b> call next round &nbsp; <b>ESC</b> pause<br>
+    <b>B</b> throw grenade &nbsp; <b>N</b> place claymore
   </div>
 
   <div class="panel" id="teamPoints"></div>
@@ -322,6 +324,7 @@
     <div id="ammo">30 <small>/ 270</small></div>
     <div id="reloading">Reloading</div>
     <div id="slots"></div>
+    <div id="equip"></div>
   </div>
 
   <div id="downedIndicators"></div>
@@ -868,6 +871,15 @@ let SPAWN_AT=new THREE.Vector3(0,0,14);
 let SPAWN_YAW=Math.PI;
 let mapFog={near:18,far:92};
 
+/* ---------- thrown/placed equipment ---------- */
+// Grenade damage is set relative to the War Machine's launched round (420
+// splash) rather than as an independent number, so the two stay in the same
+// ratio if either ever gets rebalanced. Claymores are priced well above
+// grenades on the wall specifically because they hit twice as hard.
+const GRENADE_MAX=4, GRENADE_START=2, GRENADE_DMG=Math.round(420*1.3), GRENADE_RADIUS=5.2;
+const CLAYMORE_MAX=2, CLAYMORE_DMG=GRENADE_DMG*2, CLAYMORE_RADIUS=4.4, CLAYMORE_TRIGGER_R=2.6;
+const GRENADE_WALLBUY_COST=250, CLAYMORE_WALLBUY_COST=5000;
+
 function addCollider(minX,maxX,minZ,maxZ,top,bot){colliders.push({minX,maxX,minZ,maxZ,top:top===undefined?99:top,bot:bot===undefined?-99:bot});}
 function addYawCollider(x,z,w,d,rot,top,bot,pad){
   const p=pad||0;
@@ -1386,6 +1398,8 @@ function buildTown(){
   const moon=new THREE.DirectionalLight(0x93aade,0.40); moon.position.set(-40,60,-25); worldRoot.add(moon);
   sunShadow(moon,55);
   SPAWN_AT.set(0,0,14); SPAWN_YAW=Math.PI;
+  addEquipBuy('grenade',SPAWN_AT.x-1.6,0,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
+  addEquipBuy('claymore',SPAWN_AT.x+1.6,0,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
   SPAWNS=[[-38,-38],[38,-38],[-38,38],[38,38],[0,-40],[0,40],[-40,0],[40,0],
     [-26,-38],[26,38],[-38,22],[38,-22]];
   BOX_SPOTS=[[-21,-12],[22,-15],[6,28],[-24,15],[6,-30]];
@@ -2303,6 +2317,8 @@ function buildWayside(){
   scene.fog=new THREE.Fog(0x05060a,15,80); mapFog={near:15,far:80};
   torch.intensity=1.05;
   SPAWN_AT.set(0,0,-27); SPAWN_YAW=0;
+  addEquipBuy('grenade',SPAWN_AT.x-1.6,0,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
+  addEquipBuy('claymore',SPAWN_AT.x+1.6,0,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
   SPAWNS=[[-30,-18],[30,-18],[-30,2],[30,2],[-28,20],[28,20],[0,29],
     [-16,27],[16,27],[-12,-29],[12,-29],[0,-31]];
   BOX_SPOTS=[[-17,-1],[17,-1],[0,-4],[-17,15],[16,15]];
@@ -2493,6 +2509,8 @@ function buildCrossroads(){
   scene.fog=new THREE.Fog(0xaecbe8,60,230); mapFog={near:60,far:230};
   torch.intensity=0.16;
   SPAWN_AT.set(-38,0,-10); SPAWN_YAW=-Math.PI/2;
+  addEquipBuy('grenade',SPAWN_AT.x-1.8,0,SPAWN_AT.z-1.6,SPAWN_YAW+Math.PI);
+  addEquipBuy('claymore',SPAWN_AT.x-1.8,0,SPAWN_AT.z+1.6,SPAWN_YAW+Math.PI);
   SPAWNS=[[-13.6,-37.9],[14,-40],[-21,-37.7],[20,-36],[-36,-20],[38,-20],
     [-36,0],[36,0],[-37.9,20.7],[40,20],[-20,36],[20,36]];
   BOX_SPOTS=[[6,0],[-6,10],[-19,-6.3],[-6,26],[16,-14]];
@@ -3038,6 +3056,8 @@ function buildLastStop(){
   scene.fog=new THREE.Fog(0x151e28,34,126);mapFog={near:34,far:126};
   torch.intensity=1.22;
   SPAWN_AT.set(0,0,41);SPAWN_YAW=Math.PI;
+  addEquipBuy('grenade',SPAWN_AT.x-1.6,0,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
+  addEquipBuy('claymore',SPAWN_AT.x+1.6,0,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
   SPAWNS=[
     [-18,47],[18,47],[-21,39],[21,39],[-12,34],[12,34],
     [-19,27,0,'front'],[19,27,0,'front'],[-10,20,0,'front'],[10,20,0,'front'],
@@ -3369,6 +3389,8 @@ function buildBlacksire(){
   scene.fog=new THREE.Fog(0x111a25,24,112); mapFog={near:24,far:112};
   torch.intensity=.82;
   SPAWN_AT.set(0,SY,33); SPAWN_YAW=Math.PI;
+  addEquipBuy('grenade',SPAWN_AT.x-1.6,SY,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
+  addEquipBuy('claymore',SPAWN_AT.x+1.6,SY,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
   SPAWNS=[
     [-42,-34,SY],[42,-34,SY],[-42,34,SY],[42,34,SY],[-42,0,SY],[42,0,SY],
     [-25,-42,SY],[25,-42,SY],[-25,42,SY],[25,42,SY],
@@ -5270,6 +5292,7 @@ const player={
   guns:[], slot:0, firing:false, semiHeld:false,
   nextShot:0, reloadEnd:0, reloading:false, shellsLeft:0,
   nextMelee:0,meleeStart:-99,
+  grenades:GRENADE_START, claymores:0, nextThrow:0, nextClaymore:0,
   burstLeft:0, burstNext:0,
   recoilPitch:0, recoilYaw:0, kick:0,
   alive:true, downed:false, downEnd:0, invuln:0, landDip:0, jumpAt:0,
@@ -6368,6 +6391,60 @@ function stepBooms(dt){
     if(t>=1){scene.remove(b.m); releaseDynamicLight(b.L); b.m.material.dispose(); b.m.geometry.dispose(); booms.splice(i,1);}
   }
 }
+/* ---------- claymores ----------
+   Placed traps stay in a flat list forever (not the pooled projectile/boom
+   arrays above) since unlike a thrown grenade they live for the rest of the
+   round instead of a few seconds. Only the owner's own client ever arms and
+   detonates its own claymore - that mirrors how every other piece of combat
+   here resolves damage client-side and reports it to the host - but every
+   client renders every claymore's mesh so teammates can actually see them. */
+const claymores=[];
+function buildClaymoreMesh(pos,yaw){
+  const geo=mergeGeos([
+    pc(PROP_BOX,0,0,.14,0,-.30,0,0,.34,.05,.18),
+    pc(PROP_BOX,0,-.13,.045,.05,0,0,0,.025,.09,.025),
+    pc(PROP_BOX,0,.13,.045,.05,0,0,0,.025,.09,.025),
+    pc(PROP_BOX,1,0,.185,-.06,-.30,0,0,.07,.03,.01)
+  ]);
+  const mesh=new THREE.Mesh(geo,[M.dark,M.taillight]);
+  mesh.position.copy(pos); mesh.rotation.y=yaw; scene.add(mesh);
+  return mesh;
+}
+function placeClaymoreMesh(pos,yaw,cid,mine){
+  const mesh=buildClaymoreMesh(pos,yaw);
+  const cm={mesh,pos:pos.clone(),cid,mine,armTime:mine?game.time+.5:0,gone:false};
+  claymores.push(cm);
+  return cm;
+}
+function removeClaymore(cid){
+  for(let i=claymores.length-1;i>=0;i--){
+    const cm=claymores[i];
+    if(cm.cid!==cid) continue;
+    scene.remove(cm.mesh); cm.mesh.geometry.dispose();
+    claymores.splice(i,1);
+  }
+}
+function detonateClaymore(cm){
+  if(cm.gone) return; cm.gone=true;
+  explode(cm.pos,CLAYMORE_DMG,CLAYMORE_RADIUS,'nade',null,false);
+  if(net.connected) netSend({type:'claymore_boom',cid:cm.cid,x:cm.pos.x,y:cm.pos.y,z:cm.pos.z});
+  removeClaymore(cm.cid);
+}
+function stepClaymores(dt){
+  for(let i=claymores.length-1;i>=0;i--){
+    const cm=claymores[i];
+    if(!cm.mine||cm.gone||game.time<cm.armTime) continue;
+    for(const z of zombies){
+      if(z.dead) continue;
+      const c=z.pts[CHEST];
+      if(Math.hypot(c.x-cm.pos.x,c.y-cm.pos.y,c.z-cm.pos.z)<CLAYMORE_TRIGGER_R){ detonateClaymore(cm); break; }
+    }
+  }
+}
+function clearClaymores(){
+  for(const cm of claymores){ scene.remove(cm.mesh); cm.mesh.geometry.dispose(); }
+  claymores.length=0;
+}
 function makeBolt(points,col){
   const pts=[];
   for(let i=0;i<points.length-1;i++){
@@ -6529,6 +6606,32 @@ function tryMelee(){
   }
   sfxMelee(!!best);
   if(net.connected)netSend({type:'melee',yaw:netYaw(player.yaw),pitch:player.pitch,hit:!!best});
+}
+function tryThrowGrenade(){
+  if(!game.running||!player.alive||player.downed||game.time<player.nextThrow) return;
+  if(player.grenades<=0){ sfxDeny(); toast('Out of grenades'); return; }
+  player.nextThrow=game.time+.8; player.grenades--;
+  camera.getWorldDirection(_dir); _org.copy(camera.position);
+  const o=_org.clone().add(_dir.clone().multiplyScalar(.6));
+  spawnProj('nade',o,_dir,{dmg:0,splash:GRENADE_DMG,splashR:GRENADE_RADIUS},1);
+  sfxTone(500,260,.14,.16,'triangle');
+  if(net.connected) netSend({type:'grenade',yaw:netYaw(player.yaw),pitch:player.pitch});
+  updHUD();
+}
+function tryPlaceClaymore(){
+  if(!game.running||!player.alive||player.downed||game.time<player.nextClaymore) return;
+  if(player.claymores<=0){ sfxDeny(); toast('Out of claymores'); return; }
+  camera.getWorldDirection(_dir); _org.copy(camera.position);
+  const px=player.pos.x+_dir.x*1.4,pz=player.pos.z+_dir.z*1.4;
+  if(blockedAt(px,pz,.3,player.y)){ sfxDeny(); toast('No room to place a claymore'); return; }
+  player.nextClaymore=game.time+.8; player.claymores--;
+  const fl=groundAt(px,pz,player.y,.4);
+  const pos=new THREE.Vector3(px,fl+.02,pz);
+  const cid=(net.id||'local')+'-'+Math.random().toString(36).slice(2,8);
+  placeClaymoreMesh(pos,player.yaw,cid,true);
+  sfxTone(420,220,.12,.14,'square');
+  if(net.connected) netSend({type:'claymore_place',cid,x:pos.x,y:pos.y,z:pos.z,yaw:netYaw(player.yaw)});
+  updHUD();
 }
 function tryFire(){
   const g=curGun(); if(!g) return;
@@ -6731,6 +6834,45 @@ function addAmmoBuy(defId,x,y,z,rot,price){
     label(){return 'Buy '+d.name+' ammo';}, cost(){return price;},
     buy(){ const own=player.guns.find(g=>g.def===d);
       if(own) own.res=resOf(own); else giveGun(d.id); toast(d.name+' ammo'); }});
+}
+function equipTex(title,price,accent){
+  return tex(320,192,(g,w,h)=>{
+    g.clearRect(0,0,w,h);
+    g.fillStyle='rgba(18,20,24,.88)'; g.fillRect(0,0,w,h);
+    g.strokeStyle='rgba(232,226,208,.55)'; g.lineWidth=3; g.strokeRect(6,6,w-12,h-12);
+    g.fillStyle=accent; g.beginPath(); g.arc(w/2,68,32,0,TAU); g.fill();
+    g.fillStyle='rgba(232,226,208,.92)'; g.font='bold 24px Arial'; g.textAlign='center';
+    g.fillText(title.toUpperCase(),w/2,148);
+    g.font='bold 30px Arial';
+    g.fillText(String(price),w/2,180);
+  });
+}
+// A freestanding crate rather than a wall plaque - unlike guns, grenades and
+// claymores don't need a wall to hang on, and picking a spot near each map's
+// own SPAWN_AT/SPAWN_YAW (open by construction, since players land there)
+// sidesteps having to know every map's wall layout by heart.
+function addEquipBuy(kind,x,y,z,rot){
+  const isGrenade=kind==='grenade';
+  const title=isGrenade?'Frag Grenades':'Claymores';
+  const cost=isGrenade?GRENADE_WALLBUY_COST:CLAYMORE_WALLBUY_COST;
+  const crateGeo=mergeGeos([
+    pc(PROP_BOX,0,0,.22,0,0,0,0,.62,.44,.42),
+    pc(PROP_BOX,1,0,.46,0,0,0,0,.66,.05,.46)
+  ]);
+  const crate=new THREE.Mesh(crateGeo,[M.boxWood,M.boxMetal]);
+  crate.position.set(x,y,z); crate.rotation.y=rot; worldRoot.add(crate); blockers.push(crate);
+  addYawCollider(x,z,0.7,0.55,rot,y+0.5,y,0.02);
+  const nx=Math.sin(rot),nz=Math.cos(rot);
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(0.9,0.62),
+    new THREE.MeshBasicMaterial({map:equipTex(title,cost,isGrenade?'#e8a33d':'#a3231e'),transparent:true,opacity:.9}));
+  sign.position.set(x+nx*0.23,y+0.62,z+nz*0.23); sign.rotation.y=rot; worldRoot.add(sign);
+  interactables.push({x,y:y-.1,z,r:2.6,kind:'equipbuy',
+    can(){ return isGrenade?player.grenades<GRENADE_MAX:player.claymores<CLAYMORE_MAX; },
+    label(){ return 'Buy '+title; }, cost(){ return cost; },
+    buy(){
+      if(isGrenade){ player.grenades=GRENADE_MAX; toast('Grenades resupplied'); }
+      else{ player.claymores=CLAYMORE_MAX; toast('Claymores resupplied'); }
+    }});
 }
 function setMapPerkPower(on){
   for(const m of mapProgress.perkMachines){
@@ -7581,7 +7723,7 @@ function stepDrops(dt){
 }
 function applyCollectedDrop(k,collector){
   sfxPowerup(k); toast(DROPS[k].name);
-  if(k==='maxammo'){ for(const g of player.guns){g.res=resOf(g); g.ammo=magOf(g);} }
+  if(k==='maxammo'){ for(const g of player.guns){g.res=resOf(g); g.ammo=magOf(g);} player.grenades=GRENADE_MAX; player.claymores=CLAYMORE_MAX; }
   else if(k==='nuke'){
     if(!net.connected||net.host){
       for(let i=zombies.length-1;i>=0;i--){
@@ -7603,7 +7745,7 @@ function collectDrop(k){ applyCollectedDrop(k,net.id); }
 /* ---------- HUD ---------- */
 const el=id=>document.getElementById(id);
 const ui={hp:el('hpfill'),ammo:el('ammo'),gunname:el('gunname'),reloading:el('reloading'),
-  slots:el('slots'),pts:el('ptsval'),perks:el('perks'),wavebig:el('wavebig'),left:el('left'),
+  slots:el('slots'),equip:el('equip'),pts:el('ptsval'),perks:el('perks'),wavebig:el('wavebig'),left:el('left'),
   mult:el('ptsmult'),invuln:el('invuln'),cross:el('cross'),reddot:el('reddot'),hit:el('hitmark'),vig:el('vig'),downed:el('downed'),
   scope:el('scope'),banner:el('banner'),toast:el('toast'),prompt:el('prompt'),buffs:el('buffs'),
   bossHud:el('bossHud'),bossFill:el('bossFill'),bossName:el('bossName'),teamPoints:el('teamPoints'),flashWhite:0};
@@ -7639,6 +7781,7 @@ function updHUD(){
   ui.reloading.style.opacity=player.reloading?1:0;
   ui.slots.innerHTML=player.guns.map((w,i)=>
     (i===player.slot?'<b>':'')+(i+1)+' '+w.def.name+((w.pack||0)?' '+'\u2726'.repeat(w.pack):'')+(i===player.slot?'</b>':'')).join(' &nbsp; ');
+  ui.equip.textContent='NADE '+player.grenades+'/'+GRENADE_MAX+'   MINE '+player.claymores+'/'+CLAYMORE_MAX;
   renderTeamPoints();
 }
 // CoD-Zombies-style scoreboard: everyone's current points, refreshed both on
@@ -7811,6 +7954,8 @@ addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(!game.running) return;
   if(!e.repeat&&(e.code==='KeyV')) tryMelee();
+  if(!e.repeat&&e.code==='KeyB') tryThrowGrenade();
+  if(!e.repeat&&e.code==='KeyN') tryPlaceClaymore();
   if(!e.repeat&&(e.code==='KeyC'||e.code==='ControlLeft')) toggleCrouch();
   if(e.code==='KeyR') tryReload();
   if(e.code==='KeyF') doBuy();
@@ -8453,6 +8598,23 @@ function remoteMelee(id,event){
   const dist=Math.hypot(r.g.position.x-player.pos.x,r.g.position.y-player.y,r.g.position.z-player.pos.z);
   if(dist<38)sfxMelee(!!event.hit,clamp(1-dist/38,.06,.55));
 }
+function remoteGrenade(id,event){
+  const r=net.remotes.get(id); if(!r||!r.g.visible) return;
+  if(Number.isFinite(+event.yaw)){r.yaw=netYaw(+event.yaw);r.g.rotation.y=r.yaw;}
+  if(Number.isFinite(+event.pitch))r.pitch=clamp(+event.pitch,-1.2,1.2);
+  const {org,dir}=remoteFireOriginDir(r);
+  spawnProj('nade',org.clone().add(dir.clone().multiplyScalar(.6)),dir,{dmg:0,splash:GRENADE_DMG,splashR:GRENADE_RADIUS},1,true);
+}
+function remoteClaymorePlace(id,event){
+  if(id===net.id) return;
+  const pos=new THREE.Vector3(+event.x||0,+event.y||0,+event.z||0);
+  placeClaymoreMesh(pos,netYaw(+event.yaw||0),String(event.cid||''),false);
+}
+function remoteClaymoreBoom(event){
+  const pos=new THREE.Vector3(+event.x||0,+event.y||0,+event.z||0);
+  explode(pos,0,CLAYMORE_RADIUS,'nade',null,true);
+  removeClaymore(String(event.cid||''));
+}
 function removeRemotePlayer(id){
   const r=net.remotes.get(id); if(!r) return;
   if(r.mixer) r.mixer.stopAllAction();
@@ -8591,6 +8753,12 @@ function netHandle(msg){
     remoteFire(String(m.id||''),m);
   } else if(m.type==='melee'){
     remoteMelee(String(m.id||''),m);
+  } else if(m.type==='grenade'){
+    remoteGrenade(String(m.id||''),m);
+  } else if(m.type==='claymore_place'){
+    remoteClaymorePlace(String(m.id||''),m);
+  } else if(m.type==='claymore_boom'){
+    remoteClaymoreBoom(m);
   } else if(m.type==='game_request'){
     handleHostGameRequest(m.event,m.playerId);
   } else if(m.type==='game'){
@@ -9053,9 +9221,11 @@ function startGame(mapId){
   // pings are added straight to `scene`, not worldRoot, so map reload's
   // worldRoot swap won't clean these up on its own - dispose explicitly.
   for(const p of pings) disposePing(p); pings.length=0;
+  clearClaymores();
   player.pos.copy(SPAWN_AT); player.vel.set(0,0,0); player.y=SPAWN_AT.y||0; player.vy=0;
   player.crouched=false;player.crouchMix=0;player.eye=1.68;player.nextMelee=0;player.meleeStart=-99;
   player.maxHp=100; player.hp=100; player.alive=true; player.downed=false; player.invuln=0;
+  player.grenades=GRENADE_START; player.claymores=0; player.nextThrow=0; player.nextClaymore=0;
   player.points=gameRules.startPoints; player.perks={}; player.yaw=SPAWN_YAW; player.pitch=0;
   player.downs=0; player.kills=0; player.headshots=0;
   player.reloading=false; player.burstLeft=0; player.slot=0;
@@ -9245,7 +9415,7 @@ function loop(){
     updateRounds(dt);
     updateZombies(dt);
     updateLightCulling();
-    stepParts(dt); stepProjectiles(dt); stepBooms(dt); stepBolts(dt);
+    stepParts(dt); stepProjectiles(dt); stepBooms(dt); stepBolts(dt); stepClaymores(dt);
     stepDrops(dt); stepBox(dt); stepPap(dt); stepPings(dt); updateInteract(); updateDownedIndicators();
   }
   updateFireCrackle();
