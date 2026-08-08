@@ -2610,9 +2610,19 @@ function buildCrossroads(){
   placeTownAsset('Church_01.glb',-18.38,9.67,Math.PI/2,{collide:[12.87,20.68,3.9]});
   // CityHall_01 x1
   placeTownAsset('CityHall_01.glb',0.0,-31.41,0,{collide:[22.6,18.6,3.9]});
-  // Construction_01 x2
-  placeTownAsset('Construction_01.glb',26.94,-37.53,0,{collide:[8.0,12.0,3.9]});
-  placeTownAsset('Construction_01.glb',-12.0,-6.78,Math.PI/2,{collide:[8.0,12.0,3.9]});
+  // Construction_01 x2 - an open scaffold shell (no walls), so unlike every
+  // other building here it gets no blanket footprint collider: that used to
+  // wall players out of the whole thing. Its real geometry (read from the
+  // glTF itself) is a ground floor, one open staircase up the right side,
+  // and an upper floor slab at y=3.6 - modeled with the same platform/ramp
+  // system the hand-built maps use for multi-level structures, so it's both
+  // walkable and climbable.
+  placeTownAsset('Construction_01.glb',26.94,-37.53,0);
+  addPlatform(22.94,30.94,-43.53,-31.53,3.6);
+  addRamp(28.84,30.64,-37.53,-31.33,0,3.6,'z',false);
+  placeTownAsset('Construction_01.glb',-12.0,-6.78,Math.PI/2);
+  addPlatform(-18,-6,-10.78,-2.78,3.6);
+  addRamp(-12,-5.8,-10.48,-8.68,0,3.6,'x',false);
   // Fan_01 x6
   placeTownAsset('Fan_01.glb',-20.22,-0.88,Math.PI/2,{y:10.0});
   placeTownAsset('Fan_01.glb',11.46,-2.29,0,{y:5.41});
