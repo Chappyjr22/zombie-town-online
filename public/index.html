@@ -153,38 +153,8 @@
   .mapcard h4{font-size:15px;letter-spacing:.24em;text-transform:uppercase;margin:12px 14px 4px;}
   .mapcard h4 em{font-style:normal;font-size:9px;letter-spacing:.2em;color:var(--amber);opacity:.85;margin-left:8px;}
   .mapcard p{font-size:11px;line-height:1.65;opacity:.62;margin:0 14px;letter-spacing:.02em;}
-  .mapart{height:96px;position:relative;overflow:hidden;}
-  .mapart.town{background:linear-gradient(180deg,#10141f 0%,#1b2130 100%);}
-  .mapart.town i{position:absolute;bottom:12px;background:#2b3040;border-top:2px solid #3c4356;}
-  .mapart.town i:nth-child(1){left:16px;width:58px;height:44px;}
-  .mapart.town i:nth-child(2){right:16px;width:58px;height:52px;}
-  .mapart.town i:nth-child(3){left:50%;margin-left:-22px;width:44px;height:30px;}
-  .mapart.town b{position:absolute;left:50%;bottom:44px;margin-left:-7px;width:14px;height:20px;border-radius:50% 50% 40% 40%;
-    background:radial-gradient(circle at 50% 70%,#ffd27a,#e8672a 60%,rgba(232,103,42,0) 72%);}
-  .mapart.wayside{background:linear-gradient(180deg,#05060a 0%,#0c1420 60%,#0a0906 60%,#08080a 100%);}
-  .mapart.wayside i{position:absolute;bottom:13px;width:50px;height:36px;background:#232a36;border-top:2px solid #3a4456;}
-  .mapart.wayside i:nth-child(1){left:12px;box-shadow:0 -14px 0 -6px #d9a24a;}
-  .mapart.wayside i:nth-child(2){right:12px;box-shadow:0 -14px 0 -6px #e8c060;}
-  .mapart.wayside b{position:absolute;left:50%;top:18px;margin-left:-30px;width:60px;height:8px;background:#3a4148;box-shadow:0 6px 10px -2px #ffdf9a;}
-  .mapart.wayside u{position:absolute;left:50%;bottom:0;margin-left:-2px;width:4px;height:34px;background:#4a5058;}
-  .mapart.blacksire{background:linear-gradient(180deg,#111a25 0%,#253443 55%,#11161c 56%,#080b0f 100%);}
-  .mapart.blacksire i{position:absolute;bottom:13px;background:#27323b;border-top:2px solid #7e2630;}
-  .mapart.blacksire i:nth-child(1){left:14px;width:72px;height:36px;box-shadow:18px -16px 0 -12px #222d37;}
-  .mapart.blacksire i:nth-child(2){right:14px;width:66px;height:43px;box-shadow:-17px -20px 0 -15px #222d37;}
-  .mapart.blacksire b{position:absolute;left:50%;bottom:0;margin-left:-19px;width:38px;height:30px;background:#090c11;border:2px solid #653039;}
-  .mapart.blacksire u{position:absolute;left:50%;top:7px;margin-left:-2px;width:4px;height:43px;background:#8797a6;box-shadow:0 0 8px #bddef5;}
-  .mapart.laststop{background:linear-gradient(180deg,#0b1117 0%,#243342 53%,#11161b 54%,#080a0c 100%);}
-  .mapart.laststop i{position:absolute;bottom:13px;background:#55575a;border-top:2px solid #a48142;}
-  .mapart.laststop i:nth-child(1){left:12px;width:112px;height:43px;box-shadow:0 -13px 0 -7px #77736b;}
-  .mapart.laststop i:nth-child(2){right:13px;width:79px;height:31px;background:#472027;}
-  .mapart.laststop b{position:absolute;left:50%;bottom:10px;margin-left:-25px;width:50px;height:18px;background:#151a1e;border:2px solid #b58e43;}
-  .mapart.laststop u{position:absolute;left:14px;right:14px;bottom:7px;height:3px;background:#59616a;box-shadow:0 -8px 0 #2a3036;}
-  .mapart.crossroads{background:linear-gradient(180deg,#9fc3e6 0%,#c9dcee 58%,#b6ada0 58%,#a49a8c 100%);}
-  .mapart.crossroads i{position:absolute;bottom:14px;background:#8a8378;}
-  .mapart.crossroads i:nth-child(1){left:14px;width:20px;height:64px;box-shadow:0 -8px 0 -2px #6f6a5f;}
-  .mapart.crossroads i:nth-child(2){right:16px;width:46px;height:40px;background:#7fa0c2;box-shadow:0 -10px 0 -3px #5c6f86;}
-  .mapart.crossroads b{position:absolute;left:50%;bottom:0;margin-left:-9px;width:18px;height:52px;background:#a2493c;}
-  .mapart.crossroads u{position:absolute;left:50%;bottom:52px;margin-left:-1px;width:2px;height:14px;background:#a2493c;}
+  .mapart{height:152px;position:relative;overflow:hidden;background:#10141f;}
+  .mapart img{width:100%;height:100%;object-fit:cover;display:block;}
   .best{font-size:11px;letter-spacing:.22em;opacity:.5;text-transform:uppercase;margin-top:14px;}
   .best b{color:var(--amber);}
   h2.sec{font-size:22px;letter-spacing:.30em;text-transform:uppercase;margin-bottom:4px;}
@@ -440,30 +410,30 @@
 <div class="screen gone" id="mapsel">
   <div class="card">
     <h2 class="sec">Choose a map</h2>
-    <div class="sub">Four very different problems</div>
+    <div class="sub">Five very different problems</div>
     <div class="maps">
       <div class="mapcard" data-act="map:town">
-        <div class="mapart town"><i></i><i></i><i></i><b></b></div>
+        <div class="mapart"><img src="/images/maps/town.jpg" alt="" loading="lazy"></div>
         <h4>Town <em>Night</em></h4>
         <p>A burning fountain in a dead crossroads. Five buildings, a bank vault, a church tower, and a bar with an upstairs balcony you can reach by jump pad.</p>
       </div>
       <div class="mapcard" data-act="map:wayside">
-        <div class="mapart wayside"><i></i><i></i><b></b><u></u></div>
+        <div class="mapart"><img src="/images/maps/wayside.jpg" alt="" loading="lazy"></div>
         <h4>Wayside <em>Night</em></h4>
         <p>An isolated highway gas station, dead of night. A lit fuel canopy over the pump island, a convenience store and diner facing off across the apron, a garage bay hiding Pack-a-Punch, and a fenced motel row out back.</p>
       </div>
       <div class="mapcard" data-act="map:blacksire">
-        <div class="mapart blacksire"><i></i><i></i><b></b><u></u></div>
+        <div class="mapart"><img src="/images/maps/blacksire.jpg" alt="" loading="lazy"></div>
         <h4>Blacksire <em>Storm</em></h4>
         <p>A classified military research compound split between a rain-lashed checkpoint and the containment lab below. Loop through barracks, garage, communications, generator rooms, test cells, and a lockdown zone that gets meaner every fourth round.</p>
       </div>
       <div class="mapcard" data-act="map:laststop">
-        <div class="mapart laststop"><i></i><i></i><b></b><u></u></div>
+        <div class="mapart"><img src="/images/maps/laststop.jpg" alt="" loading="lazy"></div>
         <h4>Last Stop <em>Rain</em></h4>
         <p>A ruined central railway terminal with paid doors, two power circuits, detailed platforms and trains, a maintenance yard, service tunnels, and Pack-a-Punch sealed inside the armored rail vault.</p>
       </div>
       <div class="mapcard" data-act="map:crossroads">
-        <div class="mapart crossroads"><i></i><i></i><b></b><u></u></div>
+        <div class="mapart"><img src="/images/maps/crossroads.jpg" alt="" loading="lazy"></div>
         <h4>Crossroads <em>Daylight</em></h4>
         <p>An abandoned city block under a clear sky. A gas station and a church face off across the intersection, a columned civic building anchors a wrecked-car parking lot, and apartment towers box the street in on every side.</p>
       </div>
