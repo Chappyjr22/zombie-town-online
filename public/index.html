@@ -880,6 +880,19 @@ const GRENADE_MAX=4, GRENADE_START=2, GRENADE_DMG=Math.round(420*1.3), GRENADE_R
 const CLAYMORE_MAX=2, CLAYMORE_DMG=GRENADE_DMG*2, CLAYMORE_RADIUS=4.4, CLAYMORE_TRIGGER_R=2.6;
 const GRENADE_WALLBUY_COST=250, CLAYMORE_WALLBUY_COST=5000;
 
+/* ---------- fall damage ----------
+   vy at impact is the free-fall speed, so it's a direct stand-in for fall
+   height (v=sqrt(2*g*h) with g=21 here) without having to track a separate
+   "peak height" - a jump or a hop off a curb tops out well under the safe
+   threshold, while the Construction_01 roof deck (~7m up) lands around
+   vy=-17, comfortably into damage range without needing a second constant. */
+const FALL_DMG_SAFE_VY=-11, FALL_DMG_MAX_VY=-32, FALL_DMG_MAX=95;
+function fallDamageFor(vy){
+  if(vy>=FALL_DMG_SAFE_VY) return 0;
+  const t=(vy-FALL_DMG_SAFE_VY)/(FALL_DMG_MAX_VY-FALL_DMG_SAFE_VY);
+  return clamp(t,0,1)*FALL_DMG_MAX;
+}
+
 function addCollider(minX,maxX,minZ,maxZ,top,bot){colliders.push({minX,maxX,minZ,maxZ,top:top===undefined?99:top,bot:bot===undefined?-99:bot});}
 function addYawCollider(x,z,w,d,rot,top,bot,pad){
   const p=pad||0;
@@ -2617,15 +2630,28 @@ function buildCrossroads(){
   // two upper floor slabs (y=3.6 landing, y=7.05 roof deck) - modeled with
   // the same platform/ramp system the hand-built maps use for multi-level
   // structures, so it's walkable and climbable all the way to the top.
+  // groundAt() takes the *highest* reachable surface at a given x/z, so a
+  // floor platform spanning the same footprint as the stairwell above it
+  // permanently outranks the ramp there: standing on the upper floor, every
+  // point along the stairwell is "still floor" as far as groundAt is
+  // concerned, so the ramp's lower values never win and descending is
+  // impossible. Each floor is carved into two non-overlapping pieces that
+  // leave the stairwell footprint open, matching a real open stairwell.
   placeTownAsset('Construction_01.glb',26.94,-37.53,0);
-  addPlatform(22.94,30.94,-43.53,-31.53,3.6);
+  addPlatform(22.94,27.0,-43.53,-31.53,3.6);
+  addPlatform(27.0,30.94,-43.53,-37.6,3.6);
   addRamp(28.84,30.64,-37.53,-31.33,0,3.6,'z',false);
-  addPlatform(22.94,30.94,-43.53,-31.53,7.05);
+  addPlatform(22.94,27.0,-43.53,-31.53,7.05);
+  addPlatform(27.0,30.94,-43.53,-37.6,7.05);
   addRamp(27.14,29.14,-37.33,-33.33,3.6,7.05,'z',true);
   placeTownAsset('Construction_01.glb',-12.0,-6.78,Math.PI/2);
-  addPlatform(-18,-6,-10.78,-2.78,3.6);
+  addPlatform(-18,-12,-10.78,-2.78,3.6);
+  addPlatform(-12,-6,-6.98,-2.78,3.6);
+  addPlatform(-12,-6,-10.78,-10.48,3.6);
   addRamp(-12,-5.8,-10.48,-8.68,0,3.6,'x',false);
-  addPlatform(-18,-6,-10.78,-2.78,7.05);
+  addPlatform(-18,-12,-10.78,-2.78,7.05);
+  addPlatform(-12,-6,-6.98,-2.78,7.05);
+  addPlatform(-12,-6,-10.78,-10.48,7.05);
   addRamp(-11.8,-7.8,-8.98,-6.98,3.6,7.05,'x',true);
   // Fan_01 x6
   placeTownAsset('Fan_01.glb',-20.22,-0.88,Math.PI/2,{y:10.0});
@@ -9496,6 +9522,10 @@ function updatePlayer(dt){
   player.vy-=21*dt; player.y+=player.vy*dt;
   if(player.y<=gh){
     if(!player.grounded&&player.vy<-6) player.landDip=Math.min(0.9,-player.vy/14); // knees on landing
+    if(!player.grounded){
+      const dmg=fallDamageFor(player.vy);
+      if(dmg>0) hurtPlayer(dmg);
+    }
     player.y=gh; player.vy=0; player.grounded=true;
   } else player.grounded=false;
   player.landDip=lerp(player.landDip||0,0,1-Math.pow(0.0006,dt));
