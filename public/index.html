@@ -2473,6 +2473,162 @@ function buildWayside(){
   addPackAPunch(-18,17.5,Math.PI/2);
 }
 
+/* ---------- shared town-asset loader: sourced glTF pieces for Crossroads.
+   Cached per file so repeated instances (road tiles, cars, trees) reuse the
+   parsed template and only clone; collision is registered synchronously
+   from a known footprint so movement blocking exists immediately, the same
+   moment the async visual mesh is still in flight (mirrors loadSourcedWeapon's
+   box-based approach, just applied to static world props instead). ---------- */
+const TOWN_ASSET_PATH='/models/lowpoly-town/Models/';
+const townGltfLoader=new GLTFLoader();
+const townAssetCache={};
+function loadTownAssetTemplate(file){
+  if(!townAssetCache[file]){
+    townAssetCache[file]=new Promise((resolve,reject)=>{
+      townGltfLoader.load(TOWN_ASSET_PATH+file,gltf=>resolve(gltf.scene),undefined,reject);
+    });
+  }
+  return townAssetCache[file];
+}
+function placeTownAsset(file,x,z,rotY,opts){
+  opts=opts||{};
+  loadTownAssetTemplate(file).then(template=>{
+    const obj=template.clone(true);
+    obj.position.set(x,opts.y||0,z);
+    obj.rotation.y=rotY||0;
+    if(opts.scale)obj.scale.setScalar(opts.scale);
+    obj.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; blockers.push(o); } });
+    worldRoot.add(obj);
+  }).catch(err=>console.warn('town asset failed to load: '+file,err));
+  if(opts.collide){
+    const [w,d,top]=opts.collide;
+    addYawCollider(x,z,w,d,rotY||0,top===undefined?2.4:top,0,0.04);
+  }
+}
+
+/* ============ CROSSROADS ============
+   An abandoned city block built from a downloaded low-poly asset pack: a
+   gas station and service booth on one corner, a church on another, a
+   columned civic building with a parking lot on a third, apartment blocks
+   forming the street canyon, and a glass tower skyline behind it all.
+   Buildings are solid, single-mesh exteriors with no authored interiors, so
+   (like this game's cars and wrecks) they're cover and scenery, not rooms
+   to walk into - all buys, perks and Pack-a-Punch sit in the street, the
+   back alley, and the parking lot instead. */
+function buildCrossroads(){
+  BND=40;
+  scene.background=new THREE.Color(0x9fc3e6);
+  scene.fog=new THREE.Fog(0xaecbe8,60,220); mapFog={near:60,far:220};
+  torch.intensity=0.18;
+  SPAWN_AT.set(0,0,-30); SPAWN_YAW=0;
+  SPAWNS=[[-8,-30],[8,-30],[-20,-24],[20,-24],[-30,-10],[30,-10],
+    [-30,10],[30,10],[-20,24],[20,24],[-8,30],[8,30]];
+  BOX_SPOTS=[[-9,-2],[9,-2],[0,-14],[-9,16],[9,16]];
+
+  worldRoot.add(new THREE.HemisphereLight(0xcfe0f4,0x9c8f70,0.85));
+  const sun=new THREE.DirectionalLight(0xfff2d8,1.2); sun.position.set(40,60,-24); worldRoot.add(sun);
+  sunShadow(sun,60);
+  const fill=new THREE.DirectionalLight(0xa8c0dc,0.28); fill.position.set(-30,20,30); worldRoot.add(fill);
+
+  /* ---- ground and streets ---- */
+  const dirt=new THREE.Mesh(new THREE.PlaneGeometry(360,360),M.dirt);
+  dirt.receiveShadow=true; dirt.rotation.x=-Math.PI/2; worldRoot.add(dirt); blockers.push(dirt);
+  quad(-BND,-BND,BND,BND,0.015,phong({color:0xb8b0a0}));
+
+  placeTownAsset('Road_06.glb',0,0,0);                       // 12x12 intersection tile
+  placeTownAsset('Road_04.glb',0,-15,Math.PI/2);              // south arm
+  placeTownAsset('Road_04.glb',0,15,Math.PI/2);               // north arm
+  placeTownAsset('Road_04.glb',-15,0,0);                     // west arm
+  placeTownAsset('Road_04.glb',15,0,0);                      // east arm
+  placeTownAsset('Road_07.glb',0,-24,Math.PI/2);
+  placeTownAsset('Road_07.glb',0,24,Math.PI/2);
+
+  /* ---- NW corner: gas station forecourt + service booth out back ---- */
+  placeTownAsset('Gas_Station_01.glb',-16,-16,0,{collide:[7.25,8.82,3.9]});
+  placeTownAsset('AutoService_01.glb',-16,-27,Math.PI,{collide:[8.93,7.11,3.9]});
+  placeTownAsset('Fence_03.glb',-11,-22,Math.PI/2);
+  placeTownAsset('Box_01.glb',-19,-13,0.3); placeTownAsset('Box_02.glb',-18,-12.2,0.5);
+  placeTownAsset('Barrel_01.glb',-13,-19,0);
+
+  /* ---- NE corner: church, the skyline landmark ---- */
+  placeTownAsset('Church_01.glb',18,-18,Math.PI*0.55,{collide:[12.87,20.68,3.9]});
+  placeTownAsset('Tree_01.glb',10,-13,0); placeTownAsset('Tree_02.glb',26,-9,0.3);
+
+  /* ---- SW corner: civic building with a parking lot ---- */
+  placeTownAsset('CityHall_01.glb',-18,20,0,{collide:[22.6,18.6,3.9]});
+  placeTownAsset('ParkingBG_01.glb',-18,32,Math.PI/2);
+  for(const [px,pz,file] of [[-26,30,'OldCar_02.glb'],[-24,35,'Car_01.glb'],[-10,33,'OldCar_04.glb']]){
+    placeTownAsset(file,px,pz,rand(0,TAU),{collide:[1.98,3.30,1.9]});
+  }
+  placeTownAsset('Parking_01.glb',-11,25,0); placeTownAsset('Parking_01_2.glb',-11,25,Math.PI/2);
+  placeTownAsset('Barrier_01.glb',-9,22,Math.PI/2);
+
+  /* ---- SE corner: apartment block backdrop ---- */
+  placeTownAsset('House_05.glb',18,20,Math.PI*0.25,{collide:[7.07,7.06,3.9]});
+  placeTownAsset('House_08.glb',26,26,-0.4,{collide:[4.24,3.66,3.9]});
+  placeTownAsset('Tree_01.glb',12,28,0);
+
+  /* ---- street canyon: mid-rise apartments lining the outer road ---- */
+  placeTownAsset('House_03.glb',-9,-32,0,{collide:[7.14,6.29,3.9]});
+  placeTownAsset('House_04.glb',9,-32,0,{collide:[7.14,6.29,3.9]});
+  placeTownAsset('House_06.glb',-30,-9,Math.PI/2,{collide:[6.34,7.04,3.9]});
+  placeTownAsset('House_07.glb',30,9,-Math.PI/2,{collide:[6.34,7.03,3.9]});
+  placeTownAsset('House_01.glb',30,-24,-Math.PI/2,{collide:[7.14,6.37,3.9]});
+  placeTownAsset('House_03.glb',-30,24,Math.PI/2,{collide:[7.14,6.29,3.9]});
+
+  /* ---- skyline backdrop, set back beyond the play area for scale ---- */
+  placeTownAsset('Bank_01.glb',-44,-44,0.4);
+  placeTownAsset('House_02.glb',46,-40,-0.3);
+  placeTownAsset('Office_01.glb',44,42,0.6);
+
+  /* ---- back alley loot nook, between the gas station and the church ---- */
+  placeTownAsset('Construction_01.glb',2,-30,0,{collide:[8.0,12.0,3.9]});
+  placeTownAsset('Barrel_02.glb',-2,-24,0);
+  placeTownAsset('Trash_01.glb',6,-24,0.6);
+  placeTownAsset('Pallet_01.glb',4,-27,0.2);
+
+  /* ---- street furniture: signs, hydrants, poles, wires, wrecks ---- */
+  placeTownAsset('RoadSign_01.glb',3,-6,Math.PI);
+  placeTownAsset('RoadSign_02.glb',-3,6,0);
+  placeTownAsset('Hydrant.glb',6,3,0);
+  placeTownAsset('Hydrant.glb',-6,-3,0);
+  for(const [lx,lz] of [[-6,-24],[6,24],[-24,6],[24,-6]]){
+    placeTownAsset('Light_01.glb',lx,lz,0);
+  }
+  for(const [px,pz,rot] of [[-4,-14,0],[4,14,0],[-14,4,Math.PI/2],[14,-4,Math.PI/2]]){
+    placeTownAsset('PowerLines_01.glb',px,pz,rot);
+  }
+  for(const [ox,oz,rot,file] of [
+    [-4,-9,Math.PI*0.15,'OldCar_01.glb'],[7,-3,-Math.PI*0.1,'OldCar_03.glb'],
+    [-7,3,Math.PI*0.6,'OldCar_05.glb'],[4,9,Math.PI*0.9,'OldCar_06.glb']]){
+    placeTownAsset(file,ox,oz,rot,{collide:[1.98,3.30,1.9]});
+  }
+
+  /* ---- perimeter ---- */
+  fenceRun(-BND,BND,BND,BND);
+  fenceRun(-BND,-BND,-BND,BND);
+  fenceRun(BND,-BND,BND,BND);
+  chain(-BND,-BND,BND,-BND); chain(-BND,BND,BND,BND);
+
+  /* ---- buys ---- */
+  addWallBuy('m14',-12.72,2.0,-16,Math.PI/2);
+  addWallBuy('ak74u',12.72,2.0,16,-Math.PI/2);
+  addWallBuy('mp5',-6,2.0,-32.72,0);
+  addWallBuy('galil',6,2.0,32.72,Math.PI);
+  addWallBuy('olympia',-32.72,2.0,-6,Math.PI/2);
+  addWallBuy('rem870',32.72,2.0,6,-Math.PI/2);
+  addAmmoBuy('m1911',3,2.1,-9,0,250);
+  addAmmoBuy('m4a1',-3,2.0,9,Math.PI,400);
+
+  addPerkMachine('revive',0,-33.4,0,0);
+  addPerkMachine('jugg',33.4,0,0,-Math.PI/2);
+  addPerkMachine('speed',-33.4,0,0,Math.PI/2);
+  addPerkMachine('dtap',0,33.4,0,Math.PI);
+  addPerkMachine('stamin',-9,-27,0,0);
+  addPerkMachine('mule',9,27,0,Math.PI);
+  addPackAPunch(2,-33.5,0);
+}
+
 /* ============ SHARED MAP PROGRESSION ============
    Paid routes are registered as real meshes with fitted collision. The host owns
    multiplayer changes, while compact snapshots keep reconnecting players and late
@@ -3229,7 +3385,10 @@ const MAPS={
     build:buildBlacksire},
   laststop:{name:'Last Stop',time:'Rain',
     blurb:'A ruined central railway terminal with paid routes, two power circuits, detailed platforms and trains, service tunnels, a maintenance yard, and Pack-a-Punch inside the armored rail vault.',
-    build:buildLastStop}
+    build:buildLastStop},
+  crossroads:{name:'Crossroads',time:'Daylight',
+    blurb:'An abandoned city block under a clear sky. A gas station and a church face off across the intersection, a columned civic building anchors a wrecked-car parking lot, and apartment towers box the street in on every side.',
+    build:buildCrossroads}
 };
 let currentMap='town';
 function clearWorld(){
