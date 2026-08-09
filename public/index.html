@@ -3028,13 +3028,22 @@ function buildOverpass(){
   sunShadow(sun,52);
   const fill=new THREE.DirectionalLight(0xa8c0dc,0.30); fill.position.set(-40,26,40); worldRoot.add(fill);
 
-  /* ---- ground: a wide paved apron under the real ground/floor pieces below,
-     same approach as Crossroads - the pack's own floor tiles only cover the
-     built-up areas, so a flat textured plane keeps the rest of the map from
-     reading as an untextured void. ---- */
-  const dirt=new THREE.Mesh(new THREE.PlaneGeometry(400,400),M.dirt);
-  dirt.receiveShadow=true; dirt.rotation.x=-Math.PI/2; worldRoot.add(dirt); blockers.push(dirt);
-  quad(-BND,-BND,BND,BND,0.015,phong({map:T.asphalt}));
+  /* ---- ground: the source Unity scene sits on a real Terrain (heightmap +
+     tree-painted forest, not scattered as ordinary GameObjects - Unity
+     terrains keep their tree instances in the TerrainData binary asset,
+     completely separate from the PrefabInstance list every other placement
+     below was extracted from, so none of that showed up in the extraction).
+     Paving the whole BND square in asphalt (the earlier approach, copied
+     from Crossroads' dense city block) left a huge blacktop lot around a
+     tiny paved forecourt with only the ~1 tree the prefab list actually
+     had - nothing like the wooded rest-stop the terrain gives it. Grass
+     everywhere except the real paved forecourt, plus a real tree line
+     (borrowed from the lowpoly-town pack via placeTownAsset - this pack
+     itself only ships one tree mesh), gets back most of that feel without
+     reverse-engineering Unity's terrain binary format. ---- */
+  const lawn=new THREE.Mesh(new THREE.PlaneGeometry(400,400),M.lawn);
+  lawn.receiveShadow=true; lawn.rotation.x=-Math.PI/2; worldRoot.add(lawn); blockers.push(lawn);
+  quad(-24,-18,24,18,0.015,phong({map:T.asphalt}));
 
   /* ---- placed from the "Stylized FPS Map 2" pack's own assembled demo
      scene: every position/rotation below is the real authored transform,
@@ -3977,6 +3986,41 @@ function buildOverpass(){
   placeFps2Asset('SM_Nature_Tree_02.glb',6.56,-15.61,0.2275,{y:0.026,collide:[3.74,3.47,3.0]});
   // SM_Props_Car_01 x1
   placeFps2Asset('SM_Props_Car_01.glb',-6.39,2.96,-3.1416,{y:0.003,collide:[1.85,3.3,1.6]});
+  /* ---- tree line: borrowed from the lowpoly-town pack (this pack has only
+     one tree mesh) to stand in for the source scene's real Terrain-painted
+     forest, which isn't in the extracted prefab data - see the ground
+     comment above. Collide boxes are conservative trunk-sized footprints,
+     not the full canopy, so players can still walk under the branches. ---- */
+  placeTownAsset('Tree_02.glb',-39.92,27.67,1.49,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',4.16,-25.28,3.42,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',-8.43,29.6,2.32,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',-8.61,24.67,3.79,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',38.06,-30.0,3.93,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',-23.21,38.17,0.41,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',-7.58,-21.94,0.08,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',29.22,40.26,5.26,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',-35.54,32.56,1.63,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',-16.9,22.04,1.47,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',-38.43,-24.81,6.25,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',38.78,25.54,2.95,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',-39.18,-36.03,5.25,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',-13.63,27.35,2.99,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',25.4,37.78,4.01,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',-40.62,36.35,0.95,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',25.55,-35.97,3.99,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',-2.22,22.67,5.45,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',31.7,-36.65,3.29,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',-30.31,-38.7,4.66,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',7.2,-40.6,4.22,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',-34.66,40.86,0.4,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',7.09,29.36,4.76,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',-9.61,-26.88,3.71,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',-36.62,-29.81,1.89,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',-40.81,22.18,0.19,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',37.64,32.15,5.44,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',-34.4,27.81,2.97,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',-22.64,-40.78,4.51,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',31.41,-21.19,5.52,{collide:[1.1,1.1,3.9]});
   /* ---- perimeter ---- */
   fenceRun(-BND,BND,BND,BND);
   fenceRun(-BND,-BND,-BND,BND);
