@@ -10443,8 +10443,10 @@ bindRuleToggle('ruleHardcore',()=>{ gameRules.hardcore=!gameRules.hardcore; });
 // the time it returns, loadBatch.total is already its final count for this
 // map - trackAssetLoad() only increments on a genuine cache-miss fetch, so
 // a map that's already fully cached (or one of the four that build their
-// geometry synchronously and never touch the asset loaders at all) comes
-// back with total=0 and skips the loading screen entirely.
+// geometry synchronously and never touch the asset loaders at all) simply
+// comes back with total=0, and the loading screen's progress bar fills on
+// LOAD_MIN_TIME alone instead of real asset progress.
+const LOAD_MIN_TIME=7; // seconds - shown even once loading itself is done
 let pendingLoad=null;
 function startGame(mapId){
   const targetMap=mapId||currentMap;
@@ -10481,12 +10483,14 @@ function startGame(mapId){
   net.nextState=0; net.nextWorld=0; net.pausedByHost=false;
   if(net.connected&&net.host) net.zombieSeq=1;
   if(mbox.state!=='idle') closeBox();
-  if(batch.total>0){
-    showLoadingScreen(targetMap);
-    pendingLoad={batch,deadline:performance.now()/1000+20};
-  }else{
-    finishStartGame();
-  }
+  // Shown for every map, not just the two with real async loading - a
+  // synchronous map (Town/Wayside/Blacksire/LastStop) or an already-cached
+  // one just has batch.total=0, so its progress bar fills on the clock
+  // alone. Held for a mandatory LOAD_MIN_TIME even once assets finish,
+  // both so it doesn't flash by for the fast maps and because it reads as
+  // more like a real game's loading screen than an instant cut to gameplay.
+  showLoadingScreen(targetMap);
+  pendingLoad={batch,start:performance.now()/1000,deadline:performance.now()/1000+20};
 }
 function finishStartGame(){
   hideScreens();
@@ -10661,10 +10665,18 @@ function loop(){
   let dt=now-last; last=now;
   dt=clamp(dt,0.001,0.05);
   if(pendingLoad){
-    const b=pendingLoad.batch, pct=b.total?Math.min(1,b.loaded/b.total):1;
+    const b=pendingLoad.batch, realPct=b.total?Math.min(1,b.loaded/b.total):1;
+    // Paced by whichever of "real load progress" and "time since LOAD_MIN_TIME"
+    // is further behind, so the bar reads as smooth, continuous progress
+    // instead of jumping to 100% early and then just sitting there for the
+    // rest of the mandatory minimum.
+    const timePct=Math.min(1,(now-pendingLoad.start)/LOAD_MIN_TIME);
+    const pct=Math.min(realPct,timePct);
     el('loadFill').style.width=(pct*100)+'%';
     el('loadPct').textContent=Math.round(pct*100)+'%';
-    if(b.loaded>=b.total||now>pendingLoad.deadline){
+    const loadDone=b.loaded>=b.total||now>pendingLoad.deadline;
+    const minTimeDone=now-pendingLoad.start>=LOAD_MIN_TIME;
+    if(loadDone&&minTimeDone){
       pendingLoad=null;
       finishStartGame();
     }
