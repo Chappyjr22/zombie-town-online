@@ -60,11 +60,13 @@ const canvas = page.locator('canvas').first();
 for (const mapId of mapIds) {
   await page.evaluate((id) => window.__MAP_TOOLS__.startGame(id), mapId);
   // Most maps build their geometry synchronously inside startGame() and are
-  // ready next frame, but Crossroads streams ~70 individual glTF files in
-  // over the network (see placeTownAsset in public/index.html). A fixed
-  // 3s wait is enough for all 5 current maps in practice; bump this if a
-  // future map's async loading is heavier and captures start coming up short.
-  await page.waitForTimeout(3000);
+  // ready next frame, but Crossroads/Overpass stream 67-70 individual glTF
+  // files in over the network (see placeTownAsset/placeFps2Asset in
+  // public/index.html). Overpass alone (all 67 files, no shared atlas) needs
+  // longer than a shared 3s budget reliably covers when it's one of several
+  // maps captured back to back in the same session - bump per-map here if a
+  // future map's async loading is heavier still and captures come up short.
+  await page.waitForTimeout(mapId === 'overpass' ? 8000 : 3000);
 
   await page.evaluate(() => {
     window.__savedRAF = window.__savedRAF || window.requestAnimationFrame.bind(window);

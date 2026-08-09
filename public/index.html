@@ -440,6 +440,11 @@
         <h4>Crossroads <em>Daylight</em></h4>
         <p>An abandoned city block under a clear sky. A gas station and a church face off across the intersection, a columned civic building anchors a wrecked-car parking lot, and apartment towers box the street in on every side.</p>
       </div>
+      <div class="mapcard" data-act="map:overpass">
+        <div class="mapart"><img src="/images/maps/overpass.jpg" alt="" loading="lazy"></div>
+        <h4>Overpass <em>Daylight</em></h4>
+        <p>A sprawling roadside sprawl of gas pumps, a diner, and stacked apartment blocks with walkable rooftops, ringed by junked cars, tire piles, and scrapyard clutter.</p>
+      </div>
     </div>
     <div class="btn" data-act="back">Back</div>
   </div>
@@ -2515,6 +2520,32 @@ function placeTownAsset(file,x,z,rotY,opts){
     addYawCollider(x,z,w,d,rotY||0,top===undefined?2.4:top,0,0.04);
   }
 }
+const FPS2_ASSET_PATH='/models/stylizedfps2/Models/';
+const fps2GltfLoader=new GLTFLoader();
+const fps2AssetCache={};
+function loadFps2AssetTemplate(file){
+  if(!fps2AssetCache[file]){
+    fps2AssetCache[file]=new Promise((resolve,reject)=>{
+      fps2GltfLoader.load(FPS2_ASSET_PATH+file,gltf=>resolve(gltf.scene),undefined,reject);
+    });
+  }
+  return fps2AssetCache[file];
+}
+function placeFps2Asset(file,x,z,rotY,opts){
+  opts=opts||{};
+  loadFps2AssetTemplate(file).then(template=>{
+    const obj=template.clone(true);
+    obj.position.set(x,opts.y||0,z);
+    obj.rotation.y=rotY||0;
+    if(opts.scale)obj.scale.setScalar(opts.scale);
+    obj.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; blockers.push(o); } });
+    worldRoot.add(obj);
+  }).catch(err=>console.warn('fps2 asset failed to load: '+file,err));
+  if(opts.collide){
+    const [w,d,top]=opts.collide;
+    addYawCollider(x,z,w,d,rotY||0,top===undefined?2.4:top,0,0.04);
+  }
+}
 
 function buildCrossroads(){
   BND=44;
@@ -2966,6 +2997,963 @@ function buildCrossroads(){
    Paid routes are registered as real meshes with fitted collision. The host owns
    multiplayer changes, while compact snapshots keep reconnecting players and late
    joiners on the same set of opened routes and powered switches. */
+
+function buildOverpass(){
+  BND=85;
+  scene.background=new THREE.Color(0x8fb8dc);
+  scene.fog=new THREE.Fog(0x9fc3e6,70,260); mapFog={near:70,far:260};
+  torch.intensity=0.14;
+  // The pack's demo layout runs as a diagonal roadside strip through the
+  // recentered bounding box rather than filling it edge to edge, so spawn
+  // and gameplay spots below were chosen by measuring actual clearance to
+  // the nearest placed prop (not guessed) - see the two empty corners on
+  // the minimap where the strip doesn't reach.
+  SPAWN_AT.set(50,0,-14); SPAWN_YAW=Math.PI*0.75;
+  SPAWNS=[[-6,-36],[-30,72],[78,0],[-66,18],[18,18],[-24,24],[0,-78],[42,-6],
+    [-12,-6],[-12,48],[12,-18],[-18,-54],[-48,24],[-6,12],[6,-60],[36,12]];
+  BOX_SPOTS=[[8,4],[-56,32],[8,-64],[60,-20],[-24,60],[16,-32]];
+
+  worldRoot.add(new THREE.HemisphereLight(0xcfe0f4,0x9c8f70,0.9));
+  const sun=new THREE.DirectionalLight(0xfff2d8,1.25); sun.position.set(52,74,-30); worldRoot.add(sun);
+  sunShadow(sun,90);
+  const fill=new THREE.DirectionalLight(0xa8c0dc,0.30); fill.position.set(-40,26,40); worldRoot.add(fill);
+
+  /* ---- ground: a wide paved apron under the real ground/floor pieces below,
+     same approach as Crossroads - the pack's own floor tiles only cover the
+     built-up areas, so a flat textured plane keeps the rest of the map from
+     reading as an untextured void. ---- */
+  const dirt=new THREE.Mesh(new THREE.PlaneGeometry(400,400),M.dirt);
+  dirt.receiveShadow=true; dirt.rotation.x=-Math.PI/2; worldRoot.add(dirt); blockers.push(dirt);
+  quad(-BND,-BND,BND,BND,0.015,phong({map:T.asphalt}));
+
+  /* ---- placed from the "Stylized FPS Map 2" pack's own assembled demo
+     scene: every position/rotation below is the real authored transform,
+     read out of the companion Unity project's demo scene PrefabInstance
+     data (same technique used for Crossroads) and recentered so the built
+     cluster sits near the map origin. Unity is left-handed Y-up; positions
+     here have Z mirrored and yaw negated to match this engine's right-
+     handed convention. ---- */
+  // SM_Props_Tire_01 x27
+  placeFps2Asset('SM_Props_Tire_01.glb',37.07,-54.92,-0.0791,{y:0.63});
+  placeFps2Asset('SM_Props_Tire_01.glb',51.77,-28.51,0.5952,{y:1.03});
+  placeFps2Asset('SM_Props_Tire_01.glb',51.5,-35.68,-1.466,{y:3.91});
+  placeFps2Asset('SM_Props_Tire_01.glb',48.45,-34.35,2.1417,{y:0.51,scale:0.84});
+  placeFps2Asset('SM_Props_Tire_01.glb',41.65,-38.78,0.5952,{y:1.03});
+  placeFps2Asset('SM_Props_Tire_01.glb',41.65,-38.78,-0.0791,{y:0.63});
+  placeFps2Asset('SM_Props_Tire_01.glb',41.65,-38.78,1.3869,{y:0.21});
+  placeFps2Asset('SM_Props_Tire_01.glb',48.06,-32.94,2.4629,{y:0.17,scale:0.84});
+  placeFps2Asset('SM_Props_Tire_01.glb',48.45,-34.35,1.3869,{y:0.17,scale:0.84});
+  placeFps2Asset('SM_Props_Tire_01.glb',48.06,-32.94,3.2177,{y:0.51,scale:0.84});
+  placeFps2Asset('SM_Props_Tire_01.glb',40.64,-49.1,3.2177,{y:0.85,scale:0.84});
+  placeFps2Asset('SM_Props_Tire_01.glb',48.45,-34.35,2.1417,{y:0.85,scale:0.84});
+  placeFps2Asset('SM_Props_Tire_01.glb',37.46,-47.49,-1.466,{y:3.91});
+  placeFps2Asset('SM_Props_Tire_01.glb',37.07,-54.92,0.5952,{y:1.03});
+  placeFps2Asset('SM_Props_Tire_01.glb',41.03,-50.52,2.1417,{y:0.85,scale:0.84});
+  placeFps2Asset('SM_Props_Tire_01.glb',40.64,-49.1,2.4629,{y:0.17,scale:0.84});
+  placeFps2Asset('SM_Props_Tire_01.glb',41.03,-50.52,1.3869,{y:0.17,scale:0.84});
+  placeFps2Asset('SM_Props_Tire_01.glb',51.77,-28.51,-0.0791,{y:0.63});
+  placeFps2Asset('SM_Props_Tire_01.glb',51.5,-35.68,0,{y:3.49});
+  placeFps2Asset('SM_Props_Tire_01.glb',37.07,-54.92,1.3869,{y:0.21});
+  placeFps2Asset('SM_Props_Tire_01.glb',40.64,-49.1,3.2177,{y:0.51,scale:0.84});
+  placeFps2Asset('SM_Props_Tire_01.glb',51.77,-28.51,1.3869,{y:0.21});
+  placeFps2Asset('SM_Props_Tire_01.glb',41.03,-50.52,2.1417,{y:0.51,scale:0.84});
+  placeFps2Asset('SM_Props_Tire_01.glb',51.5,-35.68,-0.7918,{y:4.32});
+  placeFps2Asset('SM_Props_Tire_01.glb',37.46,-47.49,-0.7918,{y:4.32});
+  placeFps2Asset('SM_Props_Tire_01.glb',48.06,-32.94,3.2177,{y:0.85,scale:0.84});
+  placeFps2Asset('SM_Props_Tire_01.glb',37.46,-47.49,0,{y:3.49});
+  // SM_Floor_03-Parking x4
+  placeFps2Asset('SM_Floor_03-Parking.glb',-45.53,58.24,-3.1416);
+  placeFps2Asset('SM_Floor_03-Parking.glb',-50.53,43.24,-1.5708);
+  placeFps2Asset('SM_Floor_03-Parking.glb',-45.53,58.24,-3.1416);
+  placeFps2Asset('SM_Floor_03-Parking.glb',-50.53,43.24,-1.5708);
+  // SM_Rock_02 x11
+  placeFps2Asset('SM_Rock_02.glb',16.1,-52.45,-1.3808,{y:0.5,scale:3.96});
+  placeFps2Asset('SM_Rock_02.glb',47.95,-47.35,0.852);
+  placeFps2Asset('SM_Rock_02.glb',35.33,-57.75,0.5071,{y:0.32,scale:2.46});
+  placeFps2Asset('SM_Rock_02.glb',25.15,-28.71,0.7223,{y:1.94,scale:2.24});
+  placeFps2Asset('SM_Rock_02.glb',59.5,-48.84,4.6655,{scale:2.82});
+  placeFps2Asset('SM_Rock_02.glb',75.41,-45.76,1.1594,{y:0.71,scale:3.41});
+  placeFps2Asset('SM_Rock_02.glb',30.58,-33.03,-2.6033,{y:0.92,scale:3.43});
+  placeFps2Asset('SM_Rock_02.glb',47.54,-25.52,0);
+  placeFps2Asset('SM_Rock_02.glb',51.6,-54.27,0.463,{y:0.67,scale:2.69});
+  placeFps2Asset('SM_Rock_02.glb',25.99,-63.88,-0.2962,{y:1.05,scale:3.76});
+  placeFps2Asset('SM_Rock_02.glb',38.24,-25.49,-1.6986,{y:0.54,scale:3.75});
+  // SM_Props_Interior_01_2 x4
+  placeFps2Asset('SM_Props_Interior_01_2.glb',23.38,-45.47,-1.5708,{y:0.05});
+  placeFps2Asset('SM_Props_Interior_01_2.glb',65.55,-35.47,1.5708,{y:0.05});
+  placeFps2Asset('SM_Props_Interior_01_2.glb',65.55,-38.27,1.5708,{y:0.05});
+  placeFps2Asset('SM_Props_Interior_01_2.glb',23.38,-48.27,-1.5708,{y:0.05});
+  // SM_Props_Garbage_06 x9
+  placeFps2Asset('SM_Props_Garbage_06.glb',39.71,-37.33,0,{y:-0.04});
+  placeFps2Asset('SM_Props_Garbage_06.glb',39.15,-56.53,1.1322,{y:-0.04});
+  placeFps2Asset('SM_Props_Garbage_06.glb',49.83,-27.52,1.1322,{y:-0.04});
+  placeFps2Asset('SM_Props_Garbage_06.glb',39.15,-56.07,0,{y:-0.04});
+  placeFps2Asset('SM_Props_Garbage_06.glb',49.83,-27.06,0,{y:-0.04});
+  placeFps2Asset('SM_Props_Garbage_06.glb',39.71,-37.79,1.1322,{y:-0.04});
+  placeFps2Asset('SM_Props_Garbage_06.glb',66,-37.28,0,{y:0.04});
+  placeFps2Asset('SM_Props_Garbage_06.glb',48.84,-46.51,0);
+  placeFps2Asset('SM_Props_Garbage_06.glb',22.89,-43.87,0,{y:0.04});
+  // SM_Floor_04 x190
+  placeFps2Asset('SM_Floor_04.glb',-46.16,43.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-42.41,45.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-47.41,52.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,53.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,41.36,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-47.41,53.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-43.66,42.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-47.41,43.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,55.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-42.41,46.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,48.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-42.41,57.61,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,51.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-52.16,53.24,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-41.16,60.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-47.41,47.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,52.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,57.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-41.16,43.86,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-46.16,41.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-42.41,46.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,51.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-39.91,46.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-46.16,42.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-39.91,43.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-43.66,43.86,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-43.66,43.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-42.41,56.36,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-52.16,48.24,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-41.16,57.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-43.66,41.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-47.41,47.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-42.41,58.86,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-44.91,42.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-44.91,43.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-42.41,42.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,48.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,41.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,58.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-44.91,45.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-41.16,56.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,41.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,46.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,51.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-39.91,56.36,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-46.16,45.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,56.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-43.66,42.61,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-47.41,48.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,60.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-47.41,42.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,55.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-41.16,41.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-43.66,45.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-47.41,45.11,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-41.16,58.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,56.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-41.16,55.11,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-39.91,42.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-47.41,48.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,45.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,56.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-47.41,45.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,50.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-46.16,42.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-52.16,49.49,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-44.91,45.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,45.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-39.91,55.11,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,53.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-41.16,43.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,53.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,58.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,57.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-42.41,57.61,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,58.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-39.91,42.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-39.91,60.11,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-39.91,57.61,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-39.91,58.86,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-47.41,52.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-42.41,41.36,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,45.11,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,42.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-42.41,60.11,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-44.91,55.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-47.41,42.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-39.91,43.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,55.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-43.66,46.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-42.41,43.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,42.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-41.16,46.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-47.41,50.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-39.91,60.11,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-47.41,50.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-43.66,41.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-44.91,41.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,46.36,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,57.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-42.41,58.86,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,48.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-43.66,45.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,47.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-41.16,55.11,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-41.16,56.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-42.41,55.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-39.91,57.61,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-52.16,51.99,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-44.91,55.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-46.16,43.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-47.41,51.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-39.91,41.36,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,43.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,50.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-43.66,46.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-39.91,45.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-39.91,41.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-46.16,41.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-41.16,45.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,51.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-42.41,60.11,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-41.16,45.11,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-39.91,46.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-41.16,41.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-44.91,41.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-44.91,42.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,47.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-42.41,45.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-52.16,53.24,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,60.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-41.16,42.61,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-46.16,55.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-42.41,41.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-43.66,55.11,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,47.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,50.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,47.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-42.41,55.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-52.16,50.74,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,53.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-41.16,57.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-47.41,43.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-47.41,53.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-42.41,56.36,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,43.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,46.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,58.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-43.66,55.11,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,52.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-46.16,46.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,42.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-44.91,46.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-44.91,46.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-44.91,43.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-52.16,50.74,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,50.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-46.16,45.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,43.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,52.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,55.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-41.16,58.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,60.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,60.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,43.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-41.16,46.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,45.11,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-46.16,46.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-52.16,49.49,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,57.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-39.91,55.11,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,42.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-41.16,60.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,46.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,52.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,41.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-39.91,58.86,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-47.41,51.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-52.16,48.24,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-39.91,56.36,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-42.41,43.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-52.16,51.99,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-46.16,55.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-37.41,56.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-47.41,46.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-38.66,48.86,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-47.41,46.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-39.91,45.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-41.16,42.61,0,{y:0.04});
+  placeFps2Asset('SM_Floor_04.glb',-42.41,42.61,0,{y:0.04});
+  // SM_Building_WallCorner_01 x18
+  placeFps2Asset('SM_Building_WallCorner_01.glb',-39.28,46.99,0,{y:0.04});
+  placeFps2Asset('SM_Building_WallCorner_01.glb',-46.78,54.49,0,{y:0.04});
+  placeFps2Asset('SM_Building_WallCorner_01.glb',-44.28,46.99,0,{y:0.04});
+  placeFps2Asset('SM_Building_WallCorner_01.glb',-46.78,51.99,0,{y:0.04});
+  placeFps2Asset('SM_Building_WallCorner_01.glb',-41.78,46.99,0,{y:0.04});
+  placeFps2Asset('SM_Building_WallCorner_01.glb',-46.78,46.99,0,{y:0.04});
+  placeFps2Asset('SM_Building_WallCorner_01.glb',-41.78,54.49,0,{y:0.04});
+  placeFps2Asset('SM_Building_WallCorner_01.glb',-46.78,46.99,0,{y:0.04});
+  placeFps2Asset('SM_Building_WallCorner_01.glb',-41.78,54.49,0,{y:0.04});
+  placeFps2Asset('SM_Building_WallCorner_01.glb',-44.28,46.99,0,{y:0.04});
+  placeFps2Asset('SM_Building_WallCorner_01.glb',-46.78,51.99,0,{y:0.04});
+  placeFps2Asset('SM_Building_WallCorner_01.glb',-39.28,46.99,0,{y:0.04});
+  placeFps2Asset('SM_Building_WallCorner_01.glb',-46.78,49.49,0,{y:0.04});
+  placeFps2Asset('SM_Building_WallCorner_01.glb',-39.28,54.49,0,{y:0.04});
+  placeFps2Asset('SM_Building_WallCorner_01.glb',-41.78,46.99,0,{y:0.04});
+  placeFps2Asset('SM_Building_WallCorner_01.glb',-39.28,54.49,0,{y:0.04});
+  placeFps2Asset('SM_Building_WallCorner_01.glb',-46.78,49.49,0,{y:0.04});
+  placeFps2Asset('SM_Building_WallCorner_01.glb',-46.78,54.49,0,{y:0.04});
+  // SM_Props_Fence_01 x54
+  placeFps2Asset('SM_Props_Fence_01.glb',-69.39,79.26,-3.1416);
+  placeFps2Asset('SM_Props_Fence_01.glb',-55.53,77.81,-4.7124);
+  placeFps2Asset('SM_Props_Fence_01.glb',41.74,-44.26,1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-75.74,69.51,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-55.53,77.81,-4.7124);
+  placeFps2Asset('SM_Props_Fence_01.glb',-75.74,62.01,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-59.39,79.26,0);
+  placeFps2Asset('SM_Props_Fence_01.glb',-59.39,79.26,0);
+  placeFps2Asset('SM_Props_Fence_01.glb',-55.53,67.01,-4.7124);
+  placeFps2Asset('SM_Props_Fence_01.glb',-55.53,62.01,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-74.39,79.26,-3.1416);
+  placeFps2Asset('SM_Props_Fence_01.glb',-75.74,59.51,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-75.74,64.51,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-55.53,69.51,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-75.74,67.01,-4.7124);
+  placeFps2Asset('SM_Props_Fence_01.glb',-75.74,69.51,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-66.89,79.26,0);
+  placeFps2Asset('SM_Props_Fence_01.glb',-55.53,74.99,-4.7124);
+  placeFps2Asset('SM_Props_Fence_01.glb',-75.74,77.81,-4.7124);
+  placeFps2Asset('SM_Props_Fence_01.glb',-55.53,64.51,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-75.74,67.01,-4.7124);
+  placeFps2Asset('SM_Props_Fence_01.glb',41.74,-46.76,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-75.74,72.21,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-66.89,79.26,0);
+  placeFps2Asset('SM_Props_Fence_01.glb',-75.74,59.51,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-61.89,79.26,-3.1416);
+  placeFps2Asset('SM_Props_Fence_01.glb',-71.89,79.26,-3.1416);
+  placeFps2Asset('SM_Props_Fence_01.glb',-75.74,74.99,-4.7124);
+  placeFps2Asset('SM_Props_Fence_01.glb',-69.39,79.26,-3.1416);
+  placeFps2Asset('SM_Props_Fence_01.glb',-71.89,79.26,-3.1416);
+  placeFps2Asset('SM_Props_Fence_01.glb',-55.53,72.21,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-75.74,62.01,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-55.53,69.51,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-64.39,79.26,-3.1416);
+  placeFps2Asset('SM_Props_Fence_01.glb',41.74,-49.26,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-75.74,72.21,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-61.89,79.26,-3.1416);
+  placeFps2Asset('SM_Props_Fence_01.glb',-55.53,72.21,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-55.53,62.01,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',47.2,-39.26,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-56.89,79.26,-3.1416);
+  placeFps2Asset('SM_Props_Fence_01.glb',-75.74,74.99,-4.7124);
+  placeFps2Asset('SM_Props_Fence_01.glb',-64.39,79.26,-3.1416);
+  placeFps2Asset('SM_Props_Fence_01.glb',-55.53,67.01,-4.7124);
+  placeFps2Asset('SM_Props_Fence_01.glb',-75.74,64.51,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-75.74,77.81,-4.7124);
+  placeFps2Asset('SM_Props_Fence_01.glb',-55.53,59.51,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-55.53,59.51,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-56.89,79.26,-3.1416);
+  placeFps2Asset('SM_Props_Fence_01.glb',-74.39,79.26,-3.1416);
+  placeFps2Asset('SM_Props_Fence_01.glb',-55.53,74.99,-4.7124);
+  placeFps2Asset('SM_Props_Fence_01.glb',47.2,-36.76,-1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',47.2,-34.26,1.5708);
+  placeFps2Asset('SM_Props_Fence_01.glb',-55.53,64.51,-1.5708);
+  // SM_Border_02 x26
+  placeFps2Asset('SM_Border_02.glb',-51.53,52.61,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-52.78,48.86,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-48.03,50.74,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-51.53,48.86,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-42.99,56.95,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-52.78,52.61,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-48.03,45.74,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-51.53,51.36,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-48.03,43.24,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-48.03,45.74,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-51.53,52.61,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-48.03,48.24,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-51.53,48.86,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-48.03,53.24,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-52.78,52.61,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-52.78,51.36,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-52.78,51.36,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-48.03,53.24,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-48.03,50.74,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-48.03,43.24,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-52.78,48.86,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-51.53,51.36,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-48.03,48.24,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-42.99,56.95,1.5708);
+  placeFps2Asset('SM_Border_02.glb',-42.99,59.46,1.5708,{scale:1.03});
+  placeFps2Asset('SM_Border_02.glb',-42.99,59.46,1.5708,{scale:1.03});
+  // SM_Building_Ceiling_01 x18
+  placeFps2Asset('SM_Building_Ceiling_01.glb',-43.03,53.24,0,{y:2.99});
+  placeFps2Asset('SM_Building_Ceiling_01.glb',-40.53,53.24,0,{y:2.99});
+  placeFps2Asset('SM_Building_Ceiling_01.glb',-40.53,50.74,0,{y:2.99});
+  placeFps2Asset('SM_Building_Ceiling_01.glb',-45.53,53.24,0,{y:2.99});
+  placeFps2Asset('SM_Building_Ceiling_01.glb',-45.53,53.24,0,{y:2.99});
+  placeFps2Asset('SM_Building_Ceiling_01.glb',-45.53,48.24,0,{y:2.99});
+  placeFps2Asset('SM_Building_Ceiling_01.glb',-43.03,50.74,0,{y:2.99});
+  placeFps2Asset('SM_Building_Ceiling_01.glb',-40.53,48.24,0,{y:2.99});
+  placeFps2Asset('SM_Building_Ceiling_01.glb',-45.53,48.24,0,{y:2.99});
+  placeFps2Asset('SM_Building_Ceiling_01.glb',-40.53,48.24,0,{y:2.99});
+  placeFps2Asset('SM_Building_Ceiling_01.glb',-45.53,50.74,0,{y:2.99});
+  placeFps2Asset('SM_Building_Ceiling_01.glb',-43.03,48.24,0,{y:2.99});
+  placeFps2Asset('SM_Building_Ceiling_01.glb',-43.03,50.74,0,{y:2.99});
+  placeFps2Asset('SM_Building_Ceiling_01.glb',-43.03,53.24,0,{y:2.99});
+  placeFps2Asset('SM_Building_Ceiling_01.glb',-45.53,50.74,0,{y:2.99});
+  placeFps2Asset('SM_Building_Ceiling_01.glb',-40.53,50.74,0,{y:2.99});
+  placeFps2Asset('SM_Building_Ceiling_01.glb',-40.53,53.24,0,{y:2.99});
+  placeFps2Asset('SM_Building_Ceiling_01.glb',-43.03,48.24,0,{y:2.99});
+  // SM_Floor_01 x11
+  placeFps2Asset('SM_Floor_01.glb',44.47,-51.76,0);
+  placeFps2Asset('SM_Floor_01.glb',31.97,-14.26,1.5708);
+  placeFps2Asset('SM_Floor_01.glb',44.47,-36.76,0);
+  placeFps2Asset('SM_Floor_01.glb',44.47,-26.76,0);
+  placeFps2Asset('SM_Floor_01.glb',26.97,-14.26,1.5708);
+  placeFps2Asset('SM_Floor_01.glb',44.47,-56.76,0);
+  placeFps2Asset('SM_Floor_01.glb',44.47,-41.76,0);
+  placeFps2Asset('SM_Floor_01.glb',56.97,-69.26,1.5708);
+  placeFps2Asset('SM_Floor_01.glb',44.47,-31.76,0);
+  placeFps2Asset('SM_Floor_01.glb',44.47,-46.76,0);
+  placeFps2Asset('SM_Floor_01.glb',61.97,-69.26,1.5708);
+  // SM_Props_Fence_02 x58
+  placeFps2Asset('SM_Props_Fence_02.glb',-55.64,79.26,-1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',-55.64,79.26,-1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',41.74,-43.01,1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',-75.74,65.76,-1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',-55.53,63.26,-4.7124);
+  placeFps2Asset('SM_Props_Fence_02.glb',-73.14,79.26,-1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',47.2,-35.51,-3.1416);
+  placeFps2Asset('SM_Props_Fence_02.glb',-55.53,63.26,-4.7124);
+  placeFps2Asset('SM_Props_Fence_02.glb',47.2,-40.51,-1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',-65.64,79.26,0);
+  placeFps2Asset('SM_Props_Fence_02.glb',-75.75,79.26,-1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',-75.74,63.26,-4.7124);
+  placeFps2Asset('SM_Props_Fence_02.glb',41.74,-50.51,-1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',-75.74,73.58,-3.1416);
+  placeFps2Asset('SM_Props_Fence_02.glb',-75.74,60.76,0);
+  placeFps2Asset('SM_Props_Fence_02.glb',-75.74,70.81,0);
+  placeFps2Asset('SM_Props_Fence_02.glb',-68.14,79.26,-1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',-55.53,73.58,-3.1416);
+  placeFps2Asset('SM_Props_Fence_02.glb',-75.74,68.26,-4.7124);
+  placeFps2Asset('SM_Props_Fence_02.glb',-55.53,73.58,-3.1416);
+  placeFps2Asset('SM_Props_Fence_02.glb',-58.14,79.26,-3.1416);
+  placeFps2Asset('SM_Props_Fence_02.glb',-75.74,63.26,-4.7124);
+  placeFps2Asset('SM_Props_Fence_02.glb',41.74,-48.01,0);
+  placeFps2Asset('SM_Props_Fence_02.glb',-55.53,68.26,-4.7124);
+  placeFps2Asset('SM_Props_Fence_02.glb',-75.74,76.36,-1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',-65.64,79.26,0);
+  placeFps2Asset('SM_Props_Fence_02.glb',41.73,-36.65,4.7124);
+  placeFps2Asset('SM_Props_Fence_02.glb',-55.53,70.81,0);
+  placeFps2Asset('SM_Props_Fence_02.glb',-75.74,68.26,-4.7124);
+  placeFps2Asset('SM_Props_Fence_02.glb',41.74,-45.51,-3.1416);
+  placeFps2Asset('SM_Props_Fence_02.glb',-70.64,79.26,-3.1416);
+  placeFps2Asset('SM_Props_Fence_02.glb',-73.14,79.26,-1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',47.2,-46.87,1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',-63.14,79.26,-1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',-75.75,79.26,-1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',-55.53,60.76,0);
+  placeFps2Asset('SM_Props_Fence_02.glb',-55.53,65.76,-1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',47.2,-33.01,1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',-75.74,70.81,0);
+  placeFps2Asset('SM_Props_Fence_02.glb',-70.64,79.26,-3.1416);
+  placeFps2Asset('SM_Props_Fence_02.glb',-75.74,58.24,0);
+  placeFps2Asset('SM_Props_Fence_02.glb',-55.53,68.26,-4.7124);
+  placeFps2Asset('SM_Props_Fence_02.glb',-55.53,60.76,0);
+  placeFps2Asset('SM_Props_Fence_02.glb',-55.53,76.36,-1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',-55.53,76.36,-1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',-75.74,60.76,0);
+  placeFps2Asset('SM_Props_Fence_02.glb',-68.14,79.26,-1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',-55.53,70.81,0);
+  placeFps2Asset('SM_Props_Fence_02.glb',47.2,-38.01,0);
+  placeFps2Asset('SM_Props_Fence_02.glb',-75.74,76.36,-1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',-75.74,58.24,0);
+  placeFps2Asset('SM_Props_Fence_02.glb',-75.74,73.58,-3.1416);
+  placeFps2Asset('SM_Props_Fence_02.glb',-55.53,65.76,-1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',-60.64,79.26,-4.7124);
+  placeFps2Asset('SM_Props_Fence_02.glb',-60.64,79.26,-4.7124);
+  placeFps2Asset('SM_Props_Fence_02.glb',-75.74,65.76,-1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',-63.14,79.26,-1.5708);
+  placeFps2Asset('SM_Props_Fence_02.glb',-58.14,79.26,-3.1416);
+  // SM_Building_Wall_02 x8
+  placeFps2Asset('SM_Building_Wall_02.glb',-46.78,53.24,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_02.glb',-43.03,46.99,0,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_02.glb',-46.78,48.24,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_02.glb',-45.53,46.99,0,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_02.glb',-46.78,53.24,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_02.glb',-43.03,46.99,0,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_02.glb',-45.53,46.99,0,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_02.glb',-46.78,48.24,-1.5708,{y:0.04});
+  // SM_Props_Garbage_05 x5
+  placeFps2Asset('SM_Props_Garbage_05.glb',22.85,-46.7,0.2977,{y:0.06});
+  placeFps2Asset('SM_Props_Garbage_05.glb',38.43,-55.08,1.8714);
+  placeFps2Asset('SM_Props_Garbage_05.glb',66.1,-40.23,-0.5356,{y:0.05});
+  placeFps2Asset('SM_Props_Garbage_05.glb',39.25,-37.43,0.0953);
+  placeFps2Asset('SM_Props_Garbage_05.glb',49.37,-27.16,0.0953);
+  // SM_Props_Garbage_04 x5
+  placeFps2Asset('SM_Props_Garbage_04.glb',37.87,-55.13,0.496);
+  placeFps2Asset('SM_Props_Garbage_04.glb',40.83,-38.65,0.496);
+  placeFps2Asset('SM_Props_Garbage_04.glb',50.95,-28.38,0.496);
+  placeFps2Asset('SM_Props_Garbage_04.glb',22.92,-46.14,-0.2324,{y:0.05});
+  placeFps2Asset('SM_Props_Garbage_04.glb',66.01,-39.67,-0.2324,{y:0.05});
+  // SM_Building_Door_01 x6
+  placeFps2Asset('SM_Building_Door_01.glb',-55.03,58.17,0.8525);
+  placeFps2Asset('SM_Building_Door_01.glb',-55.03,58.17,0.8525);
+  placeFps2Asset('SM_Building_Door_01.glb',-55.03,58.17,0.8525);
+  placeFps2Asset('SM_Building_Door_01.glb',-55.03,58.17,0.8525);
+  placeFps2Asset('SM_Building_Door_01.glb',-55.03,58.17,0.8525);
+  placeFps2Asset('SM_Building_Door_01.glb',-55.03,58.17,0.8525);
+  // SM_Props_Barrel_01 x25
+  placeFps2Asset('SM_Props_Barrel_01.glb',48.23,-33.66,0.757);
+  placeFps2Asset('SM_Props_Barrel_01.glb',51.19,-37.82,3.0057,{y:3.3});
+  placeFps2Asset('SM_Props_Barrel_01.glb',51.76,-38.74,0,{y:3.3});
+  placeFps2Asset('SM_Props_Barrel_01.glb',49.63,-48.64,2.8014);
+  placeFps2Asset('SM_Props_Barrel_01.glb',36.32,-43.97,0,{y:0.06});
+  placeFps2Asset('SM_Props_Barrel_01.glb',37.71,-44.76,2.1175,{y:3.3});
+  placeFps2Asset('SM_Props_Barrel_01.glb',49.63,-49.18,2.8014,{y:0.8});
+  placeFps2Asset('SM_Props_Barrel_01.glb',48.29,-34.17,2.3886,{y:1.08});
+  placeFps2Asset('SM_Props_Barrel_01.glb',40.81,-49.83,0.757);
+  placeFps2Asset('SM_Props_Barrel_01.glb',36.14,-43.38,3.6362,{y:0.06});
+  placeFps2Asset('SM_Props_Barrel_01.glb',40.81,-49.63,2.3886,{y:1.08});
+  placeFps2Asset('SM_Props_Barrel_01.glb',52.91,-40.1,2.2798,{y:0.04});
+  placeFps2Asset('SM_Props_Barrel_01.glb',48.18,-33.61,3.9108,{y:1.08});
+  placeFps2Asset('SM_Props_Barrel_01.glb',52.57,-39.58,0,{y:0.04});
+  placeFps2Asset('SM_Props_Barrel_01.glb',31.17,-50.95,0,{y:0.05});
+  placeFps2Asset('SM_Props_Barrel_01.glb',51.35,-38.35,2.1175,{y:3.3});
+  placeFps2Asset('SM_Props_Barrel_01.glb',37.72,-45.36,0,{y:3.3});
+  placeFps2Asset('SM_Props_Barrel_01.glb',29.86,-43.53,3.0057,{y:3.3});
+  placeFps2Asset('SM_Props_Barrel_01.glb',59.13,-39.98,0,{y:3.3});
+  placeFps2Asset('SM_Props_Barrel_01.glb',30.22,-44,0,{y:3.3});
+  placeFps2Asset('SM_Props_Barrel_01.glb',49.63,-49.2,0);
+  placeFps2Asset('SM_Props_Barrel_01.glb',40.62,-49.08,3.9108,{y:1.08});
+  placeFps2Asset('SM_Props_Barrel_01.glb',57.79,-32.62,-2.1298,{y:0.05});
+  placeFps2Asset('SM_Props_Barrel_01.glb',37.13,-44.7,3.0057,{y:3.3});
+  placeFps2Asset('SM_Props_Barrel_01.glb',58.73,-39.59,2.1175,{y:3.3});
+  // SM_Props_Chair_01 x24
+  placeFps2Asset('SM_Props_Chair_01.glb',58.64,-44.75,-2.8869,{y:0.05});
+  placeFps2Asset('SM_Props_Chair_01.glb',26.45,-42.43,-1.3254,{y:0.06});
+  placeFps2Asset('SM_Props_Chair_01.glb',60.26,-41.02,1.1766,{y:0.04});
+  placeFps2Asset('SM_Props_Chair_01.glb',62.77,-41.02,1.1766,{y:0.04});
+  placeFps2Asset('SM_Props_Chair_01.glb',30.19,-42.56,2.1142,{y:0.06});
+  placeFps2Asset('SM_Props_Chair_01.glb',58.69,-43.63,0.3263,{y:0.05});
+  placeFps2Asset('SM_Props_Chair_01.glb',28.76,-42.46,-1.9494,{y:0.06});
+  placeFps2Asset('SM_Props_Chair_01.glb',25.54,-38.66,0.3263,{y:0.05});
+  placeFps2Asset('SM_Props_Chair_01.glb',30.25,-38.66,0,{y:0.05});
+  placeFps2Asset('SM_Props_Chair_01.glb',63.35,-44.75,-2.8869,{y:0.05});
+  placeFps2Asset('SM_Props_Chair_01.glb',59.97,-44.85,-1.8671,{y:0.05});
+  placeFps2Asset('SM_Props_Chair_01.glb',26.99,-38.62,0,{y:0.05});
+  placeFps2Asset('SM_Props_Chair_01.glb',30.2,-39.79,-2.8869,{y:0.05});
+  placeFps2Asset('SM_Props_Chair_01.glb',61.96,-43.63,0,{y:0.05});
+  placeFps2Asset('SM_Props_Chair_01.glb',61.9,-44.75,-3.2524,{y:0.05});
+  placeFps2Asset('SM_Props_Chair_01.glb',27.88,-42.53,1.8,{y:0.06});
+  placeFps2Asset('SM_Props_Chair_01.glb',61.34,-40.92,-1.3254,{y:0.04});
+  placeFps2Asset('SM_Props_Chair_01.glb',63.41,-43.63,0,{y:0.05});
+  placeFps2Asset('SM_Props_Chair_01.glb',26.82,-39.89,-3.0926,{y:0.05});
+  placeFps2Asset('SM_Props_Chair_01.glb',58.83,-40.92,-1.3254,{y:0.04});
+  placeFps2Asset('SM_Props_Chair_01.glb',28.8,-38.66,0,{y:0.05});
+  placeFps2Asset('SM_Props_Chair_01.glb',25.49,-39.79,-2.8869,{y:0.05});
+  placeFps2Asset('SM_Props_Chair_01.glb',28.75,-39.79,-3.2524,{y:0.05});
+  placeFps2Asset('SM_Props_Chair_01.glb',60.14,-43.58,0,{y:0.05});
+  // SM_Props_Garbage_01 x10
+  placeFps2Asset('SM_Props_Garbage_01.glb',66.43,-39.5,0,{y:0.04});
+  placeFps2Asset('SM_Props_Garbage_01.glb',22.45,-46.07,0,{y:0.04});
+  placeFps2Asset('SM_Props_Garbage_01.glb',63.48,-44.02,0,{y:0.84});
+  placeFps2Asset('SM_Props_Garbage_01.glb',30.33,-39.05,0,{y:0.84});
+  placeFps2Asset('SM_Props_Garbage_01.glb',57.91,-32.74,0,{y:0.82});
+  placeFps2Asset('SM_Props_Garbage_01.glb',41.82,-48.05,0,{y:0.92});
+  placeFps2Asset('SM_Props_Garbage_01.glb',65.98,-36.88,-2.6917,{y:0.06});
+  placeFps2Asset('SM_Props_Garbage_01.glb',48.27,-32.76,0,{y:1.08});
+  placeFps2Asset('SM_Props_Garbage_01.glb',22.47,-43.95,-3.4017,{y:0.09});
+  placeFps2Asset('SM_Props_Garbage_01.glb',30.77,-50.88,0,{y:0.06});
+  // SM_Building_RoofPart_01 x16
+  placeFps2Asset('SM_Building_RoofPart_01.glb',-46.78,50.74,1.5708);
+  placeFps2Asset('SM_Building_RoofPart_01.glb',-43.03,46.99,0);
+  placeFps2Asset('SM_Building_RoofPart_01.glb',-48.03,53.24,3.1416,{y:0.17});
+  placeFps2Asset('SM_Building_RoofPart_01.glb',-50.53,48.24,0,{y:0.17});
+  placeFps2Asset('SM_Building_RoofPart_01.glb',-50.53,53.24,3.1416,{y:0.17});
+  placeFps2Asset('SM_Building_RoofPart_01.glb',-48.03,48.24,0,{y:0.17});
+  placeFps2Asset('SM_Building_RoofPart_01.glb',-50.53,53.24,3.1416,{y:0.17});
+  placeFps2Asset('SM_Building_RoofPart_01.glb',-50.53,48.24,0,{y:0.17});
+  placeFps2Asset('SM_Building_RoofPart_01.glb',-43.03,54.49,3.1416);
+  placeFps2Asset('SM_Building_RoofPart_01.glb',-48.03,48.24,0,{y:0.17});
+  placeFps2Asset('SM_Building_RoofPart_01.glb',-43.03,46.99,0);
+  placeFps2Asset('SM_Building_RoofPart_01.glb',-43.03,54.49,3.1416);
+  placeFps2Asset('SM_Building_RoofPart_01.glb',-39.28,50.74,-1.5708);
+  placeFps2Asset('SM_Building_RoofPart_01.glb',-46.78,50.74,1.5708);
+  placeFps2Asset('SM_Building_RoofPart_01.glb',-48.03,53.24,3.1416,{y:0.17});
+  placeFps2Asset('SM_Building_RoofPart_01.glb',-39.28,50.74,-1.5708);
+  // SM_Building_Wall_03 x6
+  placeFps2Asset('SM_Building_Wall_03.glb',-40.53,54.49,0,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_03.glb',-40.53,46.99,0,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_03.glb',-40.53,46.99,0,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_03.glb',-46.78,50.74,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_03.glb',-46.78,50.74,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_03.glb',-40.53,54.49,0,{y:0.04});
+  // SM_Border_01 x28
+  placeFps2Asset('SM_Border_01.glb',-45.53,55.74,0);
+  placeFps2Asset('SM_Border_01.glb',-48.03,51.99,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-52.78,50.11,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-52.78,50.11,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-48.03,41.99,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-43.03,55.74,0);
+  placeFps2Asset('SM_Border_01.glb',-48.03,44.49,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-42.99,58.2,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-48.03,51.99,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-48.03,44.49,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-48.03,49.49,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-48.03,46.99,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-44.28,55.74,0);
+  placeFps2Asset('SM_Border_01.glb',-51.53,50.11,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-42.99,55.7,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-51.53,47.61,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-43.03,55.74,0);
+  placeFps2Asset('SM_Border_01.glb',-44.28,55.74,0);
+  placeFps2Asset('SM_Border_01.glb',-48.03,41.99,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-52.78,47.61,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-42.99,55.7,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-48.03,46.99,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-52.78,47.61,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-42.99,58.2,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-45.53,55.74,0);
+  placeFps2Asset('SM_Border_01.glb',-51.53,50.11,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-48.03,49.49,1.5708);
+  placeFps2Asset('SM_Border_01.glb',-51.53,47.61,1.5708);
+  // SM_Nature_Plant_01 x3
+  placeFps2Asset('SM_Nature_Plant_01.glb',41.41,-58.33,0);
+  placeFps2Asset('SM_Nature_Plant_01.glb',51.25,-26.18,0);
+  placeFps2Asset('SM_Nature_Plant_01.glb',47.31,-26.11,0);
+  // SM_Props_Interior_04 x4
+  placeFps2Asset('SM_Props_Interior_04.glb',28.21,-48.21,0,{y:0.05});
+  placeFps2Asset('SM_Props_Interior_04.glb',29.75,-48.21,0,{y:0.05});
+  placeFps2Asset('SM_Props_Interior_04.glb',59.21,-35.25,-3.1416,{y:0.05});
+  placeFps2Asset('SM_Props_Interior_04.glb',60.75,-35.25,-3.1416,{y:0.05});
+  // SM_Props_Wood_03 x5
+  placeFps2Asset('SM_Props_Wood_03.glb',66.3,-45.86,0,{y:0.36});
+  placeFps2Asset('SM_Props_Wood_03.glb',48.4,-33.63,-0.1553,{y:1.05});
+  placeFps2Asset('SM_Props_Wood_03.glb',39.19,-47.02,-1.5708,{y:3.28});
+  placeFps2Asset('SM_Props_Wood_03.glb',40.97,-49.8,-0.1553,{y:1.05});
+  placeFps2Asset('SM_Props_Wood_03.glb',21.82,-37.63,3.1416,{y:0.37});
+  // SM_Props_Table_01 x12
+  placeFps2Asset('SM_Props_Table_01.glb',27.15,-42.5,1.5857,{y:0.06});
+  placeFps2Asset('SM_Props_Table_01.glb',29.46,-42.54,1.5857,{y:0.06});
+  placeFps2Asset('SM_Props_Table_01.glb',27,-39.22,0,{y:0.04});
+  placeFps2Asset('SM_Props_Table_01.glb',30.26,-39.22,0,{y:0.04});
+  placeFps2Asset('SM_Props_Table_01.glb',63.41,-44.19,0,{y:0.04});
+  placeFps2Asset('SM_Props_Table_01.glb',61.96,-44.19,0,{y:0.04});
+  placeFps2Asset('SM_Props_Table_01.glb',25.55,-39.22,0,{y:0.04});
+  placeFps2Asset('SM_Props_Table_01.glb',62.04,-41,1.5857,{y:0.04});
+  placeFps2Asset('SM_Props_Table_01.glb',28.81,-39.22,0,{y:0.04});
+  placeFps2Asset('SM_Props_Table_01.glb',59.53,-41,1.5857,{y:0.04});
+  placeFps2Asset('SM_Props_Table_01.glb',58.7,-44.19,0,{y:0.04});
+  placeFps2Asset('SM_Props_Table_01.glb',60.15,-44.19,0,{y:0.04});
+  // SM_Building_RoofFloor_01 x42
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-50.53,51.99,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-48.03,51.99,0,{y:3.07});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-48.03,49.49,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-50.53,51.99,0,{y:3.07});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-43.03,48.24,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-40.53,53.24,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-43.03,53.24,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-40.53,48.24,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-45.53,48.24,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-50.53,49.49,0,{y:3.07});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-50.53,51.99,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-45.53,53.24,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-40.53,50.74,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-45.53,50.74,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-48.03,51.99,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-48.03,51.99,0,{y:3.07});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-45.53,48.24,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-53.03,49.49,0,{y:3.07});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-45.53,50.74,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-40.53,48.24,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-50.53,51.99,0,{y:3.07});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-53.03,51.99,0,{y:3.07});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-53.03,51.99,0,{y:3.07});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-45.53,53.24,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-50.53,49.49,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-53.03,49.49,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-48.03,49.49,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-50.53,49.49,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-43.03,50.74,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-48.03,49.49,0,{y:3.07});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-40.53,53.24,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-43.03,48.24,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-48.03,51.99,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-53.03,49.49,0,{y:3.07});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-50.53,49.49,0,{y:3.07});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-53.03,51.99,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-43.03,53.24,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-53.03,51.99,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-40.53,50.74,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-48.03,49.49,0,{y:3.07});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-43.03,50.74,0,{y:3.29});
+  placeFps2Asset('SM_Building_RoofFloor_01.glb',-53.03,49.49,0,{y:3.29});
+  // SM_Props_Garbage_03 x13
+  placeFps2Asset('SM_Props_Garbage_03.glb',39.69,-49.75,2.3865);
+  placeFps2Asset('SM_Props_Garbage_03.glb',52.41,-27.34,-0.5881);
+  placeFps2Asset('SM_Props_Garbage_03.glb',22.48,-43.77,0,{y:0.05});
+  placeFps2Asset('SM_Props_Garbage_03.glb',49.25,-46.28,-0.0448);
+  placeFps2Asset('SM_Props_Garbage_03.glb',66.47,-39.98,0,{y:0.04});
+  placeFps2Asset('SM_Props_Garbage_03.glb',22.49,-46.55,0,{y:0.04});
+  placeFps2Asset('SM_Props_Garbage_03.glb',47.3,-44.44,0);
+  placeFps2Asset('SM_Props_Garbage_03.glb',66.46,-37.2,0,{y:0.05});
+  placeFps2Asset('SM_Props_Garbage_03.glb',42.29,-37.61,-0.5881);
+  placeFps2Asset('SM_Props_Garbage_03.glb',32.01,-51.75,0.4234);
+  placeFps2Asset('SM_Props_Garbage_03.glb',48.89,-33.17,0);
+  placeFps2Asset('SM_Props_Garbage_03.glb',36.68,-55.75,-0.5881);
+  placeFps2Asset('SM_Props_Garbage_03.glb',49.15,-34.69,0);
+  // SM_Building_RoofPart_03 x4
+  placeFps2Asset('SM_Building_RoofPart_03.glb',-52.19,52.8,0,{y:0.04});
+  placeFps2Asset('SM_Building_RoofPart_03.glb',-52.19,52.83,0,{y:0.04});
+  placeFps2Asset('SM_Building_RoofPart_03.glb',-52.19,48.65,0,{y:0.04});
+  placeFps2Asset('SM_Building_RoofPart_03.glb',-52.19,48.64,0,{y:0.04});
+  // SM_Building_Wall_01 x10
+  placeFps2Asset('SM_Building_Wall_01.glb',-39.28,53.24,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_01.glb',-45.53,54.49,0,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_01.glb',-39.28,53.24,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_01.glb',-43.03,54.49,0,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_01.glb',-39.28,50.74,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_01.glb',-45.53,54.49,0,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_01.glb',-39.28,50.74,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_01.glb',-43.03,54.49,0,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_01.glb',-39.28,48.24,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Building_Wall_01.glb',-39.28,48.24,-1.5708,{y:0.04});
+  // SM_Floor_03 x18
+  placeFps2Asset('SM_Floor_03.glb',49.47,-29.26,0);
+  placeFps2Asset('SM_Floor_03.glb',-55.53,53.24,0);
+  placeFps2Asset('SM_Floor_03.glb',-55.53,53.24,0);
+  placeFps2Asset('SM_Floor_03.glb',-50.53,48.24,0);
+  placeFps2Asset('SM_Floor_03.glb',-45.53,53.24,0);
+  placeFps2Asset('SM_Floor_03.glb',-55.53,48.24,0);
+  placeFps2Asset('SM_Floor_03.glb',-45.53,43.24,0);
+  placeFps2Asset('SM_Floor_03.glb',-50.53,48.24,0);
+  placeFps2Asset('SM_Floor_03.glb',-55.53,48.24,0);
+  placeFps2Asset('SM_Floor_03.glb',-45.53,53.24,0);
+  placeFps2Asset('SM_Floor_03.glb',-50.53,53.24,0);
+  placeFps2Asset('SM_Floor_03.glb',-50.53,58.24,0);
+  placeFps2Asset('SM_Floor_03.glb',-55.53,43.24,0);
+  placeFps2Asset('SM_Floor_03.glb',-50.53,53.24,0);
+  placeFps2Asset('SM_Floor_03.glb',-45.53,43.24,0);
+  placeFps2Asset('SM_Floor_03.glb',39.47,-54.26,3.1416);
+  placeFps2Asset('SM_Floor_03.glb',-55.53,43.24,0);
+  placeFps2Asset('SM_Floor_03.glb',-50.53,58.24,0);
+  // SM_Props_Garbage_02 x13
+  placeFps2Asset('SM_Props_Garbage_02.glb',56.96,-31.93,-1.7184,{y:0.04});
+  placeFps2Asset('SM_Props_Garbage_02.glb',50.63,-28.11,0.5524,{y:0.04});
+  placeFps2Asset('SM_Props_Garbage_02.glb',66.27,-39.66,-1.2675,{y:0.07});
+  placeFps2Asset('SM_Props_Garbage_02.glb',63.23,-44.41,0,{y:0.84});
+  placeFps2Asset('SM_Props_Garbage_02.glb',22.44,-46.42,0.4341,{y:0.09});
+  placeFps2Asset('SM_Props_Garbage_02.glb',52.11,-27.81,-0.5661,{y:0.04});
+  placeFps2Asset('SM_Props_Garbage_02.glb',30.08,-39.44,0,{y:0.84});
+  placeFps2Asset('SM_Props_Garbage_02.glb',40.21,-48.52,0,{y:0.04});
+  placeFps2Asset('SM_Props_Garbage_02.glb',40.51,-38.38,0.5524,{y:0.04});
+  placeFps2Asset('SM_Props_Garbage_02.glb',39.15,-54.84,-0.5661,{y:0.04});
+  placeFps2Asset('SM_Props_Garbage_02.glb',41.99,-38.08,-0.5661,{y:0.04});
+  placeFps2Asset('SM_Props_Garbage_02.glb',26.94,-42.32,0,{y:0.85});
+  placeFps2Asset('SM_Props_Garbage_02.glb',38.97,-55.14,0.5524,{y:0.04});
+  // SM_Floor_02 x4
+  placeFps2Asset('SM_Floor_02.glb',44.47,-59.26,-4.7124);
+  placeFps2Asset('SM_Floor_02.glb',74.47,-79.26,4.7124);
+  placeFps2Asset('SM_Floor_02.glb',14.47,-4.26,-4.7124);
+  placeFps2Asset('SM_Floor_02.glb',44.47,-24.26,-1.5708);
+  // SM_Props_Wood_02 x11
+  placeFps2Asset('SM_Props_Wood_02.glb',48.07,-33.63,-0.2033,{y:1.06});
+  placeFps2Asset('SM_Props_Wood_02.glb',22.11,-37.65,0,{y:0.37});
+  placeFps2Asset('SM_Props_Wood_02.glb',39.25,-46.77,1.5708,{y:3.3});
+  placeFps2Asset('SM_Props_Wood_02.glb',66.86,-45.88,0,{y:0.36});
+  placeFps2Asset('SM_Props_Wood_02.glb',66.59,-45.88,-3.1416,{y:0.36});
+  placeFps2Asset('SM_Props_Wood_02.glb',49.65,-36.98,1.5713,{y:3.29});
+  placeFps2Asset('SM_Props_Wood_02.glb',39.25,-46.51,-1.5708,{y:3.3});
+  placeFps2Asset('SM_Props_Wood_02.glb',40.64,-49.8,-0.2033,{y:1.06});
+  placeFps2Asset('SM_Props_Wood_02.glb',49.65,-36.36,1.5713,{y:3.29});
+  placeFps2Asset('SM_Props_Wood_02.glb',49.65,-36.67,-1.5777,{y:3.29});
+  placeFps2Asset('SM_Props_Wood_02.glb',22.38,-37.65,3.1416,{y:0.37});
+  // SM_Rock_01 x8
+  placeFps2Asset('SM_Rock_01.glb',16.71,-41.19,1.1723,{y:0.08,scale:3.04});
+  placeFps2Asset('SM_Rock_01.glb',65.72,-54.83,0,{y:0.99,scale:3.1});
+  placeFps2Asset('SM_Rock_01.glb',31.11,-34.44,1.525,{y:0.5,scale:3.51});
+  placeFps2Asset('SM_Rock_01.glb',75.75,-39.88,0,{y:0.82,scale:2.03});
+  placeFps2Asset('SM_Rock_01.glb',18.88,-58.8,1.56,{y:0.24,scale:2.92});
+  placeFps2Asset('SM_Rock_01.glb',8.48,-47.61,-0.9584,{y:1.72,scale:3.68});
+  placeFps2Asset('SM_Rock_01.glb',48.47,-17.71,0,{y:0.1,scale:3.95});
+  placeFps2Asset('SM_Rock_01.glb',49.18,-58.25,0.475,{y:0.1,scale:1.97});
+  // SM_Props_Umbrella_01 x2
+  placeFps2Asset('SM_Props_Umbrella_01.glb',59.42,-44.1,0,{y:0.05});
+  placeFps2Asset('SM_Props_Umbrella_01.glb',62.68,-44.1,0,{y:0.05});
+  // SM_Building_Floor_01 x18
+  placeFps2Asset('SM_Building_Floor_01.glb',-43.03,53.24,1.5708,{y:0.04});
+  placeFps2Asset('SM_Building_Floor_01.glb',-43.03,53.24,1.5708,{y:0.04});
+  placeFps2Asset('SM_Building_Floor_01.glb',-40.53,48.24,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Building_Floor_01.glb',-40.53,53.24,0,{y:0.04});
+  placeFps2Asset('SM_Building_Floor_01.glb',-43.03,50.74,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Building_Floor_01.glb',-40.53,50.74,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Building_Floor_01.glb',-40.53,48.24,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Building_Floor_01.glb',-45.53,48.24,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Building_Floor_01.glb',-43.03,48.24,0,{y:0.04});
+  placeFps2Asset('SM_Building_Floor_01.glb',-43.03,48.24,0,{y:0.04});
+  placeFps2Asset('SM_Building_Floor_01.glb',-45.53,50.74,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Building_Floor_01.glb',-45.53,53.24,0,{y:0.04});
+  placeFps2Asset('SM_Building_Floor_01.glb',-40.53,50.74,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Building_Floor_01.glb',-45.53,50.74,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Building_Floor_01.glb',-40.53,53.24,0,{y:0.04});
+  placeFps2Asset('SM_Building_Floor_01.glb',-45.53,48.24,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Building_Floor_01.glb',-43.03,50.74,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Building_Floor_01.glb',-45.53,53.24,0,{y:0.04});
+  // SM_Props_Umbrella_02 x2
+  placeFps2Asset('SM_Props_Umbrella_02.glb',29.49,-39.39,0,{y:0.08});
+  placeFps2Asset('SM_Props_Umbrella_02.glb',26.16,-39.39,0,{y:0.08});
+  // SM_Props_Vent_01 x8
+  placeFps2Asset('SM_Props_Vent_01.glb',59.16,-39.59,0,{y:3.01});
+  placeFps2Asset('SM_Props_Vent_01.glb',64.77,-33.95,0,{y:3.01});
+  placeFps2Asset('SM_Props_Vent_01.glb',29.76,-43.95,0,{y:3.02});
+  placeFps2Asset('SM_Props_Vent_01.glb',29.76,-49.6,0,{y:3.02});
+  placeFps2Asset('SM_Props_Vent_01.glb',64.77,-39.59,0,{y:3.01});
+  placeFps2Asset('SM_Props_Vent_01.glb',59.16,-33.95,0,{y:3.01});
+  placeFps2Asset('SM_Props_Vent_01.glb',24.15,-49.6,0,{y:3.02});
+  placeFps2Asset('SM_Props_Vent_01.glb',24.15,-43.95,0,{y:3.02});
+  // SM_Props_WaterBarrel_01 x2
+  placeFps2Asset('SM_Props_WaterBarrel_01.glb',38.54,-33.67,-1.5708);
+  placeFps2Asset('SM_Props_WaterBarrel_01.glb',50.29,-50.28,-1.5708);
+  // SM_Floor_05 x4
+  placeFps2Asset('SM_Floor_05.glb',-52.16,46.99,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_05.glb',-52.16,46.99,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_05.glb',-52.16,54.49,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_05.glb',-52.16,54.49,1.5708,{y:0.04});
+  // SM_Props_GasPump_01 x8
+  placeFps2Asset('SM_Props_GasPump_01.glb',53.14,-38.23,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Props_GasPump_01.glb',52.53,-38.23,1.5708,{y:0.04});
+  placeFps2Asset('SM_Props_GasPump_01.glb',35.78,-48.23,1.5708,{y:0.04});
+  placeFps2Asset('SM_Props_GasPump_01.glb',36.39,-48.23,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Props_GasPump_01.glb',35.78,-45.32,1.5708,{y:0.04});
+  placeFps2Asset('SM_Props_GasPump_01.glb',36.39,-45.32,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Props_GasPump_01.glb',53.14,-35.36,-1.5708,{y:0.04});
+  placeFps2Asset('SM_Props_GasPump_01.glb',52.53,-35.36,1.5708,{y:0.04});
+  // SM_Nature_Plant_03 x11
+  placeFps2Asset('SM_Nature_Plant_03.glb',49.26,-49.52,0,{scale:1.42});
+  placeFps2Asset('SM_Nature_Plant_03.glb',55.03,-52.47,0,{y:0.15,scale:1.59});
+  placeFps2Asset('SM_Nature_Plant_03.glb',58.38,-52.76,0,{y:0.26,scale:1.61});
+  placeFps2Asset('SM_Nature_Plant_03.glb',41.2,-59.56,0,{y:-0.06,scale:1.21});
+  placeFps2Asset('SM_Nature_Plant_03.glb',55.96,-23.52,1.6988,{y:0.19,scale:1.69});
+  placeFps2Asset('SM_Nature_Plant_03.glb',50.53,-57.52,0,{y:0.25,scale:1.5});
+  placeFps2Asset('SM_Nature_Plant_03.glb',68.81,-33.99,0,{scale:1.45});
+  placeFps2Asset('SM_Nature_Plant_03.glb',56.41,-24.03,0,{y:0.19,scale:1.69});
+  placeFps2Asset('SM_Nature_Plant_03.glb',57.86,-53.05,-1.5427,{y:0.26,scale:1.61});
+  placeFps2Asset('SM_Nature_Plant_03.glb',64.58,-24.95,0);
+  placeFps2Asset('SM_Nature_Plant_03.glb',47.42,-47.31,0);
+  // SM_Props_Menu_01 x4
+  placeFps2Asset('SM_Props_Menu_01.glb',30.91,-42.54,0.2658,{y:0.04});
+  placeFps2Asset('SM_Props_Menu_01.glb',63.56,-40.96,-0.2917,{y:0.04});
+  placeFps2Asset('SM_Props_Menu_01.glb',58.14,-41,0.2606,{y:0.04});
+  placeFps2Asset('SM_Props_Menu_01.glb',25.29,-42.57,-0.2461,{y:0.07});
+  // SM_Props_Car_02 x1
+  placeFps2Asset('SM_Props_Car_02.glb',53.28,-44.74,0);
+  // SM_Props_GasStation_02 x2
+  placeFps2Asset('SM_Props_GasStation_02.glb',-55.53,58.24,0,{y:5.32});
+  placeFps2Asset('SM_Props_GasStation_02.glb',-55.53,58.24,0,{y:5.32});
+  // SM_Props_Interior_02_2 x4
+  placeFps2Asset('SM_Props_Interior_02_2.glb',26.58,-44.22,1.5708,{y:0.05});
+  placeFps2Asset('SM_Props_Interior_02_2.glb',28.94,-44.22,-1.5708,{y:0.05});
+  placeFps2Asset('SM_Props_Interior_02_2.glb',62.46,-39.29,-1.5708,{y:0.05});
+  placeFps2Asset('SM_Props_Interior_02_2.glb',60.11,-39.29,1.5708,{y:0.05});
+  // SM_Mushroom_01 x1
+  placeFps2Asset('SM_Mushroom_01.glb',47.18,-55.26,0);
+  // SM_Rock_03 x7
+  placeFps2Asset('SM_Rock_03.glb',68.53,-21.54,0.7112,{y:0.65,scale:3.16});
+  placeFps2Asset('SM_Rock_03.glb',41.28,-58.96,-0.4886,{scale:1.41});
+  placeFps2Asset('SM_Rock_03.glb',25.99,-28.78,-0.1906,{y:1.42,scale:2.45});
+  placeFps2Asset('SM_Rock_03.glb',51.83,-26.24,0);
+  placeFps2Asset('SM_Rock_03.glb',49.37,-59.43,-2.1529,{y:0.08,scale:3.17});
+  placeFps2Asset('SM_Rock_03.glb',59.81,-49.84,2.2821,{y:0.48,scale:2.91});
+  placeFps2Asset('SM_Rock_03.glb',51.38,-55.32,0,{y:0.22,scale:2});
+  // SM_Props_Light_01 x8
+  placeFps2Asset('SM_Props_Light_01.glb',60.41,-38.33,0,{y:3});
+  placeFps2Asset('SM_Props_Light_01.glb',25.4,-45.21,0,{y:3.01});
+  placeFps2Asset('SM_Props_Light_01.glb',60.41,-35.21,0,{y:3});
+  placeFps2Asset('SM_Props_Light_01.glb',28.52,-48.33,0,{y:3.01});
+  placeFps2Asset('SM_Props_Light_01.glb',63.53,-38.33,0,{y:3});
+  placeFps2Asset('SM_Props_Light_01.glb',63.53,-35.21,0,{y:3});
+  placeFps2Asset('SM_Props_Light_01.glb',28.52,-45.21,0,{y:3.01});
+  placeFps2Asset('SM_Props_Light_01.glb',25.4,-48.33,0,{y:3.01});
+  // SM_Props_Trash_01 x6
+  placeFps2Asset('SM_Props_Trash_01.glb',40.86,-37.61,0);
+  placeFps2Asset('SM_Props_Trash_01.glb',50.98,-27.34,0);
+  placeFps2Asset('SM_Props_Trash_01.glb',48.03,-45.63,-2.2656);
+  placeFps2Asset('SM_Props_Trash_01.glb',38.02,-56.13,-3.1416);
+  placeFps2Asset('SM_Props_Trash_01.glb',22.57,-44.99,1.5708,{y:0.05});
+  placeFps2Asset('SM_Props_Trash_01.glb',66.37,-38.42,-1.5708,{y:0.05});
+  // SM_Mushroom_02 x3
+  placeFps2Asset('SM_Mushroom_02.glb',25.43,-29.49,0,{y:1.25,scale:1.34});
+  placeFps2Asset('SM_Mushroom_02.glb',40.91,-29.53,0,{scale:1.21});
+  placeFps2Asset('SM_Mushroom_02.glb',54.33,-51.93,0,{y:0.1,scale:1.35});
+  // SM_Building_CafeRoof_01 x4
+  placeFps2Asset('SM_Building_CafeRoof_01.glb',-43.03,47,0,{y:-0.03});
+  placeFps2Asset('SM_Building_CafeRoof_01.glb',-43.03,47,0,{y:-0.03});
+  placeFps2Asset('SM_Building_CafeRoof_01.glb',-45.53,47,0,{y:-0.03});
+  placeFps2Asset('SM_Building_CafeRoof_01.glb',-45.53,47,0,{y:-0.03});
+  // SM_Props_Light_02 x4
+  placeFps2Asset('SM_Props_Light_02.glb',56.31,-37.76,0,{y:3.08});
+  placeFps2Asset('SM_Props_Light_02.glb',52.88,-37.76,0,{y:3.08});
+  placeFps2Asset('SM_Props_Light_02.glb',56.31,-35.76,0,{y:3.08});
+  placeFps2Asset('SM_Props_Light_02.glb',52.88,-35.76,0,{y:3.08});
+  // SM_Nature_Plant_02 x2
+  placeFps2Asset('SM_Nature_Plant_02.glb',49.27,-47.41,0);
+  placeFps2Asset('SM_Nature_Plant_02.glb',58.76,-49.49,0.0728,{y:0.04});
+  // SM_Props_Food_05 x1
+  placeFps2Asset('SM_Props_Food_05.glb',25.82,-39.02,1.3778,{y:0.84});
+  // SM_Props_Light_03 x2
+  placeFps2Asset('SM_Props_Light_03.glb',65.82,-38.43,0,{y:2.37});
+  placeFps2Asset('SM_Props_Light_03.glb',23.15,-45.01,0,{y:2.37});
+  // SM_Mushroom_03 x9
+  placeFps2Asset('SM_Mushroom_03.glb',71.22,-26.29,0,{y:0.37,scale:1.14});
+  placeFps2Asset('SM_Mushroom_03.glb',69.04,-50.59,0,{y:0.22,scale:1.16});
+  placeFps2Asset('SM_Mushroom_03.glb',50.69,-26.42,0);
+  placeFps2Asset('SM_Mushroom_03.glb',47.54,-47.45,0);
+  placeFps2Asset('SM_Mushroom_03.glb',69.29,-22.36,0,{y:0.69});
+  placeFps2Asset('SM_Mushroom_03.glb',55.29,-51.95,0,{y:0.1,scale:1.38});
+  placeFps2Asset('SM_Mushroom_03.glb',21.54,-31.24,0,{y:1.31});
+  placeFps2Asset('SM_Mushroom_03.glb',41.21,-30.16,0);
+  placeFps2Asset('SM_Mushroom_03.glb',41.6,-59.25,0);
+  // SM_Floor_06 x4
+  placeFps2Asset('SM_Floor_06.glb',-47.41,41.36,0,{y:0.04});
+  placeFps2Asset('SM_Floor_06.glb',-47.41,41.36,0,{y:0.04});
+  placeFps2Asset('SM_Floor_06.glb',-47.41,55.11,1.5708,{y:0.04});
+  placeFps2Asset('SM_Floor_06.glb',-47.41,55.11,1.5708,{y:0.04});
+  // SM_Building_RoofPart_02 x12
+  placeFps2Asset('SM_Building_RoofPart_02.glb',-53.03,48.24,0,{y:0.17});
+  placeFps2Asset('SM_Building_RoofPart_02.glb',-46.78,53.24,1.5708);
+  placeFps2Asset('SM_Building_RoofPart_02.glb',-54.28,51.99,1.5708,{y:0.17});
+  placeFps2Asset('SM_Building_RoofPart_02.glb',-54.28,51.99,1.5708,{y:0.17});
+  placeFps2Asset('SM_Building_RoofPart_02.glb',-45.53,46.99,0);
+  placeFps2Asset('SM_Building_RoofPart_02.glb',-40.53,54.49,3.1416);
+  placeFps2Asset('SM_Building_RoofPart_02.glb',-39.28,48.24,-1.5708);
+  placeFps2Asset('SM_Building_RoofPart_02.glb',-39.28,48.24,-1.5708);
+  placeFps2Asset('SM_Building_RoofPart_02.glb',-40.53,54.49,3.1416);
+  placeFps2Asset('SM_Building_RoofPart_02.glb',-45.53,46.99,0);
+  placeFps2Asset('SM_Building_RoofPart_02.glb',-46.78,53.24,1.5708);
+  placeFps2Asset('SM_Building_RoofPart_02.glb',-53.03,48.24,0,{y:0.17});
+  // SM_Props_Truck_01 x2
+  placeFps2Asset('SM_Props_Truck_01.glb',48.54,-38.02,-3.1416);
+  placeFps2Asset('SM_Props_Truck_01.glb',40.46,-45.5,0);
+  // SM_Props_Food_06 x1
+  placeFps2Asset('SM_Props_Food_06.glb',25.41,-39.51,0,{y:0.84});
+  // SM_BigBarrel_01 x4
+  placeFps2Asset('SM_BigBarrel_01.glb',19.4,-46.86,-1.5708);
+  placeFps2Asset('SM_BigBarrel_01.glb',69.49,-36.76,-1.5708);
+  placeFps2Asset('SM_BigBarrel_01.glb',62.94,-28.82,-1.5708,{y:0.04,scale:0.81});
+  placeFps2Asset('SM_BigBarrel_01.glb',25.98,-54.68,1.5708,{y:0.04,scale:0.81});
+  // SM_Nature_Tree_02 x1
+  placeFps2Asset('SM_Nature_Tree_02.glb',48.68,-57.37,0.2275,{y:0.03});
+  // SM_Props_Car_01 x1
+  placeFps2Asset('SM_Props_Car_01.glb',35.72,-38.8,-3.1416);
+  // SM_Props_Interior_03_2 x2
+  placeFps2Asset('SM_Props_Interior_03_2.glb',26.98,-50.39,-3.1416,{y:0.04});
+  placeFps2Asset('SM_Props_Interior_03_2.glb',61.99,-33.16,0,{y:0.04});
+  // SM_Props_GasStation_01 x2
+  placeFps2Asset('SM_Props_GasStation_01.glb',47.18,-54.99,0,{scale:0.76});
+  placeFps2Asset('SM_Props_GasStation_01.glb',41.55,-27.54,-3.1416);
+}
+
 const mapProgress={gates:new Map(),switches:new Map(),required:[],perkMachines:[],power:false};
 function resetMapProgress(){
   mapProgress.gates.clear();mapProgress.switches.clear();mapProgress.required.length=0;
@@ -3725,7 +4713,10 @@ const MAPS={
     build:buildLastStop},
   crossroads:{name:'Crossroads',time:'Daylight',
     blurb:'An abandoned city block under a clear sky. A gas station and a church face off across the intersection, a columned civic building anchors a wrecked-car parking lot, and apartment towers box the street in on every side.',
-    build:buildCrossroads}
+    build:buildCrossroads},
+  overpass:{name:'Overpass',time:'Daylight',
+    blurb:'A sprawling roadside sprawl of gas pumps, a diner, and stacked apartment blocks with walkable rooftops, ringed by junked cars, tire piles, and scrapyard clutter.',
+    build:buildOverpass}
 };
 let currentMap='town';
 function clearWorld(){
@@ -8839,7 +9830,7 @@ function netHandle(msg){
     handleHostGameRequest(m.event,m.playerId);
   } else if(m.type==='game'){
     handleSharedGameEvent(m.event);
-  } else if(m.type==='start'&&(m.map==='town'||m.map==='wayside'||m.map==='blacksire'||m.map==='laststop'||m.map==='crossroads')){
+  } else if(m.type==='start'&&(m.map==='town'||m.map==='wayside'||m.map==='blacksire'||m.map==='laststop'||m.map==='crossroads'||m.map==='overpass')){
     // A brand new match for the whole room - any loadout snapshot left over
     // from a previous match in this same room code is stale now.
     netClearLoadout(net.code);
