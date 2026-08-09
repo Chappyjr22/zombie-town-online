@@ -3003,7 +3003,7 @@ function buildOverpass(){
   scene.background=new THREE.Color(0x8fb8dc);
   scene.fog=new THREE.Fog(0x9fc3e6,60,220); mapFog={near:60,far:220};
   torch.intensity=0.14;
-  SPAWN_AT.set(0,0,-34); SPAWN_YAW=0;
+  SPAWN_AT.set(0,0,-34); SPAWN_YAW=Math.PI;
   addEquipBuy('grenade',SPAWN_AT.x-1.6,0,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
   addEquipBuy('claymore',SPAWN_AT.x+1.6,0,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
   SPAWNS=[[38,0],[35.1,14.5],[26.9,26.9],[14.5,35.1],[0,38],[-14.5,35.1],[-26.9,26.9],[-35.1,14.5],
@@ -3687,18 +3687,17 @@ function buildOverpass(){
   placeFps2Asset('SM_Rock_02.glb',9.49,-12.5,0.463,{y:0.67,scale:2.688,collide:[1.44,1.28,0.7]});
   placeFps2Asset('SM_Rock_02.glb',-16.13,-22.12,-0.2962,{y:1.05,scale:3.758,collide:[2.01,1.78,0.7]});
   placeFps2Asset('SM_Rock_02.glb',-3.88,16.27,-1.6986,{y:0.542,scale:3.749,collide:[2.0,1.78,0.7]});
-  // SM_Floor_01 x11
+  // SM_Floor_01 x7 - the source scene has 4 more of these tiles isolated
+  // out at z=+-27.5, well past the road spine below (which stays at
+  // x=2.35, z=-15..15) and disconnected from anything else - same
+  // "reads as random floating debris" call as SM_Floor_02 above, dropped.
   placeFps2Asset('SM_Floor_01.glb',2.35,-10.0,0.0,{y:0.02});
-  placeFps2Asset('SM_Floor_01.glb',-10.15,27.5,1.5708,{y:0.02});
   placeFps2Asset('SM_Floor_01.glb',2.35,5.0,0.0,{y:0.02});
   placeFps2Asset('SM_Floor_01.glb',2.35,15.0,0.0,{y:0.02});
-  placeFps2Asset('SM_Floor_01.glb',-15.15,27.5,1.5708,{y:0.02});
   placeFps2Asset('SM_Floor_01.glb',2.35,-15.0,0.0,{y:0.02});
   placeFps2Asset('SM_Floor_01.glb',2.35,0,0.0,{y:0.02});
-  placeFps2Asset('SM_Floor_01.glb',14.85,-27.5,1.5708,{y:0.02});
   placeFps2Asset('SM_Floor_01.glb',2.35,10.0,0.0,{y:0.02});
   placeFps2Asset('SM_Floor_01.glb',2.35,-5.0,0.0,{y:0.02});
-  placeFps2Asset('SM_Floor_01.glb',19.85,-27.5,1.5708,{y:0.02});
   // SM_Props_Wood_02 x11
   placeFps2Asset('SM_Props_Wood_02.glb',5.95,8.13,-0.2033,{y:1.061});
   placeFps2Asset('SM_Props_Wood_02.glb',-20.01,4.11,0,{y:0.371});
@@ -3877,11 +3876,12 @@ function buildOverpass(){
   placeFps2Asset('SM_Building_RoofPart_03.glb',-5.99,-7.09,3.1416,{y:0.056,collide:[0.5,0.5,3.0]});
   placeFps2Asset('SM_Building_RoofPart_03.glb',-5.99,-2.91,3.1416,{y:0.064,collide:[0.5,0.5,3.0]});
   placeFps2Asset('SM_Building_RoofPart_03.glb',10.69,2.9,0,{y:0.045,collide:[0.5,0.5,3.0]});
-  // SM_Floor_02 x4
-  placeFps2Asset('SM_Floor_02.glb',2.35,-17.5,-4.7124,{y:0.02});
-  placeFps2Asset('SM_Floor_02.glb',32.35,-37.5,4.7124,{y:0.02});
-  placeFps2Asset('SM_Floor_02.glb',-27.65,37.5,-4.7124,{y:0.02});
-  placeFps2Asset('SM_Floor_02.glb',2.35,17.5,-1.5708,{y:0.02});
+  // SM_Floor_02 x0 - the source scene has 4 of these large tiles scattered
+  // in isolation (2 well past the map's far corners, 2 just outside the
+  // gas-station complex) with nothing else around them - not part of the
+  // actual connecting road (that's SM_Floor_01/SM_Floor_03, which run
+  // through the middle of the complex and stay in). All 4 read as random
+  // floating debris with nothing to connect to, so all 4 are dropped.
   // SM_Floor_05 x4
   placeFps2Asset('SM_Floor_05.glb',-6.02,-1.25,1.5708,{y:0.067});
   placeFps2Asset('SM_Floor_05.glb',10.73,1.25,-1.5708,{y:0.045});
