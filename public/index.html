@@ -158,6 +158,21 @@
   .mapart img{width:100%;height:100%;object-fit:cover;display:block;}
   .best{font-size:11px;letter-spacing:.22em;opacity:.5;text-transform:uppercase;margin-top:14px;}
   .best b{color:var(--amber);}
+
+  #loading{position:absolute;inset:0;z-index:40;overflow:hidden;}
+  #loading.gone{display:none;}
+  #loadBg{position:absolute;inset:-4%;width:108%;height:108%;background-size:cover;background-position:center;
+    filter:saturate(.65) brightness(.5);}
+  #loading .loadScrim{position:absolute;inset:0;
+    background:linear-gradient(180deg,rgba(4,6,10,.30) 0%,rgba(4,6,10,.45) 45%,rgba(4,6,10,.94) 100%);}
+  #loadWrap{position:absolute;left:0;right:0;bottom:70px;text-align:center;padding:0 24px;}
+  #loadName{font-size:38px;font-weight:700;letter-spacing:.32em;text-indent:.32em;text-shadow:0 3px 10px #000;}
+  #loadTime{color:var(--amber);letter-spacing:.34em;font-size:11px;text-transform:uppercase;margin:8px 0 24px;}
+  #loadBarWrap{width:min(520px,80vw);height:6px;margin:0 auto;background:rgba(255,255,255,.12);border-left:2px solid var(--bone);}
+  #loadFill{height:100%;width:0%;background:var(--amber);transition:width .15s linear;}
+  #loadPct{font-size:11px;letter-spacing:.2em;opacity:.6;margin-top:9px;text-transform:uppercase;font-variant-numeric:tabular-nums;}
+  #loadTip{font-size:12px;line-height:1.7;opacity:.75;max-width:560px;margin:28px auto 0;}
+  #loadTip b{color:var(--amber);letter-spacing:.2em;text-transform:uppercase;margin-right:8px;}
   h2.sec{font-size:22px;letter-spacing:.30em;text-transform:uppercase;margin-bottom:4px;}
   .orow{display:flex;align-items:center;gap:12px;margin:9px auto;max-width:470px;
     font-size:11px;letter-spacing:.14em;text-transform:uppercase;}
@@ -447,6 +462,18 @@
       </div>
     </div>
     <div class="btn" data-act="back">Back</div>
+  </div>
+</div>
+
+<div id="loading" class="gone">
+  <div id="loadBg"></div>
+  <div class="loadScrim"></div>
+  <div id="loadWrap">
+    <div id="loadName">Town</div>
+    <div id="loadTime">Night</div>
+    <div id="loadBarWrap"><div id="loadFill"></div></div>
+    <div id="loadPct">Loading&hellip;</div>
+    <div id="loadTip"><b>Tip</b><span id="loadTipText"></span></div>
   </div>
 </div>
 
@@ -2488,6 +2515,22 @@ function buildWayside(){
   addPackAPunch(-18,17.5,Math.PI/2);
 }
 
+/* ---------- map-load progress tracking, feeds the loading screen.
+   loadBatch is only non-null while a build*() function is running
+   synchronously inside startGame() (see below) - trackAssetLoad() counts
+   each *new* (cache-miss) template fetch against it. Reusing an
+   already-cached file (a repeated prop, or one left over from a map the
+   player already visited this session) doesn't add to the count, since
+   there's nothing left to wait for on it. ---------- */
+let loadBatch=null;
+function trackAssetLoad(promise){
+  if(loadBatch){
+    const batch=loadBatch;
+    batch.total++;
+    promise.then(()=>{batch.loaded++;},()=>{batch.loaded++;});
+  }
+  return promise;
+}
 /* ---------- shared town-asset loader: sourced glTF pieces for Crossroads.
    Cached per file so repeated instances (road tiles, cars, trees) reuse the
    parsed template and only clone; collision is registered synchronously
@@ -2499,9 +2542,9 @@ const townGltfLoader=new GLTFLoader();
 const townAssetCache={};
 function loadTownAssetTemplate(file){
   if(!townAssetCache[file]){
-    townAssetCache[file]=new Promise((resolve,reject)=>{
+    townAssetCache[file]=trackAssetLoad(new Promise((resolve,reject)=>{
       townGltfLoader.load(TOWN_ASSET_PATH+file,gltf=>resolve(gltf.scene),undefined,reject);
-    });
+    }));
   }
   return townAssetCache[file];
 }
@@ -2525,9 +2568,9 @@ const fps2GltfLoader=new GLTFLoader();
 const fps2AssetCache={};
 function loadFps2AssetTemplate(file){
   if(!fps2AssetCache[file]){
-    fps2AssetCache[file]=new Promise((resolve,reject)=>{
+    fps2AssetCache[file]=trackAssetLoad(new Promise((resolve,reject)=>{
       fps2GltfLoader.load(FPS2_ASSET_PATH+file,gltf=>resolve(gltf.scene),undefined,reject);
-    });
+    }));
   }
   return fps2AssetCache[file];
 }
@@ -4808,6 +4851,20 @@ const MAPS={
     blurb:'A sprawling roadside sprawl of gas pumps, a diner, and stacked apartment blocks with walkable rooftops, ringed by junked cars, tire piles, and scrapyard clutter.',
     build:buildOverpass}
 };
+const LOADING_TIPS=[
+  'Follow the beam of light to find the Mystery Box.',
+  'Melee attacks are free - they don’t cost ammo and stagger a zombie.',
+  'Buying a weapon you already own refills its ammo at half price.',
+  'Pack-a-Punch upgrades cost more at each tier - save up before you buy.',
+  'Claymores hit twice as hard as a thrown grenade, but only trigger once.',
+  'A downed teammate can be revived - don’t leave them behind.',
+  'Chalk-outlined weapons on walls are wall buys.',
+  'Aim down sights for a tighter spread and better headshot odds.',
+  'Zombies get faster and more numerous every round.',
+  'A hard enough fall does real damage - watch your landings from height.',
+  'Perk machines are one-time buys per life - losing all your lives clears them.',
+  'Vending machines are perks, not decoration - check every one you pass.',
+];
 let currentMap='town';
 function clearWorld(){
   const keep=new Set(Object.values(M));
@@ -10215,6 +10272,20 @@ function hideScreens(){
   menuScreen=null;
   updateMenuMusic();
 }
+// The loading screen sits outside the SCREENS/menuScreen system on purpose -
+// it's not a navigable menu (no items, no back button) and needs to be
+// showable/hideable independently of whatever screen it's covering.
+function showLoadingScreen(mapId){
+  const info=MAPS[mapId]||{name:mapId,time:''};
+  el('loadBg').style.backgroundImage=`url(/images/maps/${mapId}.jpg)`;
+  el('loadName').textContent=info.name;
+  el('loadTime').textContent=info.time;
+  el('loadTipText').textContent=LOADING_TIPS[randi(0,LOADING_TIPS.length-1)];
+  el('loadFill').style.width='0%';
+  el('loadPct').textContent='Loading…';
+  el('loading').classList.remove('gone');
+}
+function hideLoadingScreen(){ el('loading').classList.add('gone'); }
 function menuItems(){
   if(!menuScreen) return [];
   const e=el(menuScreen); if(!e) return [];
@@ -10364,9 +10435,25 @@ bindRuleToggle('ruleRoundGap',()=>{
 bindRuleToggle('ruleHardcore',()=>{ gameRules.hardcore=!gameRules.hardcore; });
 
 /* ---------- game state ---------- */
+// Crossroads/Overpass stream 60-90 individual glTF files in per map (see
+// placeTownAsset/placeFps2Asset) - without this, the player spawns straight
+// into a world that's still visibly assembling itself around them for
+// several seconds. loadMap() runs synchronously (it's the build*() call
+// that queues up all those async loads, not the loads themselves), so by
+// the time it returns, loadBatch.total is already its final count for this
+// map - trackAssetLoad() only increments on a genuine cache-miss fetch, so
+// a map that's already fully cached (or one of the four that build their
+// geometry synchronously and never touch the asset loaders at all) comes
+// back with total=0 and skips the loading screen entirely.
+let pendingLoad=null;
 function startGame(mapId){
+  const targetMap=mapId||currentMap;
+  game.running=false; // freeze whatever match was running immediately - it's about to be torn down mid-frame
   initAudio();
-  loadMap(mapId||currentMap);
+  const batch={total:0,loaded:0};
+  loadBatch=batch;
+  loadMap(targetMap);
+  loadBatch=null;
   if(AC&&AC.state==='suspended') AC.resume().then(()=>{if(game.running)startMapAmbience();}).catch(()=>{});
   for(let i=zombies.length-1;i>=0;i--) removeZombie(zombies[i]);
   for(const p of parts) scene.remove(p.m); parts.length=0;
@@ -10394,6 +10481,14 @@ function startGame(mapId){
   net.nextState=0; net.nextWorld=0; net.pausedByHost=false;
   if(net.connected&&net.host) net.zombieSeq=1;
   if(mbox.state!=='idle') closeBox();
+  if(batch.total>0){
+    showLoadingScreen(targetMap);
+    pendingLoad={batch,deadline:performance.now()/1000+20};
+  }else{
+    finishStartGame();
+  }
+}
+function finishStartGame(){
   hideScreens();
   ui.downed.style.opacity=0; ui.vig.style.opacity=0;
   const crouchButton=el('crouchBtn');if(crouchButton)crouchButton.classList.remove('on');
@@ -10406,6 +10501,7 @@ function startGame(mapId){
   if(!net.connected||net.host) startRound();
   else{game.round=0;game.toSpawn=0;game.roundTimer=ROUND_GAP;updRoundHUD();}
   if(!isTouch) canvas.requestPointerLock();
+  hideLoadingScreen();
 }
 function applySessionPause(paused){
   net.pausedByHost=paused;
@@ -10564,6 +10660,15 @@ function loop(){
   const now=performance.now()/1000;
   let dt=now-last; last=now;
   dt=clamp(dt,0.001,0.05);
+  if(pendingLoad){
+    const b=pendingLoad.batch, pct=b.total?Math.min(1,b.loaded/b.total):1;
+    el('loadFill').style.width=(pct*100)+'%';
+    el('loadPct').textContent=Math.round(pct*100)+'%';
+    if(b.loaded>=b.total||now>pendingLoad.deadline){
+      pendingLoad=null;
+      finishStartGame();
+    }
+  }
   pollPad(dt);
   netStep(dt);
   if(game.running){
