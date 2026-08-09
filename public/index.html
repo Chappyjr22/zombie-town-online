@@ -2538,7 +2538,20 @@ function placeFps2Asset(file,x,z,rotY,opts){
     obj.position.set(x,opts.y||0,z);
     obj.rotation.y=rotY||0;
     if(opts.scale)obj.scale.setScalar(opts.scale);
-    obj.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; blockers.push(o); } });
+    obj.traverse(o=>{
+      if(o.isMesh){
+        o.castShadow=true; o.receiveShadow=true; blockers.push(o);
+        // Several of this pack's flat roof/floor tiles are zero-thickness
+        // single quads (e.g. SM_Building_RoofFloor_01 is a bare 2.5x2.5
+        // plane) that only render from the side their source normal faces -
+        // fine for the pack's own demo camera shots looking down/outward,
+        // but players here walk directly underneath them and were seeing
+        // straight through to the sky. Force double-sided so every angle
+        // renders.
+        const mats=Array.isArray(o.material)?o.material:[o.material];
+        for(const m of mats) if(m) m.side=THREE.DoubleSide;
+      }
+    });
     worldRoot.add(obj);
   }).catch(err=>console.warn('fps2 asset failed to load: '+file,err));
   if(opts.collide){
