@@ -7,8 +7,8 @@ export { GameRoom } from "./index.js";
 const RELOAD_UI_SCRIPT = "/ui-reload-feedback.js?v=20260810a";
 const FINAL_GAMEPLAY_CSS = "/ui-final-gameplay.css?v=20260810a";
 const FINAL_GAMEPLAY_SCRIPT = "/ui-final-gameplay.js?v=20260810a";
-const FEEDBACK_CLARITY_CSS = "/ui-feedback-clarity.css?v=20260810b";
-const FEEDBACK_CLARITY_SCRIPT = "/ui-feedback-clarity.js?v=20260810b";
+const FEEDBACK_CLARITY_CSS = "/ui-feedback-clarity.css?v=20260810c";
+const FEEDBACK_CLARITY_SCRIPT = "/ui-feedback-clarity.js?v=20260810c";
 
 export default {
   async fetch(request, env, ctx) {
