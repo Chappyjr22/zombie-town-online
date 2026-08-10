@@ -52,5 +52,69 @@ export function applyUiFeedbackPatches(html) {
   return sprite;
 }`, 'multiplayer gamertag readability');
 
+  // The focus prompt already knows when a purchase is unaffordable. Do not
+  // spawn a second center-screen toast on top of it when the player presses F.
+  out = replaceOnce(out, `function doBuy(){
+  const it=game.focus; if(!it) return;
+  const c=it.cost();
+  if(player.points<c){ sfxDeny(); toast('Not enough points'); return; }`, `function doBuy(){
+  const it=game.focus; if(!it) return;
+  const c=it.cost();
+  if(player.points<c){
+    sfxDeny();
+    window.dispatchEvent(new CustomEvent('town:prompt-deny',{detail:{reason:'points',message:'Not enough points'}}));
+    return;
+  }`, 'insufficient-points prompt feedback');
+
+  // Locked gates and unpowered perk machines also keep their explanation in
+  // the interaction prompt instead of stacking a duplicate toast over it.
+  out = replaceOnce(out,
+    `if(!mapGateReady(gate)){toast(mapGateLockText(gate));sfxDeny();return;}`,
+    `if(!mapGateReady(gate)){const message=mapGateLockText(gate);sfxDeny();window.dispatchEvent(new CustomEvent('town:prompt-deny',{detail:{reason:'locked',message}}));return;}`,
+    'locked map-gate prompt feedback');
+
+  out = replaceOnce(out,
+    `if(this.locked()){toast('Activate both station power circuits first');sfxDeny();return false;}`,
+    `if(this.locked()){sfxDeny();window.dispatchEvent(new CustomEvent('town:prompt-deny',{detail:{reason:'power',message:'Activate both station power circuits first'}}));return false;}`,
+    'locked perk prompt feedback');
+
+  // Give the presentation layer enough context to draw a directional hit arc.
+  // Damage rules stay exactly the same, only attacker position metadata is
+  // surfaced through a DOM event.
+  out = replaceOnce(out, `function hurtPlayer(amount){
+  if(!player.alive||player.downed||player.invuln>0) return;
+  player.hp-=amount; player.lastHit=game.time;
+  sfxHurt(clamp(.38+amount/120,.38,.56));
+  ui.vig.style.opacity=clamp(.35+(1-player.hp/player.maxHp)*.6,0,1);
+  if(player.hp<=0){ player.hp=0; goDown(); }
+  updHUD();
+}`, `function hurtPlayer(amount,sourceX=null,sourceZ=null){
+  if(!player.alive||player.downed||player.invuln>0) return;
+  if(Number.isFinite(sourceX)&&Number.isFinite(sourceZ)){
+    window.dispatchEvent(new CustomEvent('town:player-hit',{detail:{
+      sourceX,sourceZ,playerX:player.pos.x,playerZ:player.pos.z,yaw:player.yaw,amount
+    }}));
+  }
+  player.hp-=amount; player.lastHit=game.time;
+  sfxHurt(clamp(.38+amount/120,.38,.56));
+  ui.vig.style.opacity=clamp(.35+(1-player.hp/player.maxHp)*.6,0,1);
+  if(player.hp<=0){ player.hp=0; goDown(); }
+  updHUD();
+}`, 'directional player-hit metadata');
+
+  out = replaceOnce(out,
+    `if(kind==='nade'&&pd<radius) hurtPlayer(dmg*(1-pd/radius)*0.35);`,
+    `if(kind==='nade'&&pd<radius) hurtPlayer(dmg*(1-pd/radius)*0.35,pos.x,pos.z);`,
+    'grenade hit direction');
+
+  out = replaceOnce(out,
+    `hurtPlayer(clamp(+e.amount||0,0,100));`,
+    `hurtPlayer(clamp(+e.amount||0,0,100),+e.sourceX,+e.sourceZ);`,
+    'network hit direction receive');
+
+  out = replaceOnce(out, `if(!net.connected||targetId===net.id) hurtPlayer(amount);
+      else netHostDirect(targetId,{type:'player_damage',amount});`, `if(!net.connected||targetId===net.id) hurtPlayer(amount,z.pos.x,z.pos.z);
+      else netHostDirect(targetId,{type:'player_damage',amount,sourceX:z.pos.x,sourceZ:z.pos.z});`, 'zombie hit direction send');
+
   return out;
 }
