@@ -1,4 +1,5 @@
 import worker from "./index.js";
+import { applyPerformancePatches } from "./performance-html-patches.js";
 export { GameRoom } from "./index.js";
 
 const RELOAD_UI_SCRIPT = "/ui-reload-feedback.js?v=20260810a";
@@ -9,13 +10,14 @@ export default {
     const contentType = response.headers.get("content-type") || "";
 
     // API JSON, static assets, and WebSocket upgrades pass through exactly as
-    // the existing worker returned them. This wrapper only adds a visual HUD
-    // helper to HTML pages.
+    // the existing worker returned them. This wrapper only adjusts the served
+    // game HTML for presentation helpers and targeted performance fixes.
     if (!contentType.includes("text/html")) return response;
 
     const headers = new Headers(response.headers);
     headers.delete("content-length");
-    const html = await response.text();
+    let html = await response.text();
+    html = applyPerformancePatches(html);
     const themedHtml = html.includes("/ui-reload-feedback.js")
       ? html
       : html.replace("</body>", `  <script src="${RELOAD_UI_SCRIPT}"></script>\n</body>`);
