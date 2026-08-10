@@ -293,6 +293,26 @@
     .card p{font-size:12px;line-height:1.6;} .cols{margin:12px auto;gap:10px 20px;}
     .cols div{line-height:1.55;} .btn{padding:11px 30px;margin-top:4px;}
   }
+  #editorPanel{position:absolute;top:10px;right:10px;width:300px;max-height:calc(100% - 20px);
+    background:rgba(10,12,18,.90);border:1px solid rgba(232,224,208,.28);border-radius:8px;
+    padding:10px;color:var(--bone);font-size:12px;overflow-y:auto;pointer-events:auto;z-index:30;}
+  #editorPanel.gone{display:none;}
+  #editorPanel h3{font-size:15px;color:var(--amber);margin-bottom:2px;letter-spacing:.03em;}
+  #editorPanel .ehint{opacity:.65;font-size:10.5px;line-height:1.5;margin:4px 0 8px;}
+  #editorCoords{font-family:monospace;font-size:11.5px;background:rgba(255,255,255,.06);
+    padding:6px;border-radius:5px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:6px;}
+  #editorAdd{display:flex;gap:4px;margin-bottom:8px;}
+  #editorAdd select{flex:1;font-size:11px;background:rgba(0,0,0,.4);color:var(--bone);
+    border:1px solid rgba(232,224,208,.3);border-radius:4px;}
+  #editorList{display:flex;flex-direction:column;gap:4px;margin-bottom:8px;}
+  .erow{padding:5px 6px;border-radius:5px;background:rgba(255,255,255,.045);cursor:pointer;}
+  .erow.sel{background:rgba(232,163,61,.24);outline:1px solid var(--amber);}
+  .erow .etitle{display:flex;justify-content:space-between;gap:6px;}
+  .erow .exz{opacity:.65;font-family:monospace;font-size:10.5px;}
+  #editorPanel button{font-size:10.5px;padding:3px 7px;border-radius:4px;
+    border:1px solid rgba(232,224,208,.3);background:rgba(255,255,255,.07);color:var(--bone);cursor:pointer;}
+  #editorPanel button:hover{background:rgba(255,255,255,.16);}
+  #editorPanel .erow button{margin-top:4px;}
 </style>
 </head>
 <body>
@@ -487,6 +507,26 @@
   </div>
 </div>
 
+<div id="editorPanel" class="gone">
+  <h3>Map Editor</h3>
+  <div class="ehint">WASD fly &middot; right-drag to look &middot; Shift boost &middot; Space/Ctrl up/down<br>
+    left-click a pin to select &middot; drag to move &middot; wheel to raise/lower<br>
+    Del removes selected &middot; F2 or Esc exits</div>
+  <div id="editorCoords">Ground: <span id="editorCoordsVal">-, -</span> <button data-eact="copy-coords">Copy</button></div>
+  <div id="editorAdd">
+    <select id="editorAddType">
+      <option value="box">Mystery box spot</option>
+      <option value="perk">Perk machine</option>
+      <option value="wall">Wall buy</option>
+      <option value="pap">Pack-a-Punch</option>
+    </select>
+    <select id="editorAddSub"></select>
+    <button data-eact="add">Add here</button>
+  </div>
+  <div id="editorList"></div>
+  <button id="editorCopyAll" data-eact="copy-all" style="width:100%">Copy all placement code</button>
+</div>
+
 <div class="screen gone" id="options">
   <div class="card">
     <h2 class="sec">Options</h2>
@@ -571,6 +611,7 @@
     <div style="margin-top:12px">
       <div class="btn" id="resumeBtn" data-act="resume">Resume</div>
       <div class="btn" data-act="options">Options</div>
+      <div class="btn" data-act="editor">Map Editor</div>
       <div class="btn" data-act="restart">Restart</div>
       <div class="btn" data-act="menu">Main menu</div>
     </div>
@@ -5061,6 +5102,8 @@ function clearWorld(){
   colliders.length=0; blockers.length=0; platforms.length=0; stairBases.length=0;
   flames.length=0; jumpPads.length=0; interactables.length=0; cullableLights.length=0;
   resetMapProgress();
+  if(editorMode) exitEditor();
+  editorEntities.length=0;
   streetLampMesh=null; streetLampCount=0;
   window.__ash=null;
   window.__storm=null;
@@ -8202,7 +8245,7 @@ function addWallBuy(defId,x,y,z,rot){
   const plane=new THREE.Mesh(new THREE.PlaneGeometry(2.2,1.32),
     new THREE.MeshBasicMaterial({map:chalkTex(d,d.cost),transparent:true,opacity:.85}));
   plane.position.set(x,y,z); plane.rotation.y=rot; worldRoot.add(plane);
-  interactables.push({
+  const inter={
     x,y:y-0.4,z,r:2.6,kind:'wall',def:d,
     label(){ const own=player.guns.find(g=>g.def===d);
       return own?('Buy '+d.name+' ammo'):('Buy '+d.name); },
@@ -8211,17 +8254,21 @@ function addWallBuy(defId,x,y,z,rot){
     buy(){ const own=player.guns.find(g=>g.def===d);
       if(own){ own.res=resOf(own); } else giveGun(d.id);
       toast(d.name); }
-  });
+  };
+  interactables.push(inter);
+  registerEditorEntity('wall',{defId,x,y,z,rot},plane,inter,0);
 }
 function addAmmoBuy(defId,x,y,z,rot,price){
   const d=DEFS[defId];
   const plane=new THREE.Mesh(new THREE.PlaneGeometry(2.0,1.2),
     new THREE.MeshBasicMaterial({map:chalkTex(d,price),transparent:true,opacity:.8}));
   plane.position.set(x,y,z); plane.rotation.y=rot; worldRoot.add(plane);
-  interactables.push({x,y:y-.4,z,r:2.6,kind:'ammo',
+  const inter={x,y:y-.4,z,r:2.6,kind:'ammo',
     label(){return 'Buy '+d.name+' ammo';}, cost(){return price;},
     buy(){ const own=player.guns.find(g=>g.def===d);
-      if(own) own.res=resOf(own); else giveGun(d.id); toast(d.name+' ammo'); }});
+      if(own) own.res=resOf(own); else giveGun(d.id); toast(d.name+' ammo'); }};
+  interactables.push(inter);
+  registerEditorEntity('ammo',{defId,x,y,z,rot,price},plane,inter,0);
 }
 function equipTex(title,price,accent){
   return tex(320,192,(g,w,h)=>{
@@ -8254,13 +8301,15 @@ function addEquipBuy(kind,x,y,z,rot){
   const sign=new THREE.Mesh(new THREE.PlaneGeometry(0.9,0.62),
     new THREE.MeshBasicMaterial({map:equipTex(title,cost,isGrenade?'#e8a33d':'#a3231e'),transparent:true,opacity:.9}));
   sign.position.set(x+nx*0.23,y+0.62,z+nz*0.23); sign.rotation.y=rot; worldRoot.add(sign);
-  interactables.push({x,y:y-.1,z,r:2.6,kind:'equipbuy',
+  const inter={x,y:y-.1,z,r:2.6,kind:'equipbuy',
     can(){ return isGrenade?player.grenades<GRENADE_MAX:player.claymores<CLAYMORE_MAX; },
     label(){ return 'Buy '+title; }, cost(){ return cost; },
     buy(){
       if(isGrenade){ player.grenades=GRENADE_MAX; toast('Grenades resupplied'); }
       else{ player.claymores=CLAYMORE_MAX; toast('Claymores resupplied'); }
-    }});
+    }};
+  interactables.push(inter);
+  registerEditorEntity('equip',{kind,x,y,z,rot},crate,inter,0,sign,nx,nz);
 }
 function setMapPerkPower(on){
   for(const m of mapProgress.perkMachines){
@@ -8325,7 +8374,7 @@ function addPerkMachine(key,x,z,y0,rot,requiresPower){
   }
   g.position.set(x,y,z); g.rotation.y=R; worldRoot.add(g);
   addYawCollider(x,z,1.46,1.02,R,y+2.40,y,0.02);
-  interactables.push({x:x-0.9*Math.sin(R),y:y+1.2,z:z-0.9*Math.cos(R),r:2.6,kind:'perk',key,
+  const inter={x:x-0.9*Math.sin(R),y:y+1.2,z:z-0.9*Math.cos(R),r:2.6,kind:'perk',key,
     locked(){return !!requiresPower&&!mapProgress.power;},
     label(){return this.locked()?'Turn on station power':('Buy '+P.name);},
     cost(){return this.locked()?0:P.cost;},
@@ -8334,7 +8383,9 @@ function addPerkMachine(key,x,z,y0,rot,requiresPower){
       if(this.locked()){toast('Activate both station power circuits first');sfxDeny();return false;}
       player.perks[key]=true;
       if(key==='jugg'){ player.maxHp=250; player.hp=250; }
-      renderPerks(); sfxPerk(); toast(P.name+': '+P.blurb);return true; }});
+      renderPerks(); sfxPerk(); toast(P.name+': '+P.blurb);return true; }};
+  interactables.push(inter);
+  registerEditorEntity('perk',{key,x,y,z,rot:R,requiresPower},g,inter,0.9);
 }
 
 /* --- mystery box ---
@@ -8824,7 +8875,7 @@ function addPackAPunch(x,z,rot,y0){
   g.position.set(x,y,z);g.rotation.y=R;worldRoot.add(g);
   addYawCollider(x,z,2.34,1.55,R,y+3.70,y,0.025);
   papGlow={panel,slot,tube:tubeMat,light:L,spinner,coils};
-  interactables.push({
+  const inter={
     x:x-1.58*Math.sin(R),y:y+1.2,z:z-1.58*Math.cos(R),r:3.2,kind:'pap',
     label(){
       const g2=curGun();if(!g2)return 'Pack-a-Punch';
@@ -8836,7 +8887,9 @@ function addPackAPunch(x,z,rot,y0){
     cost(){const g2=curGun();const lv=packLv(g2);return lv>=MAX_PACK?0:PACK_COST[lv];},
     can(){const g2=curGun();return !!g2&&packLv(g2)<MAX_PACK;},
     buy(){packGun(curGun());}
-  });
+  };
+  interactables.push(inter);
+  registerEditorEntity('pap',{x,y,z,rot:R},g,inter,1.58);
 }
 function packGun(g){
   if(!g)return;
@@ -9340,6 +9393,12 @@ let pointerLocked=false;
 const isTouch=matchMedia('(pointer:coarse)').matches;
 addEventListener('keydown',e=>{
   keys[e.code]=true;
+  if(e.code==='F2'){ e.preventDefault(); toggleEditor(); return; }
+  if(editorMode){
+    if(e.code==='Escape'){ exitEditor(); return; }
+    if(e.code==='Delete'||e.code==='Backspace'){ editorDeleteSelected(); return; }
+    return;
+  }
   if(!game.running) return;
   if(!e.repeat&&(e.code==='KeyV')) tryMelee();
   if(!e.repeat&&e.code==='KeyB') tryThrowGrenade();
@@ -10519,6 +10578,10 @@ function doAct(a){
     showScreen(menuScreen==='options'?optionsFrom:(menuScreen==='mapsel'?mapBack:'menu'));
   }
   else if(a==='resume') resume();
+  else if(a==='editor'){
+    if(net.connected){ toast("Editor isn't available in multiplayer"); return; }
+    hideScreens(); enterEditor();
+  }
   else if(a==='restart'){
     if(net.connected){if(net.host)netSend({type:'start',map:currentMap,rules:gameRules});else toast('Only the host can restart');}
     else{hideScreens();startGame(currentMap);}
@@ -10866,14 +10929,15 @@ function loop(){
     stepParts(dt); stepProjectiles(dt); stepBooms(dt); stepBolts(dt); stepClaymores(dt);
     stepDrops(dt); stepBox(dt); stepPap(dt); stepPings(dt); updateInteract(); updateDownedIndicators();
   }
+  if(editorMode) updateEditorFly(dt);
   updateFireCrackle();
-  updateWeaponView(dt);
+  if(!editorMode) updateWeaponView(dt);
   updateEffects(dt);
   if(SET.fps){ fpsAcc+=dt; fpsN++; if(fpsAcc>=0.5){ el('fps').textContent=Math.round(fpsN/fpsAcc)+' fps'; fpsAcc=0; fpsN=0; } }
   renderer.clear();
   composer.render();
   renderer.clearDepth();
-  renderer.render(viewScene,viewCam);
+  if(!editorMode) renderer.render(viewScene,viewCam);
 }
 
 function updatePlayer(dt){
@@ -11417,6 +11481,310 @@ function updateEffects(dt){
     }
   }
 }
+
+/* ============ MAP EDITOR ============
+   A dev-time authoring tool, not a player-facing feature: a noclip free-fly
+   camera (no pointer lock, so the OS cursor stays visible for point-and-click
+   picking - the FPS pointer-lock look would make that impossible) plus
+   draggable pins for everything the game already tracks a live position for
+   (perk machines, wall/ammo/equip buys, Pack-a-Punch, mystery box spots).
+   Dragging a pin moves the real placed object too, and every pin's current
+   position is always available as a ready-to-paste source line. Purely
+   additive: registerEditorEntity() calls were spliced into the five
+   add*() placement functions above, each pushing a lightweight record
+   (not the full mesh-building work) so this block doesn't need to know how
+   any of those things are built, only where they are. */
+let editorMode=false, editorLook=false, editorDragging=false, editorSelected=null, editorHoverPoint=null;
+const editorCam={pos:new THREE.Vector3(),yaw:0,pitch:0};
+const editorEntities=[]; // perk/wall/ammo/equip/pap - persists for the loaded map's session
+let editorBoxEntities=[]; // box spots - rebuilt from BOX_SPOTS whenever pins are (re)built
+let editorEntitySeq=0;
+let editorPinsGroup=null;
+const editorRay=new THREE.Raycaster();
+const editorNDC=new THREE.Vector2();
+const editorGroundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+const round2=n=>Math.round((n||0)*100)/100;
+const EDITOR_COLORS={box:0x3cc8dc,perk:0xffc83c,wall:0xff7830,ammo:0x4ccf7a,equip:0x9a9aa2,pap:0xc846dc};
+
+function registerEditorEntity(type,data,obj,inter,offset,extraObj,extraNx,extraNz){
+  const entity=Object.assign({
+    id:'e'+(editorEntitySeq++), type, obj, inter:inter||null, pin:null,
+    offset:offset||0, interYOffset:inter?(inter.y-(data.y||0)):0,
+    extraObj:extraObj||null, extraDx:0, extraDy:0, extraDz:0,
+  },data);
+  if(extraObj){ entity.extraDx=extraNx*0.23; entity.extraDy=0.62; entity.extraDz=extraNz*0.23; }
+  editorEntities.push(entity);
+  return entity;
+}
+function editorAll(){ return editorEntities.concat(editorBoxEntities); }
+function editorRebuildBoxEntities(){
+  editorBoxEntities=BOX_SPOTS.map((c,i)=>({id:'box'+i,type:'box',x:c[0],y:0.9,z:c[1],rot:0,boxIndex:i,pin:null}));
+}
+
+function editorEntityLabel(entity){
+  if(entity.type==='box') return 'Box spot '+(entity.boxIndex+1);
+  if(entity.type==='perk') return 'Perk: '+(PERKS[entity.key]?PERKS[entity.key].name:entity.key);
+  if(entity.type==='wall') return 'Wall buy: '+(DEFS[entity.defId]?DEFS[entity.defId].name:entity.defId);
+  if(entity.type==='ammo') return 'Ammo buy: '+(DEFS[entity.defId]?DEFS[entity.defId].name:entity.defId);
+  if(entity.type==='equip') return 'Equip buy: '+(entity.kind==='grenade'?'Grenades':'Claymores');
+  if(entity.type==='pap') return 'Pack-a-Punch';
+  return entity.type;
+}
+function editorEntityCode(entity){
+  const x=round2(entity.x),y=round2(entity.y),z=round2(entity.z),rot=round2(entity.rot);
+  switch(entity.type){
+    case 'perk': return `addPerkMachine('${entity.key}',${x},${z},${y},${rot}${entity.requiresPower?',true':''});`;
+    case 'wall': return `addWallBuy('${entity.defId}',${x},${y},${z},${rot});`;
+    case 'ammo': return `addAmmoBuy('${entity.defId}',${x},${y},${z},${rot},${entity.price});`;
+    case 'equip': return `addEquipBuy('${entity.kind}',${x},${y},${z},${rot});`;
+    case 'pap': return `addPackAPunch(${x},${z},${rot}${y?','+y:''});`;
+    case 'box': return `[${x},${z}]`;
+    default: return '';
+  }
+}
+function editorSyncInteractable(entity){
+  if(!entity.inter) return;
+  entity.inter.x=entity.x-entity.offset*Math.sin(entity.rot);
+  entity.inter.z=entity.z-entity.offset*Math.cos(entity.rot);
+  entity.inter.y=entity.y+entity.interYOffset;
+}
+function editorApplyDrag(entity){
+  if(entity.type==='box'){
+    BOX_SPOTS[entity.boxIndex]=[entity.x,entity.z];
+  } else {
+    entity.obj.position.set(entity.x,entity.y,entity.z);
+    if(entity.extraObj) entity.extraObj.position.set(entity.x+entity.extraDx,entity.y+entity.extraDy,entity.z+entity.extraDz);
+    editorSyncInteractable(entity);
+  }
+  editorMovePinMesh(entity);
+}
+
+function editorPinLabelTexture(text,hex){
+  return tex(200,44,(c,w,h)=>{
+    c.clearRect(0,0,w,h);
+    c.fillStyle='rgba(10,10,14,0.85)'; c.fillRect(0,0,w,h);
+    c.strokeStyle=hex; c.lineWidth=2; c.strokeRect(1,1,w-2,h-2);
+    c.fillStyle='#f2ede0'; c.font='bold 20px Arial'; c.textAlign='center'; c.textBaseline='middle';
+    c.fillText(text,w/2,h/2+1);
+  });
+}
+function editorMakePin(entity){
+  const color=EDITOR_COLORS[entity.type]||0xffffff;
+  const cone=new THREE.Mesh(new THREE.ConeGeometry(0.32,0.7,10),
+    new THREE.MeshBasicMaterial({color,transparent:true,opacity:0.92,depthTest:false}));
+  cone.position.y=0.35; cone.rotation.x=Math.PI;
+  const hex='#'+color.toString(16).padStart(6,'0');
+  const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:editorPinLabelTexture(editorEntityLabel(entity).toUpperCase(),hex),depthTest:false}));
+  sprite.scale.set(2.0,0.44,1); sprite.position.y=0.9;
+  const group=new THREE.Group(); group.add(cone); group.add(sprite);
+  group.renderOrder=999; group.userData.entity=entity;
+  entity.pin=group;
+  return group;
+}
+function editorMovePinMesh(entity){
+  if(entity.pin) entity.pin.position.set(entity.x,entity.y+0.4,entity.z);
+}
+function buildEditorPins(){
+  clearEditorPins();
+  editorRebuildBoxEntities();
+  editorPinsGroup=new THREE.Group(); scene.add(editorPinsGroup);
+  for(const entity of editorAll()){
+    const pin=editorMakePin(entity);
+    pin.position.set(entity.x,entity.y+0.4,entity.z);
+    if(entity===editorSelected) pin.scale.set(1.4,1.4,1.4);
+    editorPinsGroup.add(pin);
+  }
+}
+function clearEditorPins(){
+  if(editorPinsGroup){ scene.remove(editorPinsGroup); editorPinsGroup=null; }
+  for(const entity of editorAll()) entity.pin=null;
+}
+function editorSelectPin(entity){
+  if(editorSelected&&editorSelected.pin) editorSelected.pin.scale.set(1,1,1);
+  editorSelected=entity||null;
+  if(editorSelected&&editorSelected.pin) editorSelected.pin.scale.set(1.4,1.4,1.4);
+  editorRefreshPanel();
+}
+function editorDeleteEntity(entity){
+  if(!entity) return;
+  if(entity===editorSelected) editorSelectPin(null);
+  if(entity.type==='box'){
+    BOX_SPOTS.splice(entity.boxIndex,1);
+    buildEditorPins();
+  } else {
+    if(entity.obj&&entity.obj.parent) entity.obj.parent.remove(entity.obj);
+    if(entity.extraObj&&entity.extraObj.parent) entity.extraObj.parent.remove(entity.extraObj);
+    if(entity.inter){ const idx=interactables.indexOf(entity.inter); if(idx>=0) interactables.splice(idx,1); }
+    const idx2=editorEntities.indexOf(entity); if(idx2>=0) editorEntities.splice(idx2,1);
+    if(entity.pin&&entity.pin.parent) entity.pin.parent.remove(entity.pin);
+  }
+  editorRefreshPanel();
+}
+function editorDeleteSelected(){ editorDeleteEntity(editorSelected); }
+
+function editorCopyText(str){
+  if(navigator.clipboard&&navigator.clipboard.writeText)
+    navigator.clipboard.writeText(str).then(()=>toast('Copied')).catch(()=>toast('Copy failed - select the text manually'));
+  else toast('Clipboard unavailable');
+}
+function editorCopyAll(){
+  const lines=[];
+  if(editorBoxEntities.length) lines.push('BOX_SPOTS=['+editorBoxEntities.map(e=>`[${round2(e.x)},${round2(e.z)}]`).join(',')+'];');
+  for(const entity of editorEntities) lines.push(editorEntityCode(entity));
+  editorCopyText(lines.join('\n'));
+}
+function editorPopulateAddSub(){
+  const type=el('editorAddType').value, sub=el('editorAddSub');
+  if(type==='perk') sub.innerHTML=Object.keys(PERKS).map(k=>`<option value="${k}">${PERKS[k].name}</option>`).join('');
+  else if(type==='wall') sub.innerHTML=Object.keys(DEFS).map(id=>`<option value="${id}">${DEFS[id].name}</option>`).join('');
+  else sub.innerHTML='<option value="">-</option>';
+}
+function editorAddHere(){
+  if(!editorHoverPoint){ toast('Look at the ground first'); return; }
+  const type=el('editorAddType').value, sub=el('editorAddSub').value;
+  const x=round2(editorHoverPoint.x), z=round2(editorHoverPoint.z);
+  if(type==='box'){ BOX_SPOTS.push([x,z]); }
+  else if(type==='perk'){ if(!sub){toast('Pick a perk');return;} addPerkMachine(sub,x,z,0,0); }
+  else if(type==='wall'){ if(!sub){toast('Pick a weapon');return;} addWallBuy(sub,x,2.0,z,0); }
+  else if(type==='pap'){ addPackAPunch(x,z,0); }
+  buildEditorPins();
+  editorRefreshPanel();
+  toast('Added - drag to position (rotation edits need the copied code)');
+}
+function editorRefreshPanel(){
+  const list=el('editorList'); if(!list) return;
+  list.innerHTML=editorAll().map(entity=>`
+    <div class="erow${entity===editorSelected?' sel':''}">
+      <div class="etitle"><b>${editorEntityLabel(entity)}</b></div>
+      <div class="exz">${editorEntityCode(entity)}</div>
+      <button data-eid="${entity.id}" data-eop="select">Select</button>
+      <button data-eid="${entity.id}" data-eop="copy">Copy</button>
+      <button data-eid="${entity.id}" data-eop="delete">Delete</button>
+    </div>`).join('');
+}
+
+function editorSetNDC(e){
+  const rect=canvas.getBoundingClientRect();
+  editorNDC.x=((e.clientX-rect.left)/rect.width)*2-1;
+  editorNDC.y=-((e.clientY-rect.top)/rect.height)*2+1;
+}
+function editorGroundPointAt(planeY){
+  editorRay.setFromCamera(editorNDC,camera);
+  const plane=planeY?new THREE.Plane(new THREE.Vector3(0,1,0),-planeY):editorGroundPlane;
+  const out=new THREE.Vector3();
+  return editorRay.ray.intersectPlane(plane,out)?out:null;
+}
+function updateEditorFly(dt){
+  let ix=0,iz=0,iy=0;
+  if(keys['KeyW']) iz+=1; if(keys['KeyS']) iz-=1;
+  if(keys['KeyA']) ix-=1; if(keys['KeyD']) ix+=1;
+  if(keys['Space']) iy+=1; if(keys['ControlLeft']) iy-=1;
+  const mag=Math.hypot(ix,iz); if(mag>1){ix/=mag;iz/=mag;}
+  const speed=13*((keys['ShiftLeft']||keys['ShiftRight'])?2.6:1);
+  const cy=Math.cos(editorCam.yaw), sy=Math.sin(editorCam.yaw);
+  const fx=-sy,fz=-cy, rx=cy,rz=-sy;
+  editorCam.pos.x+=(fx*iz+rx*ix)*speed*dt;
+  editorCam.pos.z+=(fz*iz+rz*ix)*speed*dt;
+  editorCam.pos.y=Math.max(0.5,editorCam.pos.y+iy*speed*dt);
+  camera.position.copy(editorCam.pos);
+  camera.rotation.order='YXZ';
+  camera.rotation.set(editorCam.pitch,editorCam.yaw,0);
+  if(!editorDragging){
+    editorHoverPoint=editorGroundPointAt(0);
+    const c=el('editorCoordsVal');
+    if(c) c.textContent=editorHoverPoint?(round2(editorHoverPoint.x)+', '+round2(editorHoverPoint.z)):'-, -';
+  }
+}
+
+function enterEditor(){
+  if(net.connected){ toast("Editor isn't available in multiplayer"); return; }
+  if(!game.running&&menuScreen!=='pause'){ toast('Start a map first'); return; }
+  editorMode=true; game.running=false;
+  player.firing=false; player.vel.x=0; player.vel.z=0;
+  if(document.pointerLockElement) document.exitPointerLock();
+  pointerLocked=false;
+  editorCam.pos.copy(camera.position); editorCam.yaw=player.yaw; editorCam.pitch=player.pitch;
+  el('hud').style.display='none';
+  el('editorPanel').classList.remove('gone');
+  editorPopulateAddSub();
+  buildEditorPins();
+  editorSelectPin(null);
+  toast('Map Editor - F2 or Esc to exit');
+}
+function exitEditor(){
+  if(!editorMode) return;
+  editorMode=false; editorLook=false; editorDragging=false;
+  editorSelectPin(null);
+  clearEditorPins();
+  el('editorPanel').classList.add('gone');
+  el('hud').style.display='';
+  showScreen('pause');
+  el('pauseSub').textContent='They are still out there';
+  el('resumeBtn').textContent='Resume';
+  el('pauseStats').innerHTML='Round <b>'+game.round+'</b> &nbsp;&middot;&nbsp; <b>'+game.kills+
+    '</b> kills &nbsp;&middot;&nbsp; <b>'+player.points.toLocaleString()+'</b> points';
+}
+function toggleEditor(force){
+  const want=force!==undefined?force:!editorMode;
+  if(want===editorMode) return;
+  if(want) enterEditor(); else exitEditor();
+}
+
+canvas.addEventListener('contextmenu',e=>{ if(editorMode) e.preventDefault(); });
+canvas.addEventListener('mousedown',e=>{
+  if(!editorMode) return;
+  editorSetNDC(e);
+  if(e.button===2){ editorLook=true; return; }
+  if(e.button===0){
+    editorRay.setFromCamera(editorNDC,camera);
+    const hits=editorPinsGroup?editorRay.intersectObjects(editorPinsGroup.children,true):[];
+    if(hits.length){
+      let obj=hits[0].object; while(obj&&!obj.userData.entity) obj=obj.parent;
+      if(obj){ editorSelectPin(obj.userData.entity); editorDragging=true; }
+    } else editorSelectPin(null);
+  }
+});
+addEventListener('mouseup',e=>{
+  if(!editorMode) return;
+  if(e.button===2) editorLook=false;
+  if(e.button===0) editorDragging=false;
+});
+addEventListener('mousemove',e=>{
+  if(!editorMode) return;
+  editorSetNDC(e);
+  if(editorLook){
+    editorCam.yaw-=e.movementX*0.0028;
+    editorCam.pitch=clamp(editorCam.pitch-e.movementY*0.0028,-1.5,1.5);
+  }
+  if(editorDragging&&editorSelected){
+    const pt=editorGroundPointAt(editorSelected.y);
+    if(pt){ editorSelected.x=round2(pt.x); editorSelected.z=round2(pt.z); editorApplyDrag(editorSelected); editorRefreshPanel(); }
+  }
+});
+canvas.addEventListener('wheel',e=>{
+  if(!editorMode||!editorSelected||editorSelected.type==='box') return;
+  e.preventDefault();
+  editorSelected.y=round2(editorSelected.y-Math.sign(e.deltaY)*0.1);
+  editorApplyDrag(editorSelected);
+  editorRefreshPanel();
+},{passive:false});
+el('editorAddType').addEventListener('change',editorPopulateAddSub);
+el('editorPanel').addEventListener('click',e=>{
+  const t=e.target;
+  const op=t.getAttribute&&t.getAttribute('data-eop');
+  if(op){
+    const entity=editorAll().find(x=>x.id===t.getAttribute('data-eid'));
+    if(!entity) return;
+    if(op==='select') editorSelectPin(entity);
+    else if(op==='delete') editorDeleteEntity(entity);
+    else if(op==='copy') editorCopyText(editorEntityCode(entity));
+    return;
+  }
+  const eact=t.getAttribute&&t.getAttribute('data-eact');
+  if(eact==='copy-coords') editorCopyText(el('editorCoordsVal').textContent);
+  else if(eact==='copy-all') editorCopyAll();
+  else if(eact==='add') editorAddHere();
+});
 
 renderPerks(); updHUD(); loadSettings();
 const inviteCode=new URLSearchParams(location.search).get('room');
