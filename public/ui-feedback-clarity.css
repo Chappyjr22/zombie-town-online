@@ -1,0 +1,217 @@
+/*
+ * TOWN feedback clarity pass.
+ * Separates interaction, system, and power-up feedback so none of it fights
+ * the crosshair, then adds edge-oriented directional damage chevrons.
+ */
+
+/* -------------------------------------------------------------------------- */
+/* Message lanes                                                               */
+/* -------------------------------------------------------------------------- */
+
+#prompt {
+  bottom: 16.5% !important;
+  z-index: 16;
+}
+
+#toast {
+  top: auto !important;
+  bottom: 30.5% !important;
+  z-index: 15;
+  max-width: min(560px, 76vw);
+}
+
+#toast.toast-power {
+  top: 112px !important;
+  bottom: auto !important;
+  min-width: min(430px, 68vw) !important;
+  max-width: min(540px, 72vw);
+  padding: 9px 24px 10px !important;
+  font-size: 14px !important;
+  letter-spacing: .24em !important;
+  background:
+    linear-gradient(90deg, transparent, rgba(2,4,6,.91) 15%, rgba(2,4,6,.96) 50%, rgba(2,4,6,.91) 85%, transparent),
+    linear-gradient(180deg, color-mix(in srgb, var(--toast-accent) 7%, transparent), transparent) !important;
+}
+
+#toast.toast-power::before {
+  margin-bottom: 4px;
+  font-size: 6.2px;
+}
+
+/* Boss health owns the lane directly beneath the round counter, so power-ups
+ * drop just below it while a boss is visible. */
+#bossHud.boss-active ~ #toast.toast-power {
+  top: 150px !important;
+}
+
+#toast.toast-deny-suppressed {
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* Keep the contextual prompt as the single source of truth for denied buys. */
+#prompt.prompt-deny-flash {
+  animation: uiPromptDenyFlash .42s cubic-bezier(.2,.8,.2,1);
+}
+
+#prompt.prompt-deny-flash::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  pointer-events: none;
+  border: 1px solid rgba(255, 90, 67, .75);
+  clip-path: inherit;
+  box-shadow: 0 0 24px rgba(220, 55, 42, .26), inset 0 0 18px rgba(182, 34, 26, .13);
+  animation: uiPromptDenyRing .42s ease-out;
+}
+
+#prompt[data-deny-reason="points"],
+#prompt[data-deny-reason="power"],
+#prompt[data-deny-reason="locked"] {
+  --prompt-accent: #ef5944;
+}
+
+@keyframes uiPromptDenyFlash {
+  0% { transform: translateX(-50%) scale(1); filter: brightness(1); }
+  18% { transform: translateX(calc(-50% - 5px)) scale(1.018); filter: brightness(1.18); }
+  34% { transform: translateX(calc(-50% + 4px)) scale(1.012); }
+  50% { transform: translateX(calc(-50% - 2px)) scale(1.008); }
+  100% { transform: translateX(-50%) scale(1); filter: brightness(1); }
+}
+
+@keyframes uiPromptDenyRing {
+  0% { opacity: .95; transform: scale(.985); }
+  100% { opacity: 0; transform: scale(1.07); }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Directional damage                                                          */
+/* -------------------------------------------------------------------------- */
+
+#damageIndicators {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 12;
+}
+
+.damage-indicator {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  transform: rotate(var(--hit-angle, 0deg));
+  transform-origin: 0 0;
+  opacity: 0;
+  animation: uiDamageIndicator .68s cubic-bezier(.16,.75,.25,1) forwards;
+}
+
+.damage-indicator__chevron {
+  position: absolute;
+  left: -45px;
+  top: -34vh;
+  width: 90px;
+  height: 25px;
+  opacity: calc(.48 + (var(--hit-strength, .5) * .45));
+  background:
+    linear-gradient(180deg, rgba(255,97,72,.94), rgba(184,32,24,.72) 58%, rgba(112,13,10,.12));
+  clip-path: polygon(0 0, 100% 0, 82% 48%, 50% 100%, 18% 48%);
+  filter:
+    drop-shadow(0 0 5px rgba(255,74,54,.78))
+    drop-shadow(0 2px 8px rgba(0,0,0,.86));
+}
+
+.damage-indicator__chevron::after {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 4px;
+  height: 2px;
+  background: rgba(255, 204, 188, .68);
+  box-shadow: 0 0 7px rgba(255,112,87,.52);
+}
+
+@keyframes uiDamageIndicator {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  58% { opacity: .88; }
+  100% { opacity: 0; }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Responsive spacing                                                          */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 760px) {
+  #prompt {
+    bottom: 24% !important;
+    max-width: 84vw;
+  }
+
+  #toast {
+    bottom: 37% !important;
+    max-width: 84vw;
+  }
+
+  #toast.toast-power {
+    top: 98px !important;
+    bottom: auto !important;
+    min-width: min(360px, 78vw) !important;
+    max-width: 82vw;
+    font-size: 12px !important;
+    letter-spacing: .18em !important;
+  }
+
+  #bossHud.boss-active ~ #toast.toast-power {
+    top: 142px !important;
+  }
+
+  .damage-indicator__chevron {
+    top: -30vh;
+    left: -36px;
+    width: 72px;
+    height: 21px;
+  }
+}
+
+body.touch #prompt {
+  bottom: 39% !important;
+}
+
+body.touch #toast {
+  bottom: 52% !important;
+}
+
+body.touch #toast.toast-power {
+  top: max(86px, 14vmin) !important;
+  bottom: auto !important;
+}
+
+@media (max-height: 560px) {
+  #toast.toast-power {
+    top: 78px !important;
+    padding-top: 7px !important;
+    padding-bottom: 8px !important;
+  }
+
+  #bossHud.boss-active ~ #toast.toast-power {
+    top: 118px !important;
+  }
+
+  .damage-indicator__chevron {
+    top: -31vh;
+    width: 74px;
+    left: -37px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #prompt.prompt-deny-flash,
+  #prompt.prompt-deny-flash::after,
+  .damage-indicator {
+    animation-duration: .01ms !important;
+  }
+}
