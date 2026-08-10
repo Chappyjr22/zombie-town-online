@@ -1,0 +1,395 @@
+/*
+ * TOWN gameplay polish
+ * Screenshot-tuned readability pass for the live HUD and pause overlay.
+ * Visual-only: no game logic, networking, input or map state.
+ */
+
+/* ========================================================================== */
+/* LIVE HUD: a little more presence at desktop resolutions                    */
+/* ========================================================================== */
+
+#top {
+  top: 14px;
+  min-width: 244px;
+  padding: 8px 24px 9px;
+  background:
+    linear-gradient(90deg, transparent, rgba(4,6,8,.78) 14%, rgba(4,6,8,.78) 86%, transparent),
+    linear-gradient(180deg, rgba(255,255,255,.035), transparent);
+  border-top-color: rgba(230,223,208,.13);
+  border-bottom-color: rgba(224,76,59,.39);
+  filter: drop-shadow(0 8px 17px rgba(0,0,0,.48));
+}
+
+#wavebig {
+  color: #e85d49;
+  font-size: 27px;
+  letter-spacing: .21em;
+  text-shadow: 0 0 17px rgba(217,74,55,.30), 0 2px 9px #000;
+}
+
+#left {
+  margin-top: 4px;
+  color: #d0c8bc;
+  font-size: 9.5px;
+  letter-spacing: .20em;
+  opacity: .88;
+}
+
+#bl {
+  left: 24px;
+  bottom: 20px;
+  min-width: 258px;
+  padding: 14px 18px 14px;
+  background:
+    linear-gradient(90deg, rgba(3,5,7,.91), rgba(4,6,8,.59) 69%, rgba(4,6,8,.08) 97%, transparent),
+    linear-gradient(180deg, rgba(255,255,255,.030), transparent);
+  border-left-color: rgba(225,75,58,.88);
+  border-top-color: rgba(230,223,208,.105);
+  filter: drop-shadow(0 9px 18px rgba(0,0,0,.42));
+}
+
+#bl::before {
+  margin-bottom: 6px;
+  color: #e25340;
+  font-size: 7.2px;
+  letter-spacing: .25em;
+  opacity: .94;
+}
+
+#points {
+  color: #efb35b;
+  font-size: 41px;
+  text-shadow: 0 0 16px rgba(217,162,80,.18), 0 3px 11px #000;
+}
+
+#points span {
+  margin-bottom: 4px;
+  color: #d1c9bd;
+  font-size: 8.6px;
+  letter-spacing: .32em;
+  opacity: .90;
+}
+
+#ptsmult {
+  font-size: 8.5px;
+  opacity: .96;
+}
+
+#perks {
+  margin: 10px 0 11px;
+}
+
+.perk {
+  width: 33px;
+  height: 33px;
+  border-color: rgba(230,223,208,.30);
+  box-shadow: 0 0 15px rgba(0,0,0,.74), inset 0 -8px 12px rgba(0,0,0,.40);
+}
+
+#hpbar {
+  width: 220px;
+  height: 8px;
+  border-color: rgba(230,223,208,.26);
+  background: rgba(255,255,255,.075);
+  box-shadow: inset 0 1px 6px rgba(0,0,0,.72), 0 0 8px rgba(230,223,208,.035);
+}
+
+#hpfill {
+  background: linear-gradient(90deg, #a52a20 0 9%, #e4daca 34%, #f3eadb 100%);
+  box-shadow: 0 0 10px rgba(230,223,208,.15);
+}
+
+#ammoWrap {
+  right: 24px;
+  bottom: 20px;
+  min-width: 274px;
+  padding: 14px 18px 13px 48px;
+  background:
+    linear-gradient(270deg, rgba(3,5,7,.92), rgba(4,6,8,.60) 69%, rgba(4,6,8,.08) 97%, transparent),
+    linear-gradient(180deg, rgba(255,255,255,.030), transparent);
+  border-right-color: rgba(231,174,83,.90);
+  border-top-color: rgba(230,223,208,.105);
+  filter: drop-shadow(0 9px 18px rgba(0,0,0,.42));
+}
+
+#ammoWrap::before {
+  margin-bottom: 6px;
+  color: #e7ad55;
+  font-size: 7.2px;
+  letter-spacing: .25em;
+  opacity: .94;
+}
+
+#gunname {
+  margin-bottom: 3px;
+  color: #d5cdc0;
+  font-size: 11.2px;
+  opacity: .98;
+}
+
+#ammo {
+  color: #f7efe0;
+  font-size: 51px;
+  text-shadow: 0 4px 13px #000, 0 0 12px rgba(255,255,255,.035);
+}
+
+#ammo small {
+  color: #e7ad56;
+  font-size: 18px;
+  opacity: .90;
+}
+
+#slots,
+#equip {
+  color: #c4bcb0;
+  font-size: 9.5px;
+  opacity: .78;
+}
+
+#slots {
+  margin-top: 8px;
+}
+
+#reloading {
+  font-size: 9.5px;
+  opacity: .96;
+}
+
+/* The tutorial readout was nearly disappearing in the live capture. */
+#keys {
+  left: 22px;
+  top: 20px;
+  padding: 8px 11px;
+  color: #c6beb2;
+  font-size: 9.4px;
+  line-height: 1.75;
+  opacity: .56;
+  background: linear-gradient(90deg, rgba(3,5,7,.53), transparent);
+  border-left-color: rgba(217,162,80,.32);
+}
+
+#keys b {
+  color: #efb35c;
+}
+
+#buffs {
+  color: #d0c8bc;
+  opacity: .88;
+}
+
+#teamPoints {
+  color: #cbc3b7;
+  opacity: .92;
+}
+
+/* Slightly more legible without making the center noisy. */
+#prompt {
+  font-size: 15.5px;
+  border-color: rgba(230,223,208,.18);
+  border-left-color: #e5aa52;
+  box-shadow: 0 12px 32px rgba(0,0,0,.46), 0 0 20px rgba(217,162,80,.055);
+}
+
+#prompt b {
+  background: #f0b65c;
+}
+
+/* ========================================================================== */
+/* PAUSE: keep the frozen game present underneath the interface               */
+/* ========================================================================== */
+
+#pause {
+  background:
+    radial-gradient(circle at 58% 45%, rgba(22,24,27,.08), rgba(3,5,7,.56) 57%, rgba(2,3,5,.83) 100%),
+    rgba(2,3,5,.58);
+  backdrop-filter: blur(6px) saturate(.62) brightness(.78);
+}
+
+#pause::before {
+  background:
+    linear-gradient(90deg, rgba(2,3,5,.34) 0%, rgba(2,3,5,.12) 47%, rgba(2,3,5,.04) 74%, rgba(2,3,5,.12) 100%),
+    radial-gradient(circle at 72% 42%, rgba(162,33,25,.10), transparent 24%),
+    linear-gradient(90deg, rgba(255,255,255,.010) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255,255,255,.007) 1px, transparent 1px);
+  background-size: auto, auto, 76px 76px, 76px 76px;
+  opacity: .70;
+}
+
+#pause .card {
+  background:
+    linear-gradient(145deg, rgba(15,18,22,.92), rgba(5,7,10,.89) 72%),
+    rgba(5,7,10,.90);
+  border-color: rgba(230,223,208,.15);
+  border-left-color: rgba(224,76,59,.94);
+  box-shadow: 0 30px 100px rgba(0,0,0,.58), inset 0 1px rgba(255,255,255,.032);
+}
+
+#pause .card::before {
+  color: #eeb25a;
+  opacity: .96;
+}
+
+#pause h1 {
+  color: #f7efe1;
+  font-size: 49px !important;
+  text-shadow: 0 0 26px rgba(217,74,55,.14), 0 8px 30px rgba(0,0,0,.94);
+}
+
+#pause .sub {
+  color: #c9c1b5;
+  opacity: .92;
+}
+
+#pauseStats {
+  color: #e7ad55 !important;
+  font-size: 9.4px !important;
+  opacity: .98 !important;
+}
+
+#pause .btn {
+  min-height: 45px;
+  color: #d2cabd;
+  border-color: rgba(230,223,208,.10);
+  border-left-color: rgba(230,223,208,.20);
+  background: linear-gradient(90deg, rgba(255,255,255,.026), rgba(255,255,255,.004) 72%, transparent);
+  font-size: 10.3px;
+}
+
+#pause .btn:hover,
+#pause .btn.sel,
+#pause #resumeBtn {
+  border-top-color: rgba(235,175,88,.14);
+  border-right-color: rgba(235,175,88,.08);
+  border-bottom-color: rgba(239,89,68,.22);
+  border-left-color: #e65a45;
+  background:
+    linear-gradient(90deg, rgba(151,31,24,.60), rgba(93,32,23,.24) 55%, rgba(225,165,78,.055) 84%, transparent),
+    linear-gradient(180deg, rgba(255,255,255,.035), transparent);
+  box-shadow: inset 16px 0 28px rgba(190,40,31,.14), 0 0 26px rgba(145,25,20,.10);
+}
+
+#pause #resumeBtn::after {
+  content: ">";
+  position: absolute;
+  top: 10px;
+  right: 16px;
+  bottom: auto;
+  left: auto;
+  width: auto;
+  height: auto;
+  background: none;
+  color: #ffc46f;
+  font-size: 17px;
+  font-weight: 900;
+  opacity: .92;
+  transform: none;
+  transition: none;
+  text-shadow: 0 0 14px rgba(235,175,88,.40);
+}
+
+#pause .card > div:last-child::after {
+  content: "ESC // RESUME";
+  display: block;
+  margin-top: 13px;
+  color: rgba(201,193,181,.54);
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: .24em;
+  text-align: right;
+}
+
+/* ========================================================================== */
+/* RESPONSIVE                                                                 */
+/* ========================================================================== */
+
+@media (max-width: 1100px) {
+  #bl {
+    min-width: 238px;
+  }
+
+  #ammoWrap {
+    min-width: 252px;
+  }
+
+  #points {
+    font-size: 38px;
+  }
+
+  #ammo {
+    font-size: 47px;
+  }
+}
+
+@media (max-width: 760px) {
+  #top {
+    min-width: 205px;
+    padding: 7px 17px 8px;
+  }
+
+  #wavebig {
+    font-size: 23px;
+  }
+
+  #bl {
+    left: 10px;
+    bottom: 10px;
+    min-width: 184px;
+    padding: 9px 10px 10px;
+  }
+
+  #ammoWrap {
+    right: 10px;
+    bottom: 10px;
+    min-width: 184px;
+    padding: 9px 10px 9px 28px;
+  }
+
+  #bl::before,
+  #ammoWrap::before {
+    display: none;
+  }
+
+  #points {
+    font-size: 29px;
+  }
+
+  #ammo {
+    font-size: 36px;
+  }
+
+  #hpbar {
+    width: 158px;
+    height: 7px;
+  }
+
+  #keys {
+    left: 10px;
+    top: 10px;
+    font-size: 8.5px;
+    opacity: .42;
+  }
+
+  #pause {
+    backdrop-filter: blur(5px) saturate(.60) brightness(.72);
+  }
+
+  #pause h1 {
+    font-size: 41px !important;
+  }
+
+  #pause .card > div:last-child::after {
+    display: none;
+  }
+}
+
+@media (max-height: 560px) {
+  #bl,
+  #ammoWrap {
+    transform: scale(.92);
+    transform-origin: bottom left;
+  }
+
+  #ammoWrap {
+    transform-origin: bottom right;
+  }
+}

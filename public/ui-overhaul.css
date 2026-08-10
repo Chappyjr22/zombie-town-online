@@ -1,0 +1,312 @@
+@import url("/ui-overhaul-base.css");
+
+/*
+ * Loading screen readability pass.
+ * Keeps the horror tone while letting the selected map art actually read.
+ */
+
+@keyframes uiLoadAtmosphere {
+  0% { transform: scale(1.018) translate3d(-.3%, -.15%, 0); }
+  100% { transform: scale(1.035) translate3d(.35%, .2%, 0); }
+}
+
+@keyframes uiLoadSignal {
+  0%, 100% { opacity: .50; }
+  50% { opacity: .88; }
+}
+
+body:has(#loading:not(.gone))::before {
+  opacity: .42;
+}
+
+body:has(#loading:not(.gone))::after {
+  opacity: .075;
+}
+
+#loading {
+  background: #05070a;
+  isolation: isolate;
+}
+
+#loadBg {
+  inset: -2.5%;
+  width: 105%;
+  height: 105%;
+  background-position: center center;
+  filter: saturate(.76) brightness(.70) contrast(1.10) !important;
+  transform-origin: 50% 50%;
+  animation: uiLoadAtmosphere 14s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+#loading .loadScrim {
+  z-index: 1;
+  background:
+    radial-gradient(circle at 67% 35%,
+      rgba(0,0,0,.02) 0%,
+      rgba(0,0,0,.04) 24%,
+      rgba(0,0,0,.24) 58%,
+      rgba(0,0,0,.58) 100%),
+    linear-gradient(90deg,
+      rgba(4,6,9,.82) 0%,
+      rgba(4,6,9,.62) 24%,
+      rgba(4,6,9,.20) 54%,
+      rgba(4,6,9,.28) 75%,
+      rgba(4,6,9,.62) 100%),
+    linear-gradient(180deg,
+      rgba(3,5,8,.18) 0%,
+      rgba(3,5,8,.08) 48%,
+      rgba(3,5,8,.62) 100%) !important;
+}
+
+#loading::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg,
+      rgba(255,255,255,.018),
+      transparent 15%,
+      transparent 84%,
+      rgba(0,0,0,.26)),
+    radial-gradient(ellipse at 17% 78%,
+      rgba(139,28,21,.12),
+      transparent 30%);
+  box-shadow:
+    inset 0 0 100px rgba(0,0,0,.28),
+    inset 0 -90px 120px rgba(0,0,0,.28);
+}
+
+#loading::after {
+  content: "OUTBREAK RESPONSE // DEPLOYMENT";
+  position: absolute;
+  z-index: 4;
+  right: clamp(28px, 4vw, 68px);
+  top: clamp(24px, 4vh, 48px);
+  color: rgba(230,223,208,.52);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .30em;
+  text-shadow: 0 2px 7px rgba(0,0,0,.9);
+  pointer-events: none;
+}
+
+#loadWrap {
+  z-index: 3;
+  left: clamp(34px, 6.5vw, 112px);
+  right: auto;
+  bottom: clamp(48px, 8vh, 86px);
+  width: min(610px, 46vw);
+  padding: 27px 30px 24px 28px;
+  text-align: left;
+  border-left: 3px solid rgba(178,45,34,.82);
+  border-top: 1px solid rgba(230,223,208,.09);
+  border-bottom: 1px solid rgba(230,223,208,.07);
+  background:
+    linear-gradient(90deg,
+      rgba(5,7,10,.80) 0%,
+      rgba(5,7,10,.62) 70%,
+      rgba(5,7,10,.08) 100%);
+  box-shadow:
+    -18px 18px 48px rgba(0,0,0,.24),
+    inset 18px 0 36px rgba(0,0,0,.10);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+}
+
+#loadWrap::before {
+  content: "SURVIVAL ZONE // INITIALIZING";
+  display: block;
+  margin-bottom: 11px;
+  color: rgba(217,162,80,.76);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .28em;
+  text-shadow: 0 2px 6px #000;
+}
+
+#loadWrap::after {
+  content: "";
+  position: absolute;
+  left: 28px;
+  right: 30px;
+  top: 22px;
+  height: 1px;
+  opacity: .55;
+  background: linear-gradient(90deg,
+    rgba(217,74,55,.72),
+    rgba(217,162,80,.18) 42%,
+    transparent 86%);
+  animation: uiLoadSignal 3.4s ease-in-out infinite;
+}
+
+#loadName {
+  color: #f0e6d5;
+  font-family: "Copperplate Gothic Bold", Copperplate, "Palatino Linotype", Georgia, serif;
+  font-size: clamp(43px, 4.4vw, 66px);
+  font-weight: 900;
+  line-height: .94;
+  letter-spacing: .13em;
+  text-indent: 0;
+  text-transform: uppercase;
+  text-shadow:
+    -2px 1px 0 rgba(72,11,8,.72),
+    0 5px 20px rgba(0,0,0,.95),
+    0 0 20px rgba(217,74,55,.10);
+}
+
+#loadTime {
+  margin: 9px 0 25px;
+  color: #e2a853;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .36em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 7px #000;
+}
+
+#loadBarWrap {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  margin: 0;
+  overflow: visible;
+  border: 1px solid rgba(230,223,208,.20);
+  border-left: 3px solid rgba(217,162,80,.72);
+  background:
+    repeating-linear-gradient(90deg,
+      rgba(255,255,255,.025) 0 31px,
+      rgba(255,255,255,.08) 32px,
+      rgba(255,255,255,.025) 33px),
+    rgba(0,0,0,.56);
+  box-shadow:
+    inset 0 1px 6px rgba(0,0,0,.92),
+    0 2px 10px rgba(0,0,0,.28);
+}
+
+#loadFill {
+  height: 100%;
+  background:
+    linear-gradient(90deg,
+      #64130f 0%,
+      #a5261e 44%,
+      #d15a35 76%,
+      #e9b258 100%);
+  box-shadow:
+    0 0 15px rgba(217,74,55,.30),
+    0 0 5px rgba(217,162,80,.20);
+}
+
+#loadPct {
+  margin-top: 8px;
+  color: rgba(236,223,203,.72);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .25em;
+  text-align: right;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  opacity: 1;
+  text-shadow: 0 2px 6px #000;
+}
+
+#loadTip {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: none;
+  margin: 17px 0 0;
+  padding: 10px 12px 9px;
+  color: rgba(220,213,200,.76);
+  font-size: 11px;
+  line-height: 1.55;
+  border-top: 1px solid rgba(230,223,208,.08) !important;
+  border-left: 1px solid rgba(217,162,80,.24);
+  background: rgba(0,0,0,.22);
+  opacity: 1;
+  text-shadow: 0 2px 7px rgba(0,0,0,.92);
+}
+
+#loadTip b {
+  flex: 0 0 auto;
+  margin: 0;
+  color: #d84b39 !important;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+}
+
+#loadTipText {
+  display: block;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  #loadWrap {
+    left: 5vw;
+    bottom: 6vh;
+    width: min(620px, 90vw);
+    padding: 23px 23px 20px 22px;
+  }
+
+  #loading .loadScrim {
+    background:
+      linear-gradient(90deg,
+        rgba(4,6,9,.74) 0%,
+        rgba(4,6,9,.28) 58%,
+        rgba(4,6,9,.52) 100%),
+      linear-gradient(180deg,
+        rgba(3,5,8,.12),
+        rgba(3,5,8,.18) 50%,
+        rgba(3,5,8,.68) 100%) !important;
+  }
+
+  #loadName {
+    font-size: clamp(35px, 8vw, 52px);
+  }
+
+  #loading::after {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  #loadBg {
+    background-position: 58% center;
+    filter: saturate(.72) brightness(.64) contrast(1.08) !important;
+  }
+
+  #loadWrap {
+    left: 4vw;
+    bottom: max(24px, 5vh);
+    width: 92vw;
+    padding: 20px 18px 17px;
+  }
+
+  #loadWrap::before {
+    font-size: 7px;
+    letter-spacing: .22em;
+  }
+
+  #loadName {
+    font-size: clamp(31px, 10vw, 44px);
+    letter-spacing: .10em;
+  }
+
+  #loadTime {
+    margin-bottom: 19px;
+  }
+
+  #loadTip {
+    font-size: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #loadBg,
+  #loadWrap::after {
+    animation: none !important;
+  }
+}

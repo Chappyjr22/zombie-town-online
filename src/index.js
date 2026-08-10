@@ -108,7 +108,22 @@ export default {
     if (!contentType.includes("text/html")) return response;
     const headers = new Headers(response.headers);
     headers.set("cache-control", "no-store, max-age=0");
-    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+    headers.delete("content-length");
+    const html = await response.text();
+    const stylesheets = [
+      "/ui-overhaul.css?v=20260810",
+      "/ui-polish.css?v=20260810d",
+      "/ui-gameplay-polish.css?v=20260810a",
+      "/ui-hud-contrast.css?v=20260810a",
+    ];
+    const missingStyleLinks = stylesheets
+      .filter((href) => !html.includes(href.split("?")[0]))
+      .map((href) => `  <link rel="stylesheet" href="${href}">\n`)
+      .join("");
+    const themedHtml = missingStyleLinks
+      ? html.replace("</head>", `${missingStyleLinks}</head>`)
+      : html;
+    return new Response(themedHtml, { status: response.status, statusText: response.statusText, headers });
   },
 };
 

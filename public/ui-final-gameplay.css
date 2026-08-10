@@ -1,0 +1,527 @@
+/*
+ * TOWN final gameplay feedback pass
+ * Presentation-only layer for health, interactions, pickups, boss encounters,
+ * multiplayer teammate information, controller prompts, and touch controls.
+ */
+
+:root {
+  --feedback-bone: #f3eadc;
+  --feedback-amber: #f2b55c;
+  --feedback-red: #ef5944;
+  --feedback-dark-red: #8f1f18;
+  --feedback-panel: rgba(2, 4, 6, .94);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Vitals and damage                                                          */
+/* -------------------------------------------------------------------------- */
+
+#vig {
+  background:
+    radial-gradient(ellipse at center, rgba(120, 8, 8, 0) 38%, rgba(125, 10, 8, .18) 67%, rgba(118, 8, 7, .82) 100%),
+    linear-gradient(90deg, rgba(90, 5, 5, .28), transparent 12%, transparent 88%, rgba(90, 5, 5, .28));
+  mix-blend-mode: normal;
+}
+
+#hud.feedback-low #bl {
+  border-left-color: #e04a38;
+  box-shadow:
+    0 11px 25px rgba(0,0,0,.62),
+    inset 9px 0 26px rgba(139,31,24,.10);
+}
+
+#hud.feedback-low #hpbar {
+  border-color: rgba(239, 89, 68, .72);
+  box-shadow:
+    inset 0 1px 8px rgba(0,0,0,.88),
+    0 0 12px rgba(239,89,68,.17);
+}
+
+#hud.feedback-critical #bl {
+  border-left-color: #ff4935;
+  box-shadow:
+    0 11px 26px rgba(0,0,0,.64),
+    inset 12px 0 32px rgba(161,24,18,.18),
+    0 0 24px rgba(169,27,20,.10);
+  animation: uiVitalPanelPulse 1.05s ease-in-out infinite;
+}
+
+#hud.feedback-critical #hpbar {
+  border-color: rgba(255, 83, 61, .94);
+  background: rgba(96, 10, 8, .88);
+  box-shadow:
+    inset 0 1px 9px rgba(0,0,0,.94),
+    0 0 15px rgba(255,73,53,.28);
+}
+
+#hud.feedback-critical #hpfill {
+  background: linear-gradient(90deg, #7d1711, #bc2b20 55%, #f0523d 100%) !important;
+  box-shadow: 0 0 13px rgba(239,73,54,.44);
+}
+
+#hud.feedback-critical #vig {
+  animation: uiCriticalVignette 1.05s ease-in-out infinite;
+}
+
+#hud.feedback-downed #bl,
+#hud.feedback-downed #ammoWrap {
+  filter: grayscale(.38) brightness(.72) drop-shadow(0 10px 22px rgba(0,0,0,.70));
+}
+
+#hud.has-jugg #hpbar {
+  border-right: 2px solid rgba(232, 59, 46, .82);
+}
+
+#hud.has-jugg #hpbar::before {
+  content: "FORTIFIED";
+  position: absolute;
+  right: 0;
+  bottom: 12px;
+  color: rgba(241, 190, 112, .90);
+  font-size: 6.5px;
+  font-weight: 900;
+  letter-spacing: .23em;
+  text-shadow: 0 2px 5px #000;
+}
+
+#hpbar {
+  position: relative;
+}
+
+#hpbar::after {
+  content: attr(data-hp);
+  position: absolute;
+  right: 0;
+  top: 11px;
+  color: rgba(232, 224, 211, .72);
+  font-size: 6.5px;
+  font-weight: 800;
+  letter-spacing: .17em;
+  text-shadow: 0 2px 5px #000;
+}
+
+@keyframes uiVitalPanelPulse {
+  0%, 100% { transform: translateZ(0); }
+  50% { transform: translateZ(0) scale(1.008); }
+}
+
+@keyframes uiCriticalVignette {
+  0%, 100% { filter: saturate(.92); }
+  50% { filter: saturate(1.22) brightness(1.08); }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Interaction prompts                                                        */
+/* -------------------------------------------------------------------------- */
+
+#prompt {
+  --prompt-accent: #f0b45d;
+  min-width: 260px;
+  padding: 13px 18px 12px 17px;
+  border: 1px solid rgba(239,232,218,.24);
+  border-left: 3px solid var(--prompt-accent);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  background:
+    linear-gradient(90deg, rgba(2,4,6,.985), rgba(6,8,11,.945)),
+    linear-gradient(180deg, rgba(255,255,255,.045), transparent);
+  box-shadow:
+    0 14px 38px rgba(0,0,0,.64),
+    0 0 23px color-mix(in srgb, var(--prompt-accent) 12%, transparent);
+}
+
+#prompt::before {
+  content: attr(data-context);
+  display: block;
+  margin-bottom: 6px;
+  color: var(--prompt-accent);
+  font-size: 6.8px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: .28em;
+  text-align: left;
+  opacity: .96;
+}
+
+#prompt b {
+  min-width: 31px;
+  margin-right: 10px;
+  padding: 3px 8px 2px;
+  color: #080a0d;
+  background: var(--prompt-accent);
+  border-color: var(--prompt-accent);
+  font-size: 10px;
+  font-weight: 1000;
+  letter-spacing: .07em;
+  text-align: center;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--prompt-accent) 22%, transparent);
+}
+
+#prompt.prompt-poor,
+#prompt.poor {
+  --prompt-accent: #ef5944;
+}
+
+#prompt.prompt-power {
+  --prompt-accent: #d06450;
+}
+
+#prompt.prompt-pap {
+  --prompt-accent: #b98bff;
+}
+
+#prompt.prompt-revive {
+  --prompt-accent: #76d7be;
+}
+
+#prompt.prompt-box {
+  --prompt-accent: #f4c86e;
+}
+
+#prompt.prompt-perk {
+  --prompt-accent: #f49f58;
+}
+
+#prompt.prompt-door {
+  --prompt-accent: #dca75c;
+}
+
+#prompt.prompt-poor em,
+#prompt.poor em {
+  color: #ff6651 !important;
+  text-shadow: 0 0 11px rgba(239,89,68,.34);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Toast and power-up announcements                                           */
+/* -------------------------------------------------------------------------- */
+
+#toast {
+  --toast-accent: #f0b45d;
+  min-width: 260px;
+  padding: 10px 26px 11px;
+  color: #fff3df;
+  background:
+    linear-gradient(90deg, transparent, rgba(2,4,6,.90) 13%, rgba(2,4,6,.96) 50%, rgba(2,4,6,.90) 87%, transparent),
+    linear-gradient(180deg, color-mix(in srgb, var(--toast-accent) 8%, transparent), transparent);
+  border-top: 1px solid color-mix(in srgb, var(--toast-accent) 42%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--toast-accent) 25%, transparent);
+  text-shadow: 0 3px 10px #000;
+  filter: drop-shadow(0 10px 18px rgba(0,0,0,.58));
+}
+
+#toast::before {
+  content: attr(data-kicker);
+  display: block;
+  margin-bottom: 5px;
+  color: var(--toast-accent);
+  font-size: 6.7px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: .31em;
+  text-shadow: 0 0 11px color-mix(in srgb, var(--toast-accent) 25%, transparent), 0 2px 5px #000;
+}
+
+#toast.toast-power {
+  min-width: min(470px, 72vw);
+  padding-top: 13px;
+  padding-bottom: 13px;
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: .27em;
+}
+
+#toast.toast-maxammo { --toast-accent: #d9cf57; }
+#toast.toast-instakill { --toast-accent: #f05042; }
+#toast.toast-doublepoints { --toast-accent: #6da8ff; }
+#toast.toast-nuke { --toast-accent: #bd82ff; }
+#toast.toast-firesale { --toast-accent: #66e0ad; }
+#toast.toast-perk { --toast-accent: #f4af59; }
+#toast.toast-pap { --toast-accent: #b787ff; }
+#toast.toast-revive { --toast-accent: #79d8c0; }
+
+#toast.toast-power::after {
+  content: "";
+  position: absolute;
+  left: 24%;
+  right: 24%;
+  bottom: -2px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--toast-accent), transparent);
+  box-shadow: 0 0 13px color-mix(in srgb, var(--toast-accent) 44%, transparent);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Round and boss encounter escalation                                        */
+/* -------------------------------------------------------------------------- */
+
+#banner.banner-boss {
+  color: #f0523d;
+  text-shadow:
+    0 0 18px rgba(239,82,61,.42),
+    0 0 46px rgba(141,24,18,.27),
+    0 6px 28px #000;
+}
+
+#banner.banner-boss::before {
+  content: "THREAT DETECTED";
+  display: block;
+  margin-bottom: 9px;
+  color: #f5b060;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .42em;
+}
+
+#banner.banner-lockdown::before {
+  content: "EMERGENCY PROTOCOL";
+  display: block;
+  margin-bottom: 8px;
+  color: #ef5944;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .38em;
+}
+
+#bossHud {
+  transition: opacity .18s ease, filter .18s ease;
+}
+
+#bossHud::before {
+  content: "THREAT // HEAVY INFECTED";
+  display: block;
+  margin-bottom: 4px;
+  color: rgba(240, 176, 91, .92);
+  font-size: 6.7px;
+  font-weight: 900;
+  letter-spacing: .34em;
+  text-shadow: 0 2px 5px #000;
+}
+
+#bossHud.boss-low {
+  filter: drop-shadow(0 5px 14px #000) drop-shadow(0 0 13px rgba(224,62,45,.18));
+}
+
+#bossHud.boss-low #bossFill {
+  background: linear-gradient(90deg, #65110d, #be2c20 55%, #ef5944);
+  box-shadow: 0 0 17px rgba(239,89,68,.52);
+}
+
+#bossHud.boss-low #bossName::after {
+  content: " // WOUNDED";
+  color: #ef805f;
+}
+
+#bossHud.boss-critical {
+  animation: uiBossCritical 1s ease-in-out infinite;
+}
+
+#bossHud.boss-critical::before {
+  content: "THREAT // CRITICAL";
+  color: #ff684f;
+}
+
+#bossHud.boss-critical #bossName::after {
+  content: " // FINISH IT";
+  color: #ff6a51;
+}
+
+#bossHud.boss-critical #bossFill {
+  background: linear-gradient(90deg, #56100d, #9d2019 46%, #ff4a36 100%);
+  box-shadow: 0 0 22px rgba(255,74,54,.68);
+}
+
+@keyframes uiBossCritical {
+  0%,100% { transform: translateX(-50%) scale(1); }
+  50% { transform: translateX(-50%) scale(1.012); }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Multiplayer HUD                                                            */
+/* -------------------------------------------------------------------------- */
+
+#teamPoints {
+  min-width: 185px;
+  padding: 11px 14px 10px 13px;
+  border-left: 2px solid rgba(240,180,93,.46);
+  border-top: 1px solid rgba(239,232,218,.10);
+  background: linear-gradient(90deg, rgba(2,4,6,.86), rgba(2,4,6,.38) 78%, transparent);
+}
+
+#teamPoints::before {
+  content: "SURVIVORS // " attr(data-count);
+  display: block;
+  margin-bottom: 7px;
+  color: #f0b45d;
+  font-size: 6.6px;
+  font-weight: 900;
+  letter-spacing: .27em;
+  opacity: .95;
+}
+
+#teamPoints > div {
+  min-width: 150px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 2px 0;
+  color: rgba(232,224,211,.88);
+  border-bottom: 1px solid rgba(255,255,255,.035);
+}
+
+#teamPoints > div:last-child {
+  border-bottom: 0;
+}
+
+#teamPoints > div.me {
+  color: #ffd07f;
+}
+
+#teamPoints > div.me::before {
+  content: ">";
+  margin-right: -9px;
+  color: #ef5944;
+}
+
+#netbadge {
+  padding: 6px 9px 5px;
+  color: rgba(229,220,205,.82);
+  background: rgba(2,4,6,.72);
+  border-left: 2px solid rgba(102,224,173,.55);
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .18em;
+  text-shadow: 0 2px 5px #000;
+}
+
+#hud.has-downed-teammate #teamPoints {
+  border-left-color: #ef5944;
+  box-shadow: inset 8px 0 22px rgba(149,28,21,.10);
+}
+
+.downArrowTri {
+  border-bottom-color: #f04e3b;
+  filter: drop-shadow(0 0 7px rgba(239,76,58,.92));
+}
+
+.downArrowLabel {
+  padding: 5px 8px 4px;
+  color: #ff6650;
+  background: rgba(3,4,6,.84);
+  border-left: 2px solid #ef5944;
+  font-weight: 900;
+  letter-spacing: .16em;
+  text-shadow: 0 2px 7px #000;
+}
+
+.downArrow.near .downArrowLabel {
+  box-shadow: 0 0 16px rgba(239,89,68,.14);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Touch and controller cleanup                                                */
+/* -------------------------------------------------------------------------- */
+
+body.touch #keys {
+  display: none !important;
+}
+
+body.touch #prompt {
+  bottom: 24%;
+  min-width: 220px;
+  max-width: 68vw;
+  padding: 10px 13px;
+  font-size: 10px;
+}
+
+body.touch #prompt b {
+  min-width: 37px;
+  padding-inline: 7px;
+}
+
+body.touch .tbtn {
+  color: rgba(245,237,223,.92);
+  background:
+    radial-gradient(circle at 50% 40%, rgba(255,255,255,.055), transparent 60%),
+    rgba(4,6,9,.76);
+  border: 1px solid rgba(236,225,208,.23);
+  box-shadow:
+    inset 0 0 18px rgba(0,0,0,.42),
+    0 5px 15px rgba(0,0,0,.30);
+  text-shadow: 0 2px 6px #000;
+}
+
+body.touch .tbtn:active,
+body.touch .tbtn.on {
+  color: #fff2dc;
+  border-color: rgba(240,180,93,.76);
+  background:
+    radial-gradient(circle at 50% 45%, rgba(240,180,93,.18), transparent 62%),
+    rgba(8,8,9,.86);
+  box-shadow:
+    inset 0 0 18px rgba(240,180,93,.08),
+    0 0 16px rgba(240,180,93,.12);
+}
+
+body.touch #fireBtn {
+  border-color: rgba(239,89,68,.60);
+}
+
+body.touch #fireBtn:active {
+  background:
+    radial-gradient(circle at 50% 45%, rgba(239,89,68,.24), transparent 62%),
+    rgba(8,8,9,.88);
+  box-shadow: 0 0 19px rgba(239,89,68,.18);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Responsive and accessibility                                               */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  #teamPoints {
+    min-width: 160px;
+    padding: 8px 10px;
+  }
+
+  #teamPoints > div {
+    min-width: 132px;
+    gap: 10px;
+  }
+
+  #toast.toast-power {
+    min-width: min(390px, 76vw);
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 620px) {
+  #prompt {
+    min-width: 210px;
+    max-width: 82vw;
+    font-size: 10px;
+  }
+
+  #toast {
+    min-width: 210px;
+    max-width: 84vw;
+  }
+
+  #toast.toast-power {
+    min-width: 72vw;
+    font-size: 12px;
+    letter-spacing: .19em;
+  }
+
+  #bossHud::before {
+    font-size: 5.7px;
+    letter-spacing: .22em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #hud.feedback-critical #bl,
+  #hud.feedback-critical #vig,
+  #bossHud.boss-critical {
+    animation: none !important;
+  }
+}
