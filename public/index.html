@@ -455,6 +455,11 @@
         <h4>Crossroads <em>Daylight</em></h4>
         <p>An abandoned city block under a clear sky. A gas station and a church face off across the intersection, a columned civic building anchors a wrecked-car parking lot, and apartment towers box the street in on every side.</p>
       </div>
+      <div class="mapcard" data-act="map:crossroads_night">
+        <div class="mapart"><img src="/images/maps/crossroads_night.jpg" alt="" loading="lazy"></div>
+        <h4>Crossroads <em>Night</em></h4>
+        <p>The same abandoned city block after dark. Ash drifts through the streetlight glow and fires burn at the curb - the gas station, church, and apartment towers are a lot less friendly once the sun's gone.</p>
+      </div>
       <div class="mapcard" data-act="map:overpass">
         <div class="mapart"><img src="/images/maps/overpass.jpg" alt="" loading="lazy"></div>
         <h4>Overpass <em>Daylight</em></h4>
@@ -2603,11 +2608,17 @@ function placeFps2Asset(file,x,z,rotY,opts){
   }
 }
 
-function buildCrossroads(){
+function buildCrossroads(night){
   BND=44;
-  scene.background=new THREE.Color(0x9fc3e6);
-  scene.fog=new THREE.Fog(0xaecbe8,60,230); mapFog={near:60,far:230};
-  torch.intensity=0.16;
+  if(night){
+    scene.background=new THREE.Color(0x0b0f1a);
+    scene.fog=new THREE.Fog(0x0b0f1a,36,165); mapFog={near:36,far:165};
+    torch.intensity=1.05;
+  } else {
+    scene.background=new THREE.Color(0x9fc3e6);
+    scene.fog=new THREE.Fog(0xaecbe8,60,230); mapFog={near:60,far:230};
+    torch.intensity=0.16;
+  }
   SPAWN_AT.set(-38,0,-10); SPAWN_YAW=-Math.PI/2;
   addEquipBuy('grenade',SPAWN_AT.x-1.8,0,SPAWN_AT.z-1.6,SPAWN_YAW+Math.PI);
   addEquipBuy('claymore',SPAWN_AT.x-1.8,0,SPAWN_AT.z+1.6,SPAWN_YAW+Math.PI);
@@ -2615,10 +2626,17 @@ function buildCrossroads(){
     [-36,0],[36,0],[-37.9,20.7],[40,20],[-20,36],[20,36]];
   BOX_SPOTS=[[6,0],[-6,10],[-19,-6.3],[-6,26],[16,-14]];
 
-  worldRoot.add(new THREE.HemisphereLight(0xcfe0f4,0x9c8f70,0.9));
-  const sun=new THREE.DirectionalLight(0xfff2d8,1.25); sun.position.set(42,64,-26); worldRoot.add(sun);
-  sunShadow(sun,62);
-  const fill=new THREE.DirectionalLight(0xa8c0dc,0.30); fill.position.set(-32,22,32); worldRoot.add(fill);
+  if(night){
+    worldRoot.add(new THREE.HemisphereLight(0x2a3a5c,0x141018,0.5));
+    const moon=new THREE.DirectionalLight(0x93aade,0.42); moon.position.set(42,64,-26); worldRoot.add(moon);
+    sunShadow(moon,62);
+    const fill=new THREE.DirectionalLight(0x394a68,0.16); fill.position.set(-32,22,32); worldRoot.add(fill);
+  } else {
+    worldRoot.add(new THREE.HemisphereLight(0xcfe0f4,0x9c8f70,0.9));
+    const sun=new THREE.DirectionalLight(0xfff2d8,1.25); sun.position.set(42,64,-26); worldRoot.add(sun);
+    sunShadow(sun,62);
+    const fill=new THREE.DirectionalLight(0xa8c0dc,0.30); fill.position.set(-32,22,32); worldRoot.add(fill);
+  }
 
   /* ---- ground: a wide paved apron under the real road/curb pieces below.
      The ported asset pack's own road tiles only cover a strip near x=0, so a
@@ -3047,6 +3065,24 @@ function buildCrossroads(){
   addPerkMachine('stamin',20,-15,0,0);
   addPerkMachine('mule',-20,20,0,Math.PI);
   addPackAPunch(-12,1.5,0);
+
+  if(night){
+    /* ---- ash in the air, same drifting-particle setup as Town's night sky ---- */
+    (function ash(){
+      const n=500, g=new THREE.BufferGeometry(), p=new Float32Array(n*3);
+      for(let i=0;i<n;i++){p[i*3]=rand(-BND,BND);p[i*3+1]=rand(0,26);p[i*3+2]=rand(-BND,BND);}
+      g.setAttribute('position',new THREE.BufferAttribute(p,3));
+      const pts=new THREE.Points(g,new THREE.PointsMaterial({color:0xb9a98c,size:0.09,transparent:true,opacity:0.5}));
+      worldRoot.add(pts); window.__ash={pts,arr:p,n};
+    })();
+    /* ---- extra street-level fires for a creepier night feel, on top of the
+       rooftop barrels above - offset from BOX_SPOTS so they stay clear of
+       both the mystery box and nearby buildings. Ground decals only, no
+       collider (unlike fireBarrel), so they can't block a path. ---- */
+    for(const f of [[8,0],[-4,10],[-17,-6.3],[-4,26],[18,-14]]){
+      fireScorch(f[0],f[1],0,1.6); makeFire(f[0],f[1],0,0.85,1.7);
+    }
+  }
 }
 
 /* ============ SHARED MAP PROGRESSION ============
@@ -4891,6 +4927,9 @@ const MAPS={
   crossroads:{name:'Crossroads',time:'Daylight',
     blurb:'An abandoned city block under a clear sky. A gas station and a church face off across the intersection, a columned civic building anchors a wrecked-car parking lot, and apartment towers box the street in on every side.',
     build:buildCrossroads},
+  crossroads_night:{name:'Crossroads',time:'Night',
+    blurb:'The same abandoned city block after dark. Ash drifts through the streetlight glow and fires burn at the curb - the gas station, church, and apartment towers are a lot less friendly once the sun’s gone.',
+    build:()=>buildCrossroads(true)},
   overpass:{name:'Overpass',time:'Daylight',
     blurb:'A sprawling roadside sprawl of gas pumps, a diner, and stacked apartment blocks with walkable rooftops, ringed by junked cars, tire piles, and scrapyard clutter.',
     build:buildOverpass}

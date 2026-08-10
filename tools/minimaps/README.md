@@ -11,7 +11,7 @@ in-game landmarks. Two sets per map, both in `output/`:
   spots (BOX), Pack-a-Punch (PAP), perk machines (letter), and wall buys
   (weapon code), with a legend in the bottom-left corner.
 
-Current maps: `town`, `wayside`, `blacksire`, `laststop`, `crossroads`.
+Current maps: `town`, `wayside`, `blacksire`, `laststop`, `crossroads`, `crossroads_night`, `overpass`.
 
 ## Regenerating
 

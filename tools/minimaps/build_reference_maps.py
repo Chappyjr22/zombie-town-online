@@ -52,14 +52,18 @@ def map_registry(src):
     if not m:
         raise RuntimeError("Couldn't find `const MAPS={...}` in public/index.html - did it get renamed/restructured?")
     body = m.group(1)
-    return dict(re.findall(r"(\w+):\{[^}]*?build:(\w+)\}", body, re.S))
+    # build: is usually a bare function ref (build:buildTown), but a map that
+    # reuses another map's build function with an extra argument (e.g. a
+    # night variant) writes it as an arrow wrapper: build:()=>buildFoo(true).
+    # Match both, always capturing the underlying function name.
+    return dict(re.findall(r"(\w+):\{[^}]*?build:(?:\(\)=>)?(\w+)(?:\([^)]*\))?\}", body, re.S))
 
 
 def function_body(src, fn_name):
     """Source text of `function fn_name(){ ... }` up to (not including) the
     next top-level `function ` declaration - same trick used to keep each
     map's build function self-contained in the game source itself."""
-    start_m = re.search(r'\nfunction ' + re.escape(fn_name) + r'\(\)\{', src)
+    start_m = re.search(r'\nfunction ' + re.escape(fn_name) + r'\([^)]*\)\{', src)
     if not start_m:
         raise RuntimeError(f"Couldn't find function {fn_name}() in public/index.html")
     start = start_m.start()
