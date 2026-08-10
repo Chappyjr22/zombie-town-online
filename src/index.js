@@ -108,7 +108,12 @@ export default {
     if (!contentType.includes("text/html")) return response;
     const headers = new Headers(response.headers);
     headers.set("cache-control", "no-store, max-age=0");
-    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+    headers.delete("content-length");
+    const html = await response.text();
+    const themedHtml = html.includes("/ui-overhaul.css")
+      ? html
+      : html.replace("</head>", '  <link rel="stylesheet" href="/ui-overhaul.css?v=20260810">\n</head>');
+    return new Response(themedHtml, { status: response.status, statusText: response.statusText, headers });
   },
 };
 
