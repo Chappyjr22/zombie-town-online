@@ -1501,11 +1501,11 @@ function buildTown(){
   const moon=new THREE.DirectionalLight(0x93aade,0.40); moon.position.set(-40,60,-25); worldRoot.add(moon);
   sunShadow(moon,55);
   SPAWN_AT.set(0,0,14); SPAWN_YAW=Math.PI;
-  addEquipBuy('grenade',SPAWN_AT.x-1.6,0,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
-  addEquipBuy('claymore',SPAWN_AT.x+1.6,0,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
+  addEquipBuy('grenade',-3,0,19.23,6.28);
+  addEquipBuy('claymore',2.96,0,19.05,6.28);
   SPAWNS=[[-38,-38],[38,-38],[-38,38],[38,38],[0,-40],[0,40],[-40,0],[40,0],
     [-26,-38],[26,38],[-38,22],[38,-22]];
-  BOX_SPOTS=[[-21,-12],[22,-15],[6,28],[-24,15],[6,-30]];
+  BOX_SPOTS=[[-20.54,-17.05],[22,-15],[0.29,4.08],[-24,15],[6,-30]];
 
 /* Layout, loosely after Town: a burning fountain in the middle of a
    crossroads, bar with an upstairs balcony, bank with a vault, church
@@ -1852,7 +1852,7 @@ jumpPad(-11.2,-11.4); jumpPad(-12.6,-8.8);
   addPerkMachine('dtap',-7.9,28,0,-Math.PI/2);      // church nave, west wall
   addPerkMachine('stamin',29.9,12,0,Math.PI/2);     // store, east wall
   addPerkMachine('mule',-27,8.9,0,Math.PI);         // diner, south wall
-  addPackAPunch(0,-7.2,Math.PI);                    // beside the burning fountain
+  addPackAPunch(-0.36,-4.18,0.08);                   // beside the burning fountain
 }
 
 /* ---------- extra textures and materials for the suburbs ---------- */
