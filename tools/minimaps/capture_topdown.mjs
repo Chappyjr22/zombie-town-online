@@ -73,6 +73,13 @@ for (const mapId of mapIds) {
     window.requestAnimationFrame = () => 0; // freeze the game's own render loop
     const hud = document.getElementById('hud');
     if (hud) { window.__hudDisplay = hud.style.display; hud.style.display = 'none'; }
+    // Every map now shows a mandatory-minimum loading screen (public/index.html's
+    // #loading overlay), which sits on top of the canvas and would otherwise get
+    // captured instead of the map - it's driven by requestAnimationFrame too, so
+    // freezing RAF above would leave it stuck on-screen forever rather than
+    // hiding itself once loading finishes. Just force it hidden directly.
+    const loading = document.getElementById('loading');
+    if (loading) loading.classList.add('gone');
     document.querySelectorAll('#touch, #banner, #toast, #netbadge, #fps').forEach(el => {
       el.dataset.__prevDisplay = el.style.display; el.style.display = 'none';
     });

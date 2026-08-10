@@ -3752,10 +3752,10 @@ function buildOverpass(){
   placeFps2Asset('SM_Rock_02.glb',9.49,-12.5,0.463,{y:0.67,scale:2.688,collide:[1.44,1.28,0.7]});
   placeFps2Asset('SM_Rock_02.glb',-16.13,-22.12,-0.2962,{y:1.05,scale:3.758,collide:[2.01,1.78,0.7]});
   placeFps2Asset('SM_Rock_02.glb',-3.88,16.27,-1.6986,{y:0.542,scale:3.749,collide:[2.0,1.78,0.7]});
-  // SM_Floor_01 x7 - the source scene has 4 more of these tiles isolated
-  // out at z=+-27.5, well past the road spine below (which stays at
-  // x=2.35, z=-15..15) and disconnected from anything else - same
-  // "reads as random floating debris" call as SM_Floor_02 above, dropped.
+  // SM_Floor_01 x7 (source-authored road spine, x=2.35, z=-15..15) - the
+  // source scene has 4 more of these tiles isolated out at z=+-27.5, well
+  // past this spine and disconnected from anything else - same "reads as
+  // random floating debris" call as SM_Floor_02 above, dropped.
   placeFps2Asset('SM_Floor_01.glb',2.35,-10.0,0.0,{y:0.02});
   placeFps2Asset('SM_Floor_01.glb',2.35,5.0,0.0,{y:0.02});
   placeFps2Asset('SM_Floor_01.glb',2.35,15.0,0.0,{y:0.02});
@@ -3763,6 +3763,20 @@ function buildOverpass(){
   placeFps2Asset('SM_Floor_01.glb',2.35,0,0.0,{y:0.02});
   placeFps2Asset('SM_Floor_01.glb',2.35,10.0,0.0,{y:0.02});
   placeFps2Asset('SM_Floor_01.glb',2.35,-5.0,0.0,{y:0.02});
+  // SM_Floor_01 road extension (not source-authored) - continues the same
+  // 5-unit tile grid from the spine above out to both the north and south
+  // perimeter fences, so the road reads as a real through-route the gas
+  // station sits on instead of stopping dead at the edge of the forecourt.
+  placeFps2Asset('SM_Floor_01.glb',2.35,20.0,0.0,{y:0.02});
+  placeFps2Asset('SM_Floor_01.glb',2.35,25.0,0.0,{y:0.02});
+  placeFps2Asset('SM_Floor_01.glb',2.35,30.0,0.0,{y:0.02});
+  placeFps2Asset('SM_Floor_01.glb',2.35,35.0,0.0,{y:0.02});
+  placeFps2Asset('SM_Floor_01.glb',2.35,40.0,0.0,{y:0.02});
+  placeFps2Asset('SM_Floor_01.glb',2.35,-20.0,0.0,{y:0.02});
+  placeFps2Asset('SM_Floor_01.glb',2.35,-25.0,0.0,{y:0.02});
+  placeFps2Asset('SM_Floor_01.glb',2.35,-30.0,0.0,{y:0.02});
+  placeFps2Asset('SM_Floor_01.glb',2.35,-35.0,0.0,{y:0.02});
+  placeFps2Asset('SM_Floor_01.glb',2.35,-40.0,0.0,{y:0.02});
   // SM_Props_Wood_02 x11
   placeFps2Asset('SM_Props_Wood_02.glb',5.95,8.13,-0.2033,{y:1.061});
   placeFps2Asset('SM_Props_Wood_02.glb',-20.01,4.11,0,{y:0.371});
@@ -4064,6 +4078,36 @@ function buildOverpass(){
   placeTownAsset('Tree_01.glb',-34.4,27.81,2.97,{collide:[1.1,1.1,3.9]});
   placeTownAsset('Tree_01.glb',-22.64,-40.78,4.51,{collide:[1.1,1.1,3.9]});
   placeTownAsset('Tree_02.glb',31.41,-21.19,5.52,{collide:[1.1,1.1,3.9]});
+  // Second, denser pass filling in the open grass between the perimeter
+  // ring above and the paved forecourt/road, so the gas station reads as
+  // carved out of the woods instead of sitting in a clearing with a thin
+  // treeline way off at the map edge.
+  placeTownAsset('Tree_01.glb',-14.45,-28.63,2.84,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',-11.01,-36.24,3.52,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',-37.93,-5.44,5.8,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',-32.55,5.84,2.92,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',-35.85,-36.11,3.19,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',34.72,-11.35,3.69,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',-6.71,21.09,1.16,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',35.53,-6.42,3.21,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',30.79,-15.27,3.96,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',13.46,-36.03,4.98,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',12.06,40.43,0.59,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',13.83,-39.15,1.91,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',-8.37,34.18,0.57,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',26.18,29.85,5.08,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',16.92,39.89,4.35,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',-26.55,-21.98,0.26,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',-26.05,-17.88,6.17,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',22.96,30.71,6.06,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',-35.23,-23.95,4.11,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',-30.93,28.61,3.87,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',33.96,21.17,0.99,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_02.glb',16.09,-19.59,0.09,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',-12.34,38.91,3.32,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',-22.92,-22.4,0.37,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',39.79,9.04,1.19,{collide:[1.1,1.1,3.9]});
+  placeTownAsset('Tree_01.glb',13.17,33.6,1.52,{collide:[1.1,1.1,3.9]});
   /* ---- perimeter ---- */
   fenceRun(-BND,BND,BND,BND);
   fenceRun(-BND,-BND,-BND,BND);
