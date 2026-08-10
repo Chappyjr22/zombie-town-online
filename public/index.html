@@ -524,8 +524,8 @@
 <div id="editorCrosshair" class="gone"></div>
 <div id="editorPanel" class="gone">
   <h3>Map Editor</h3>
-  <div class="ehint">WASD fly &middot; right-drag to look &middot; Shift boost &middot; Space/Ctrl up/down<br>
-    left-click a pin to select &middot; drag to move &middot; wheel to raise/lower &middot; Q/E to rotate<br>
+  <div class="ehint">WASD fly &middot; mouse looks around &middot; Shift boost &middot; Space/Ctrl up/down<br>
+    left-click on the crosshair's target to select &middot; hold to drag &middot; wheel to raise/lower &middot; Q/E to rotate<br>
     Del removes selected &middot; F2 or Esc exits<br>
     <b>Controller:</b> sticks fly/look &middot; RB/LB up/down &middot; RT select+hold to drag<br>
     D-pad L/R rotate &middot; X delete &middot; Y add here &middot; Start exits</div>
@@ -11531,7 +11531,7 @@ function updateEffects(dt){
    add*() placement functions above, each pushing a lightweight record
    (not the full mesh-building work) so this block doesn't need to know how
    any of those things are built, only where they are. */
-let editorMode=false, editorLook=false, editorDragging=false, editorSelected=null, editorHoverPoint=null;
+let editorMode=false, editorDragging=false, editorSelected=null, editorHoverPoint=null;
 const editorCam={pos:new THREE.Vector3(),yaw:0,pitch:0};
 const editorEntities=[]; // perk/wall/ammo/equip/pap - persists for the loaded map's session
 let editorBoxEntities=[]; // box spots - rebuilt from BOX_SPOTS whenever pins are (re)built
@@ -11772,11 +11772,6 @@ function editorRefreshPanel(){
     </div>`).join('');
 }
 
-function editorSetNDC(e){
-  const rect=canvas.getBoundingClientRect();
-  editorNDC.x=((e.clientX-rect.left)/rect.width)*2-1;
-  editorNDC.y=-((e.clientY-rect.top)/rect.height)*2+1;
-}
 function editorGroundPointAt(planeY){
   editorRay.setFromCamera(editorNDC,camera);
   const plane=planeY?new THREE.Plane(new THREE.Vector3(0,1,0),-planeY):editorGroundPlane;
@@ -11804,10 +11799,13 @@ function updateEditorFly(dt){
     if(keys['KeyE']) rdir+=1;
     if(rdir){ editorRotateBy(editorSelected,rdir*2.4*dt); editorRefreshPanel(); }
   }
-  if(!editorDragging){
-    editorHoverPoint=editorGroundPointAt(0);
-    const c=el('editorCoordsVal');
-    if(c) c.textContent=editorHoverPoint?(round2(editorHoverPoint.x)+', '+round2(editorHoverPoint.z)):'-, -';
+  editorHoverPoint=editorGroundPointAt(editorDragging&&editorSelected?editorSelected.y:0);
+  const c=el('editorCoordsVal');
+  if(c) c.textContent=editorHoverPoint?(round2(editorHoverPoint.x)+', '+round2(editorHoverPoint.z)):'-, -';
+  if(editorDragging&&editorSelected&&editorHoverPoint){
+    editorSelected.x=round2(editorHoverPoint.x); editorSelected.z=round2(editorHoverPoint.z);
+    editorApplyDrag(editorSelected);
+    editorRefreshPanel();
   }
 }
 
@@ -11837,12 +11835,6 @@ function pollPadEditor(gp,dt,btn){
   camera.position.copy(editorCam.pos);
   camera.rotation.order='YXZ';
   camera.rotation.set(editorCam.pitch,editorCam.yaw,0);
-  editorNDC.x=0; editorNDC.y=0;
-  if(!editorDragging){
-    editorHoverPoint=editorGroundPointAt(0);
-    const c=el('editorCoordsVal');
-    if(c) c.textContent=editorHoverPoint?(round2(editorHoverPoint.x)+', '+round2(editorHoverPoint.z)):'-, -';
-  }
   if(edge('eRT',RT)){
     editorRay.setFromCamera(editorNDC,camera);
     const hits=editorPinsGroup?editorRay.intersectObjects(editorPinsGroup.children,true):[];
@@ -11850,10 +11842,9 @@ function pollPadEditor(gp,dt,btn){
     else editorSelectPin(null);
   }
   editorDragging=RT&&!!editorSelected;
-  if(editorDragging){
-    const pt=editorGroundPointAt(editorSelected.y);
-    if(pt){ editorSelected.x=round2(pt.x); editorSelected.z=round2(pt.z); editorApplyDrag(editorSelected); editorRefreshPanel(); }
-  }
+  // hover/drag application itself happens in updateEditorFly, which runs
+  // right after this every frame and reads whichever camera/editorDragging
+  // state whoever is driving the editor (mouse or pad) left it in.
   if(editorSelected&&editorSelected.type!=='box'){
     let rdir=0; if(DL) rdir-=1; if(DR) rdir+=1;
     if(rdir){ editorRotateBy(editorSelected,rdir*2.0*dt); editorRefreshPanel(); }
@@ -11916,7 +11907,7 @@ function enterEditorNow(){
 }
 function exitEditor(){
   if(!editorMode) return;
-  editorMode=false; editorLook=false; editorDragging=false;
+  editorMode=false; editorDragging=false;
   editorSelectPin(null);
   clearEditorPins();
   el('editorPanel').classList.add('gone');
@@ -11934,36 +11925,29 @@ function toggleEditor(force){
   if(want) enterEditor(); else exitEditor();
 }
 
-canvas.addEventListener('contextmenu',e=>{ if(editorMode) e.preventDefault(); });
+// Mouse look is always-on (no click-drag needed) once in the editor, same
+// idea as the controller's right stick - editorNDC stays pinned at screen
+// center for every raycast (selecting, dragging, hovering), and the visible
+// crosshair marks that point. Only fires over the canvas itself so mousing
+// over to click a panel button doesn't spin the view first, and only while
+// not dragging a pin, so nudging the camera mid-drag can't also fling it.
 canvas.addEventListener('mousedown',e=>{
-  if(!editorMode) return;
-  editorSetNDC(e);
-  if(e.button===2){ editorLook=true; return; }
-  if(e.button===0){
-    editorRay.setFromCamera(editorNDC,camera);
-    const hits=editorPinsGroup?editorRay.intersectObjects(editorPinsGroup.children,true):[];
-    if(hits.length){
-      let obj=hits[0].object; while(obj&&!obj.userData.entity) obj=obj.parent;
-      if(obj){ editorSelectPin(obj.userData.entity); editorDragging=true; }
-    } else editorSelectPin(null);
-  }
+  if(!editorMode||e.button!==0) return;
+  editorRay.setFromCamera(editorNDC,camera);
+  const hits=editorPinsGroup?editorRay.intersectObjects(editorPinsGroup.children,true):[];
+  if(hits.length){
+    let obj=hits[0].object; while(obj&&!obj.userData.entity) obj=obj.parent;
+    if(obj){ editorSelectPin(obj.userData.entity); editorDragging=true; }
+  } else editorSelectPin(null);
 });
 addEventListener('mouseup',e=>{
-  if(!editorMode) return;
-  if(e.button===2) editorLook=false;
-  if(e.button===0) editorDragging=false;
+  if(!editorMode||e.button!==0) return;
+  editorDragging=false;
 });
 addEventListener('mousemove',e=>{
-  if(!editorMode) return;
-  editorSetNDC(e);
-  if(editorLook){
-    editorCam.yaw-=e.movementX*0.0028;
-    editorCam.pitch=clamp(editorCam.pitch-e.movementY*0.0028,-1.5,1.5);
-  }
-  if(editorDragging&&editorSelected){
-    const pt=editorGroundPointAt(editorSelected.y);
-    if(pt){ editorSelected.x=round2(pt.x); editorSelected.z=round2(pt.z); editorApplyDrag(editorSelected); editorRefreshPanel(); }
-  }
+  if(!editorMode||e.target!==canvas||editorDragging) return;
+  editorCam.yaw-=e.movementX*0.0022;
+  editorCam.pitch=clamp(editorCam.pitch-e.movementY*0.0022,-1.5,1.5);
 });
 canvas.addEventListener('wheel',e=>{
   if(!editorMode||!editorSelected||editorSelected.type==='box') return;
