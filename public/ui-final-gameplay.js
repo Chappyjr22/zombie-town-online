@@ -56,11 +56,6 @@
       toggle(hud, 'has-jugg', hasJugg);
     };
 
-    const promptClasses = [
-      'prompt-buy', 'prompt-perk', 'prompt-box', 'prompt-door', 'prompt-power',
-      'prompt-pap', 'prompt-revive', 'prompt-poor'
-    ];
-
     const usingGamepad = () => {
       try {
         if (!navigator.getGamepads) return false;
@@ -75,9 +70,9 @@
       return usingGamepad() ? 'X' : 'F';
     };
 
+    let currentPromptClass = '';
     const syncPrompt = () => {
       if (!prompt) return;
-      prompt.classList.remove(...promptClasses);
 
       const text = (prompt.textContent || '').replace(/\s+/g, ' ').trim();
       const lower = text.toLowerCase();
@@ -110,8 +105,12 @@
         cls = 'prompt-buy';
       }
 
-      if (cls) prompt.classList.add(cls);
-      prompt.dataset.context = context;
+      if (cls !== currentPromptClass) {
+        if (currentPromptClass) prompt.classList.remove(currentPromptClass);
+        if (cls) prompt.classList.add(cls);
+        currentPromptClass = cls;
+      }
+      if (prompt.dataset.context !== context) prompt.dataset.context = context;
 
       const key = prompt.querySelector('b');
       const wanted = interactionKey();
@@ -155,7 +154,7 @@
         toast.classList.add('toast-revive');
         kicker = 'SURVIVOR STATUS //';
       }
-      toast.dataset.kicker = kicker;
+      if (toast.dataset.kicker !== kicker) toast.dataset.kicker = kicker;
     };
 
     const syncBoss = () => {
@@ -165,7 +164,7 @@
       toggle(bossHud, 'boss-active', visible);
       toggle(bossHud, 'boss-low', visible && hp <= 35 && hp > 12);
       toggle(bossHud, 'boss-critical', visible && hp <= 12 && hp > 0);
-      bossHud.dataset.hp = `${Math.round(hp)}%`;
+      if (bossHud.dataset.hp !== `${Math.round(hp)}%`) bossHud.dataset.hp = `${Math.round(hp)}%`;
     };
 
     const syncBanner = () => {
@@ -178,7 +177,8 @@
     const syncTeam = () => {
       if (!teamPoints) return;
       const rows = Array.from(teamPoints.children).filter((el) => el.tagName === 'DIV');
-      teamPoints.dataset.count = rows.length ? `${rows.length} ACTIVE` : '';
+      const count = rows.length ? `${rows.length} ACTIVE` : '';
+      if (teamPoints.dataset.count !== count) teamPoints.dataset.count = count;
       toggle(hud, 'multiplayer-active', rows.length > 1);
     };
 
