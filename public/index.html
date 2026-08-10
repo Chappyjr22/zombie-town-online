@@ -11503,13 +11503,14 @@ let editorMode=false, editorLook=false, editorDragging=false, editorSelected=nul
 const editorCam={pos:new THREE.Vector3(),yaw:0,pitch:0};
 const editorEntities=[]; // perk/wall/ammo/equip/pap - persists for the loaded map's session
 let editorBoxEntities=[]; // box spots - rebuilt from BOX_SPOTS whenever pins are (re)built
+let editorSpawnEntity=null; // the single player spawn - rebuilt from SPAWN_AT/SPAWN_YAW
 let editorEntitySeq=0;
 let editorPinsGroup=null;
 const editorRay=new THREE.Raycaster();
 const editorNDC=new THREE.Vector2();
 const editorGroundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
 const round2=n=>Math.round((n||0)*100)/100;
-const EDITOR_COLORS={box:0x3cc8dc,perk:0xffc83c,wall:0xff7830,ammo:0x4ccf7a,equip:0x9a9aa2,pap:0xc846dc};
+const EDITOR_COLORS={box:0x3cc8dc,perk:0xffc83c,wall:0xff7830,ammo:0x4ccf7a,equip:0x9a9aa2,pap:0xc846dc,spawn:0xffffff};
 
 function registerEditorEntity(type,data,obj,inter,offset,extraObj,extraNx,extraNz){
   const entity=Object.assign({
@@ -11521,12 +11522,18 @@ function registerEditorEntity(type,data,obj,inter,offset,extraObj,extraNx,extraN
   editorEntities.push(entity);
   return entity;
 }
-function editorAll(){ return editorEntities.concat(editorBoxEntities); }
+function editorAll(){
+  return (editorSpawnEntity?[editorSpawnEntity]:[]).concat(editorEntities,editorBoxEntities);
+}
 function editorRebuildBoxEntities(){
   editorBoxEntities=BOX_SPOTS.map((c,i)=>({id:'box'+i,type:'box',x:c[0],y:0.9,z:c[1],rot:0,boxIndex:i,pin:null}));
 }
+function editorRebuildSpawnEntity(){
+  editorSpawnEntity={id:'spawn',type:'spawn',x:SPAWN_AT.x,y:SPAWN_AT.y,z:SPAWN_AT.z,rot:SPAWN_YAW,pin:null};
+}
 
 function editorEntityLabel(entity){
+  if(entity.type==='spawn') return 'Player spawn';
   if(entity.type==='box') return 'Box spot '+(entity.boxIndex+1);
   if(entity.type==='perk') return 'Perk: '+(PERKS[entity.key]?PERKS[entity.key].name:entity.key);
   if(entity.type==='wall') return 'Wall buy: '+(DEFS[entity.defId]?DEFS[entity.defId].name:entity.defId);
@@ -11544,6 +11551,7 @@ function editorEntityCode(entity){
     case 'equip': return `addEquipBuy('${entity.kind}',${x},${y},${z},${rot});`;
     case 'pap': return `addPackAPunch(${x},${z},${rot}${y?','+y:''});`;
     case 'box': return `[${x},${z}]`;
+    case 'spawn': return `SPAWN_AT.set(${x},${y},${z}); SPAWN_YAW=${rot};`;
     default: return '';
   }
 }
@@ -11556,6 +11564,8 @@ function editorSyncInteractable(entity){
 function editorApplyDrag(entity){
   if(entity.type==='box'){
     BOX_SPOTS[entity.boxIndex]=[entity.x,entity.z];
+  } else if(entity.type==='spawn'){
+    SPAWN_AT.set(entity.x,entity.y,entity.z);
   } else {
     entity.obj.position.set(entity.x,entity.y,entity.z);
     if(entity.extraObj) entity.extraObj.position.set(entity.x+entity.extraDx,entity.y+entity.extraDy,entity.z+entity.extraDz);
@@ -11567,6 +11577,7 @@ function editorRotateBy(entity,delta){
   if(!entity||entity.type==='box') return;
   entity.rot=round2(entity.rot+delta);
   if(entity.rot>Math.PI) entity.rot-=TAU; else if(entity.rot<-Math.PI) entity.rot+=TAU;
+  if(entity.type==='spawn'){ SPAWN_YAW=entity.rot; editorMovePinMesh(entity); return; }
   entity.obj.rotation.y=entity.rot;
   if(entity.extraObj){
     // The wired-on sign for equip buys sits offset in front of the crate
@@ -11619,6 +11630,7 @@ function editorMovePinMesh(entity){
 function buildEditorPins(){
   clearEditorPins();
   editorRebuildBoxEntities();
+  editorRebuildSpawnEntity();
   editorPinsGroup=new THREE.Group(); scene.add(editorPinsGroup);
   for(const entity of editorAll()){
     const pin=editorMakePin(entity);
@@ -11640,6 +11652,7 @@ function editorSelectPin(entity){
 }
 function editorDeleteEntity(entity){
   if(!entity) return;
+  if(entity.type==='spawn'){ toast("Can't delete the spawn point - drag it instead"); return; }
   if(entity===editorSelected) editorSelectPin(null);
   if(entity.type==='box'){
     BOX_SPOTS.splice(entity.boxIndex,1);
@@ -11685,6 +11698,7 @@ function editorCopyAll(){
     lines.push('',`// ${title}`);
     for(const e of arr) lines.push(editorEntityCode(e));
   };
+  if(editorSpawnEntity){ lines.push('','// player spawn'); lines.push(editorEntityCode(editorSpawnEntity)); }
   if(editorBoxEntities.length){
     lines.push('','// BOX_SPOTS');
     lines.push('BOX_SPOTS=['+editorBoxEntities.map(e=>`[${round2(e.x)},${round2(e.z)}]`).join(',')+'];');
@@ -11722,7 +11736,7 @@ function editorRefreshPanel(){
       <div class="exz">${editorEntityCode(entity)}</div>
       <button data-eid="${entity.id}" data-eop="select">Select</button>
       <button data-eid="${entity.id}" data-eop="copy">Copy</button>
-      <button data-eid="${entity.id}" data-eop="delete">Delete</button>
+      ${entity.type==='spawn'?'':`<button data-eid="${entity.id}" data-eop="delete">Delete</button>`}
     </div>`).join('');
 }
 
