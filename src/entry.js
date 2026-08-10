@@ -4,6 +4,8 @@ import { applyCollisionPerformancePatches } from "./collision-html-patches.js";
 export { GameRoom } from "./index.js";
 
 const RELOAD_UI_SCRIPT = "/ui-reload-feedback.js?v=20260810a";
+const FINAL_GAMEPLAY_CSS = "/ui-final-gameplay.css?v=20260810a";
+const FINAL_GAMEPLAY_SCRIPT = "/ui-final-gameplay.js?v=20260810a";
 
 export default {
   async fetch(request, env, ctx) {
@@ -20,11 +22,17 @@ export default {
     let html = await response.text();
     html = applyPerformancePatches(html);
     html = applyCollisionPerformancePatches(html);
-    const themedHtml = html.includes("/ui-reload-feedback.js")
-      ? html
-      : html.replace("</body>", `  <script src="${RELOAD_UI_SCRIPT}"></script>\n</body>`);
 
-    return new Response(themedHtml, {
+    if (!html.includes("/ui-final-gameplay.css")) {
+      html = html.replace("</head>", `  <link rel="stylesheet" href="${FINAL_GAMEPLAY_CSS}">\n</head>`);
+    }
+
+    const scripts = [];
+    if (!html.includes("/ui-reload-feedback.js")) scripts.push(`<script src="${RELOAD_UI_SCRIPT}"></script>`);
+    if (!html.includes("/ui-final-gameplay.js")) scripts.push(`<script src="${FINAL_GAMEPLAY_SCRIPT}"></script>`);
+    if (scripts.length) html = html.replace("</body>", `  ${scripts.join("\n  ")}\n</body>`);
+
+    return new Response(html, {
       status: response.status,
       statusText: response.statusText,
       headers,
