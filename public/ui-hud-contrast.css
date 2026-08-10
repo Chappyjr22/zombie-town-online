@@ -1,0 +1,212 @@
+/*
+ * TOWN HUD contrast pass
+ * Final readability tune based on live Town gameplay capture.
+ * Visual-only: increases contrast without increasing HUD footprint.
+ */
+
+/* Round readout should hold up against a black sky. */
+#top {
+  background:
+    linear-gradient(90deg, transparent 0%, rgba(3,5,7,.88) 13%, rgba(3,5,7,.94) 50%, rgba(3,5,7,.88) 87%, transparent 100%),
+    linear-gradient(180deg, rgba(255,255,255,.045), transparent);
+  border-top-color: rgba(239,232,218,.20);
+  border-bottom-color: rgba(232,83,64,.58);
+  filter: drop-shadow(0 9px 20px rgba(0,0,0,.58));
+}
+
+#wavebig {
+  color: #f06a54;
+  text-shadow: 0 0 18px rgba(232,83,64,.40), 0 2px 9px #000;
+}
+
+#left {
+  color: #eee5d7;
+  opacity: .96;
+  text-shadow: 0 2px 7px #000;
+}
+
+/* Survivor panel: stronger backplate, brighter labels and vitals. */
+#bl {
+  background:
+    linear-gradient(90deg, rgba(2,4,6,.98) 0%, rgba(3,5,7,.94) 67%, rgba(3,5,7,.66) 89%, rgba(3,5,7,.10) 100%),
+    linear-gradient(180deg, rgba(255,255,255,.045), transparent);
+  border-left-color: #ef5944;
+  border-top-color: rgba(239,232,218,.17);
+  border-bottom: 1px solid rgba(239,89,68,.15);
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.55));
+}
+
+#bl::before {
+  color: #f0644e;
+  opacity: 1;
+  text-shadow: 0 0 9px rgba(239,89,68,.22), 0 2px 5px #000;
+}
+
+#points {
+  color: #ffc26c;
+  text-shadow: 0 0 16px rgba(238,178,91,.23), 0 3px 11px #000;
+}
+
+#points span {
+  color: #f0e8db;
+  opacity: 1;
+}
+
+#ptsmult {
+  color: #f4b85e;
+  opacity: 1;
+  text-shadow: 0 2px 6px #000;
+}
+
+#perks {
+  opacity: 1;
+}
+
+.perk {
+  border-color: rgba(245,237,222,.42);
+  box-shadow: 0 0 16px rgba(0,0,0,.80), inset 0 -8px 12px rgba(0,0,0,.36);
+}
+
+#hpbar {
+  height: 9px;
+  border-color: rgba(245,237,222,.46);
+  background: rgba(96,18,15,.72);
+  box-shadow:
+    inset 0 1px 7px rgba(0,0,0,.80),
+    0 0 0 1px rgba(0,0,0,.46),
+    0 0 9px rgba(239,89,68,.10);
+}
+
+#hpfill {
+  background: linear-gradient(90deg, #bd3427 0 8%, #eee3d3 30%, #fff6e8 100%);
+  box-shadow: 0 0 11px rgba(255,246,232,.24);
+}
+
+/* Weapon panel: make the support text readable, not just the magazine count. */
+#ammoWrap {
+  background:
+    linear-gradient(270deg, rgba(2,4,6,.98) 0%, rgba(3,5,7,.94) 67%, rgba(3,5,7,.66) 89%, rgba(3,5,7,.10) 100%),
+    linear-gradient(180deg, rgba(255,255,255,.045), transparent);
+  border-right-color: #f0b45d;
+  border-top-color: rgba(239,232,218,.17);
+  border-bottom: 1px solid rgba(240,180,93,.14);
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.55));
+}
+
+#ammoWrap::before {
+  color: #f2ba62;
+  opacity: 1;
+  text-shadow: 0 0 9px rgba(240,180,93,.16), 0 2px 5px #000;
+}
+
+#gunname {
+  color: #f0e8dc;
+  opacity: 1;
+  text-shadow: 0 2px 7px #000;
+}
+
+#ammo {
+  color: #fff7e9;
+  text-shadow: 0 4px 14px #000, 0 0 13px rgba(255,255,255,.06);
+}
+
+#ammo small {
+  color: #f1b65e;
+  opacity: 1;
+  text-shadow: 0 2px 7px #000;
+}
+
+#slots,
+#equip {
+  color: #e4dccf;
+  opacity: .96;
+  text-shadow: 0 2px 6px #000;
+}
+
+#slots b {
+  color: #ffc16a;
+}
+
+#reloading {
+  color: #ff654f;
+  opacity: 1;
+  text-shadow: 0 0 10px rgba(239,89,68,.25), 0 2px 6px #000;
+}
+
+/* Tutorial/control legend was still the faintest HUD element in the capture. */
+#keys {
+  color: #ded6c9;
+  opacity: .72;
+  background: linear-gradient(90deg, rgba(2,4,6,.70), rgba(2,4,6,.28) 72%, transparent);
+  border-left-color: rgba(240,180,93,.48);
+  text-shadow: 0 2px 7px rgba(0,0,0,.98);
+}
+
+#keys b {
+  color: #ffc16a;
+  text-shadow: 0 0 8px rgba(240,180,93,.15), 0 2px 6px #000;
+}
+
+#buffs {
+  color: #e6ded1;
+  opacity: .98;
+  background: linear-gradient(270deg, rgba(2,4,6,.68), rgba(2,4,6,.20) 74%, transparent);
+  border-right-color: rgba(240,180,93,.42);
+}
+
+#teamPoints {
+  color: #e2dace;
+  opacity: 1;
+  background: linear-gradient(90deg, rgba(2,4,6,.78), rgba(2,4,6,.30) 76%, transparent);
+}
+
+#teamPoints .me {
+  color: #ffc16a;
+}
+
+/* Prompts and boss HUD should never disappear into map lighting. */
+#prompt {
+  color: #f3ebde;
+  background:
+    linear-gradient(90deg, rgba(2,4,6,.97), rgba(7,9,12,.94)),
+    linear-gradient(180deg, rgba(255,255,255,.035), transparent);
+  border-color: rgba(245,237,222,.26);
+  border-left-color: #f0b45d;
+  box-shadow: 0 12px 34px rgba(0,0,0,.58), 0 0 21px rgba(240,180,93,.07);
+}
+
+#prompt b {
+  background: #ffc16a;
+  box-shadow: 0 0 13px rgba(240,180,93,.24);
+}
+
+#bossHud {
+  background:
+    linear-gradient(90deg, transparent, rgba(2,4,6,.91) 10%, rgba(2,4,6,.94) 50%, rgba(2,4,6,.91) 90%, transparent),
+    linear-gradient(180deg, rgba(145,24,19,.09), transparent);
+}
+
+#bossName {
+  color: #fff4e2;
+}
+
+#bossTrack {
+  border-color: rgba(244,91,70,.82);
+  background: rgba(1,2,3,.96);
+}
+
+/* Keep mobile from becoming too visually heavy. */
+@media (max-width: 760px) {
+  #keys {
+    opacity: .52;
+  }
+
+  #bl,
+  #ammoWrap {
+    border-bottom-color: transparent;
+  }
+
+  #hpbar {
+    height: 8px;
+  }
+}
