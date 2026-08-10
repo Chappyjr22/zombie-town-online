@@ -421,3 +421,251 @@
     animation: none !important;
   }
 }
+
+/* ========================================================================== */
+/* Polish pass 3: brighter Town backdrop, stronger title, punchier map select */
+/* ========================================================================== */
+
+/* Let the environment read as Town instead of disappearing into black. */
+#menu::before {
+  inset: -4% -2% -4% 27%;
+  opacity: .94;
+  background:
+    linear-gradient(90deg, #05070a 0%, rgba(5,7,10,.88) 8%, rgba(5,7,10,.31) 29%, rgba(5,7,10,.08) 58%, rgba(3,4,6,.24) 100%),
+    radial-gradient(circle at 70% 47%, rgba(211,58,39,.35), transparent 12%),
+    radial-gradient(ellipse at 68% 61%, rgba(224,115,49,.18), transparent 22%),
+    linear-gradient(180deg, rgba(0,0,0,.08), rgba(0,0,0,.34)),
+    url('/images/maps/town.jpg') center right / cover no-repeat;
+  filter: saturate(.74) contrast(1.17) brightness(.73) blur(.18px);
+}
+
+#menu::after {
+  background:
+    radial-gradient(ellipse at 76% 45%, transparent 0 17%, rgba(0,0,0,.08) 37%, rgba(0,0,0,.24) 67%, rgba(0,0,0,.48) 100%),
+    radial-gradient(ellipse at 69% 76%, rgba(207,49,35,.17), transparent 30%),
+    radial-gradient(circle at 67% 56%, rgba(230,133,54,.08), transparent 19%),
+    linear-gradient(90deg, rgba(5,7,10,.98) 0%, rgba(5,7,10,.88) 28%, rgba(5,7,10,.26) 49%, rgba(4,5,7,.025) 72%, rgba(3,4,6,.24) 100%),
+    repeating-linear-gradient(0deg, transparent 0 5px, rgba(255,255,255,.007) 6px);
+  box-shadow: inset 0 0 145px 34px rgba(0,0,0,.52);
+}
+
+@keyframes uiMenuSceneDrift {
+  0% { transform: scale(1.045) translate3d(0, 0, 0); filter: saturate(.70) contrast(1.16) brightness(.69); }
+  48% { transform: scale(1.062) translate3d(-.48%, -.20%, 0); filter: saturate(.78) contrast(1.18) brightness(.75); }
+  52% { transform: scale(1.064) translate3d(-.55%, -.18%, 0); filter: saturate(.84) contrast(1.20) brightness(.80); }
+  100% { transform: scale(1.054) translate3d(.30%, .28%, 0); filter: saturate(.72) contrast(1.17) brightness(.71); }
+}
+
+/* Keep the left side readable while exposing more of the scene on the right. */
+#menu .card {
+  background:
+    linear-gradient(90deg, rgba(5,7,10,.92) 0%, rgba(5,7,10,.69) 56%, rgba(5,7,10,.17) 87%, transparent 100%);
+}
+
+#menu .card::before {
+  color: #ed5b47;
+  opacity: .96;
+  text-shadow: 0 0 17px rgba(217,74,55,.32);
+}
+
+#menu .card h1 {
+  color: #f4ecde;
+  text-shadow:
+    2px 0 0 rgba(255,255,255,.05),
+    -2px 1px 0 rgba(112,18,14,.66),
+    0 0 22px rgba(217,74,55,.18),
+    0 0 52px rgba(138,25,20,.13),
+    0 12px 40px rgba(0,0,0,.94);
+}
+
+#menu .card h1::after {
+  color: rgba(224,58,43,.31);
+  text-shadow: 0 0 24px rgba(217,74,55,.34);
+  transform: translateX(3px);
+}
+
+@keyframes uiTitleBreath {
+  0%, 100% {
+    text-shadow:
+      2px 0 0 rgba(255,255,255,.05),
+      -2px 1px 0 rgba(112,18,14,.62),
+      0 0 18px rgba(217,74,55,.13),
+      0 0 42px rgba(126,22,18,.08),
+      0 12px 40px rgba(0,0,0,.94);
+  }
+  48% {
+    text-shadow:
+      2px 0 0 rgba(255,255,255,.05),
+      -2px 1px 0 rgba(112,18,14,.68),
+      0 0 28px rgba(217,74,55,.22),
+      0 0 56px rgba(126,22,18,.12),
+      0 12px 40px rgba(0,0,0,.94);
+  }
+  50% {
+    text-shadow:
+      2px 0 0 rgba(255,255,255,.06),
+      -2px 1px 0 rgba(126,20,15,.74),
+      0 0 38px rgba(230,73,55,.30),
+      0 0 70px rgba(145,27,20,.17),
+      0 12px 40px rgba(0,0,0,.94);
+  }
+  53% {
+    text-shadow:
+      2px 0 0 rgba(255,255,255,.05),
+      -2px 1px 0 rgba(112,18,14,.64),
+      0 0 21px rgba(217,74,55,.16),
+      0 0 47px rgba(126,22,18,.10),
+      0 12px 40px rgba(0,0,0,.94);
+  }
+}
+
+#menu .sub {
+  color: #e4ab55;
+  opacity: .96;
+}
+
+#menu .mitem small {
+  color: #d0c8bb;
+  font-size: 9.7px;
+  line-height: 1.34;
+  opacity: .78;
+}
+
+#menu .mitem:hover small,
+#menu .mitem.sel small {
+  color: #e1d9cb;
+  opacity: .92;
+}
+
+#menu .mitem:hover,
+#menu .mitem.sel {
+  border-top-color: rgba(223,154,75,.10);
+  border-right-color: rgba(223,154,75,.08);
+  border-bottom-color: rgba(223,154,75,.16);
+  background:
+    linear-gradient(90deg, rgba(139,27,22,.58), rgba(91,31,23,.25) 54%, rgba(217,162,80,.055) 82%, transparent),
+    linear-gradient(180deg, rgba(255,255,255,.032), transparent);
+  box-shadow:
+    inset 18px 0 34px rgba(169,31,24,.15),
+    0 0 34px rgba(139,23,18,.13);
+}
+
+/* Map cards: slightly larger art and a much clearer selected state. */
+.mapcard {
+  min-height: 292px;
+}
+
+.mapart {
+  height: 164px;
+}
+
+.mapart img {
+  filter: saturate(.86) contrast(1.07) brightness(.99);
+}
+
+.mapcard:hover,
+.mapcard.sel {
+  transform: translateY(-7px) scale(1.012);
+  border-color: rgba(240,184,99,.82);
+  border-bottom-color: #ef5a45;
+  box-shadow:
+    0 23px 52px rgba(0,0,0,.54),
+    0 0 0 1px rgba(217,74,55,.30),
+    0 0 34px rgba(217,74,55,.17),
+    0 0 54px rgba(217,162,80,.055);
+}
+
+.mapcard:hover::before,
+.mapcard.sel::before {
+  border-left-color: #ef5944;
+  border-bottom-color: rgba(239,89,68,.92);
+  box-shadow:
+    inset 0 0 34px rgba(171,31,24,.12),
+    inset 3px 0 13px rgba(217,74,55,.10);
+  background:
+    linear-gradient(90deg, rgba(171,31,24,.085), transparent 24%),
+    linear-gradient(180deg, transparent 70%, rgba(217,74,55,.04));
+}
+
+.mapcard:hover .mapart img,
+.mapcard.sel .mapart img {
+  filter: saturate(1.08) contrast(1.11) brightness(1.12);
+  transform: scale(1.075);
+}
+
+.mapcard h4 {
+  margin-top: 13px;
+  margin-bottom: 8px;
+  color: #f1eadc;
+  font-size: 14.8px;
+  line-height: 1.18;
+}
+
+.mapcard p {
+  color: #cbc4b7;
+  opacity: .90;
+  font-size: 10.7px;
+  line-height: 1.62;
+}
+
+.mapcard::after {
+  top: 147px;
+  color: #f5bc65;
+  background: rgba(5,7,9,.88);
+  border-left-color: rgba(239,89,68,.88);
+  box-shadow: 0 0 14px rgba(217,162,80,.08);
+}
+
+.mapcard:hover h4,
+.mapcard.sel h4 {
+  color: #fff6e8;
+  text-shadow: 0 0 13px rgba(217,162,80,.10);
+}
+
+.mapcard:hover h4::before,
+.mapcard.sel h4::before {
+  color: #ef5a45;
+  text-shadow: 0 0 10px rgba(217,74,55,.22);
+}
+
+.mapcard:hover h4 em,
+.mapcard.sel h4 em {
+  color: #f2b65d;
+  text-shadow: 0 0 9px rgba(217,162,80,.18);
+}
+
+.mapcard.sel::after {
+  color: #ffd18a;
+  border-left-color: #ef5a45;
+  text-shadow: 0 0 9px rgba(217,162,80,.28);
+  box-shadow: 0 0 18px rgba(217,74,55,.12);
+}
+
+@media (max-width: 1100px) {
+  #menu::before {
+    inset: -4% -2% -4% 34%;
+  }
+}
+
+@media (max-width: 760px) {
+  #menu::before {
+    inset: 0;
+    opacity: .52;
+    filter: saturate(.65) contrast(1.12) brightness(.58);
+  }
+
+  #menu::after {
+    background:
+      linear-gradient(180deg, rgba(5,7,10,.60), rgba(5,7,10,.82)),
+      radial-gradient(circle at 70% 24%, rgba(175,38,29,.15), transparent 30%);
+    box-shadow: inset 0 0 100px 24px rgba(0,0,0,.48);
+  }
+
+  .mapart {
+    height: 190px;
+  }
+
+  .mapcard::after {
+    top: 173px;
+  }
+}
