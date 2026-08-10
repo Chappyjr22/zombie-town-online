@@ -2673,11 +2673,11 @@ function buildCrossroads(night){
     torch.intensity=0.16;
   }
   SPAWN_AT.set(-38,0,-10); SPAWN_YAW=-Math.PI/2;
-  addEquipBuy('grenade',0.61,0,-42.06,6.28);
-  addEquipBuy('claymore',4.23,0,-42.24,6.28);
+  addEquipBuy('grenade',SPAWN_AT.x-1.8,0,SPAWN_AT.z-1.6,SPAWN_YAW+Math.PI);
+  addEquipBuy('claymore',SPAWN_AT.x-1.8,0,SPAWN_AT.z+1.6,SPAWN_YAW+Math.PI);
   SPAWNS=[[-13.6,-37.9],[14,-40],[-21,-37.7],[20,-36],[-36,-20],[38,-20],
     [-36,0],[36,0],[-37.9,20.7],[40,20],[-20,36],[20,36]];
-  BOX_SPOTS=[[-8.5,-2],[16.05,13.12],[-21.05,13.46],[36.79,37.2],[-17.5,-6.13]];
+  BOX_SPOTS=[[6,0],[-6,10],[-19,-6.3],[-6,26],[16,-14]];
 
   if(night){
     worldRoot.add(new THREE.HemisphereLight(0x2a3a5c,0x141018,0.5));
@@ -3102,21 +3102,22 @@ function buildCrossroads(night){
   chain(-BND,-BND,BND,-BND); chain(-BND,BND,BND,BND);
 
   /* ---- buys ---- */
-  addWallBuy('m14',23.39,2,3.36,-1.61);
-  addWallBuy('ak74u',-18.78,2,-2.08,1.6);
-  addWallBuy('galil',-0.48,2,-3.34,1.47);
-  addWallBuy('olympia',5.21,2,5.03,-1.57);
-  addWallBuy('rem870',-12.08,2,-8.88,3.11);
+  addWallBuy('m14',8.0,2.0,6.5,Math.PI/2);
+  addWallBuy('ak74u',-22,2.0,10,-Math.PI/2);
+  addWallBuy('mp5',4,2.0,-28.72,0);
+  addWallBuy('galil',-4,2.0,-28.72,Math.PI);
+  addWallBuy('olympia',15,2.0,2,Math.PI/2);
+  addWallBuy('rem870',-30,2.0,-9,Math.PI/2);
   addAmmoBuy('m1911',3,2.0,-3,0,250);
   addAmmoBuy('m4a1',-3,2.0,4,Math.PI,400);
 
-  addPerkMachine('revive',-2.26,-16.06,0,0);
-  addPerkMachine('jugg',-42.29,-42.34,0,-2.43);
-  addPerkMachine('speed',-19.48,-7.38,0,1.57);
-  addPerkMachine('dtap',10.72,7.91,0,3.14);
-  addPerkMachine('stamin',-4.83,8.12,0,1.6);
-  addPerkMachine('mule',9.36,-8.54,0,-1.6);
-  addPackAPunch(17.88,8.15,0);
+  addPerkMachine('revive',-38,-4,0,-Math.PI/2);
+  addPerkMachine('jugg',38,0,0,-Math.PI/2);
+  addPerkMachine('speed',-38,0,0,Math.PI/2);
+  addPerkMachine('dtap',0,38,0,Math.PI);
+  addPerkMachine('stamin',20,-15,0,0);
+  addPerkMachine('mule',-20,20,0,Math.PI);
+  addPackAPunch(-12,1.5,0);
 
   if(night){
     /* ---- ash in the air, same drifting-particle setup as Town's night sky ---- */
@@ -3154,11 +3155,11 @@ function buildOverpass(night){
     torch.intensity=0.14;
   }
   SPAWN_AT.set(0,0,-34); SPAWN_YAW=Math.PI;
-  addEquipBuy('grenade',SPAWN_AT.x-1.6,0,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
-  addEquipBuy('claymore',SPAWN_AT.x+1.6,0,SPAWN_AT.z-1.8,SPAWN_YAW+Math.PI);
+  addEquipBuy('grenade',0.61,0,-42.06,6.28);
+  addEquipBuy('claymore',4.23,0,-42.24,6.28);
   SPAWNS=[[38,0],[35.1,14.5],[26.9,26.9],[14.5,35.1],[0,38],[-14.5,35.1],[-26.9,26.9],[-35.1,14.5],
     [-38,0],[-35.1,-14.5],[-26.9,-26.9],[-14.5,-35.1],[0,-38],[14.5,-35.1],[26.9,-26.9],[35.1,-14.5]];
-  BOX_SPOTS=[[-8.5,-2],[14,25],[-27,-8],[32,10],[-8.5,-5]];
+  BOX_SPOTS=[[-8.5,-2],[16.05,13.12],[-21.05,13.46],[36.79,37.2],[-17.5,-6.13]];
 
   if(night){
     worldRoot.add(new THREE.HemisphereLight(0x2a3a5c,0x141018,0.5));
@@ -4267,20 +4268,19 @@ function buildOverpass(night){
   fenceRun(-BND,-BND,BND,-BND);
 
   /* ---- buys ---- */
-  addWallBuy('m14',-30,2.0,0,Math.PI/2);
-  addWallBuy('olympia',30,2.0,0,-Math.PI/2);
-  addWallBuy('mp5',0,2.0,-30,0);
-  addWallBuy('ak74u',0,2.0,30,Math.PI);
-  addWallBuy('galil',-24,2.0,22,Math.PI/4);
-  addWallBuy('rem870',24,2.0,-22,-Math.PI*0.75);
+  addWallBuy('m14',23.39,2,3.36,-1.61);
+  addWallBuy('olympia',5.21,2,5.03,-1.57);
+  addWallBuy('ak74u',-18.78,2,-2.08,1.6);
+  addWallBuy('galil',-0.48,2,-3.34,1.47);
+  addWallBuy('rem870',-12.08,2,-8.88,3.11);
 
-  addPerkMachine('revive',-8.5,-4,0,0);
-  addPerkMachine('jugg',36,0,0,-Math.PI/2);
-  addPerkMachine('speed',-34,0,0,Math.PI/2);
-  addPerkMachine('dtap',0,34,0,Math.PI);
-  addPerkMachine('stamin',-3,1,0,0);
-  addPerkMachine('mule',4,-32,0,0);
-  addPackAPunch(1.5,5.5,0);
+  addPerkMachine('revive',-2.26,-16.06,0,0);
+  addPerkMachine('jugg',-42.29,-42.34,0,-2.43);
+  addPerkMachine('speed',-19.48,-7.38,0,1.57);
+  addPerkMachine('dtap',10.72,7.91,0,3.14);
+  addPerkMachine('stamin',-4.83,8.12,0,1.6);
+  addPerkMachine('mule',9.36,-8.54,0,-1.6);
+  addPackAPunch(17.88,8.15,0);
 
   if(night){
     /* ---- ash in the air, same drifting-particle setup as Town's night sky ---- */
