@@ -4,6 +4,7 @@ import { applyCollisionPerformancePatches } from "./collision-html-patches.js";
 import { applyUiFeedbackPatches } from "./ui-feedback-html-patches.js";
 import { applyNetworkPatches } from "./network-html-patches.js";
 import { applyNetworkRecoveryPatches } from "./network-recovery-html-patches.js";
+import { applyMultiplayerVisualPatches } from "./multiplayer-visual-html-patches.js";
 export { GameRoom } from "./game-room.js";
 
 const RELOAD_UI_SCRIPT = "/ui-reload-feedback.js?v=20260810a";
@@ -30,6 +31,7 @@ export default {
     html = applyUiFeedbackPatches(html);
     html = applyNetworkPatches(html);
     html = applyNetworkRecoveryPatches(html);
+    html = applyMultiplayerVisualPatches(html);
 
     const styles = [];
     if (!html.includes("/ui-final-gameplay.css")) styles.push(`<link rel="stylesheet" href="${FINAL_GAMEPLAY_CSS}">`);
