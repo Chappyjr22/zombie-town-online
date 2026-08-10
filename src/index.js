@@ -110,9 +110,15 @@ export default {
     headers.set("cache-control", "no-store, max-age=0");
     headers.delete("content-length");
     const html = await response.text();
-    const themedHtml = html.includes("/ui-overhaul.css")
-      ? html
-      : html.replace("</head>", '  <link rel="stylesheet" href="/ui-overhaul.css?v=20260810">\n</head>');
+    const styleLinks =
+      '  <link rel="stylesheet" href="/ui-overhaul.css?v=20260810">\n' +
+      '  <link rel="stylesheet" href="/ui-polish.css?v=20260810b">\n';
+    let themedHtml = html;
+    if (!themedHtml.includes("/ui-overhaul.css")) {
+      themedHtml = themedHtml.replace("</head>", `${styleLinks}</head>`);
+    } else if (!themedHtml.includes("/ui-polish.css")) {
+      themedHtml = themedHtml.replace("</head>", '  <link rel="stylesheet" href="/ui-polish.css?v=20260810b">\n</head>');
+    }
     return new Response(themedHtml, { status: response.status, statusText: response.statusText, headers });
   },
 };
