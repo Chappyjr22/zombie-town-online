@@ -530,7 +530,8 @@
     <button data-eact="add">Add here</button>
   </div>
   <div id="editorList"></div>
-  <button id="editorCopyAll" data-eact="copy-all" style="width:100%">Copy all placement code</button>
+  <button id="editorCopyAll" data-eact="copy-all" style="width:100%">Copy everything for this map</button>
+  <div class="ehint" style="margin:6px 0 0">Paste this in chat when you're done - it's the map's full current layout, ready to hand off.</div>
 </div>
 
 <div class="screen gone" id="options">
@@ -11656,14 +11657,44 @@ function editorDeleteEntity(entity){
 function editorDeleteSelected(){ editorDeleteEntity(editorSelected); }
 
 function editorCopyText(str){
+  const fallback=()=>{
+    let ok=false;
+    try{
+      const ta=document.createElement('textarea');
+      ta.value=str; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      ok=document.execCommand('copy');
+      document.body.removeChild(ta);
+    }catch(e){}
+    if(ok) toast('Copied to clipboard');
+    else window.prompt('Copy this (Ctrl/Cmd+C, then Enter):',str);
+  };
   if(navigator.clipboard&&navigator.clipboard.writeText)
-    navigator.clipboard.writeText(str).then(()=>toast('Copied')).catch(()=>toast('Copy failed - select the text manually'));
-  else toast('Clipboard unavailable');
+    navigator.clipboard.writeText(str).then(()=>toast('Copied to clipboard')).catch(fallback);
+  else fallback();
 }
+// One paste-able dump of the map's entire current placement state (every
+// tracked pin, not just the ones touched this session), grouped and
+// commented by category so it can be handed to Claude as-is: "here's the
+// new BOX_SPOTS array" / "here's the new perk machine list" reads as a
+// straightforward block replacement in the map's build function, without
+// needing to diff against what was there before.
 function editorCopyAll(){
-  const lines=[];
-  if(editorBoxEntities.length) lines.push('BOX_SPOTS=['+editorBoxEntities.map(e=>`[${round2(e.x)},${round2(e.z)}]`).join(',')+'];');
-  for(const entity of editorEntities) lines.push(editorEntityCode(entity));
+  const lines=[`// Map Editor export - map: ${currentMap}`];
+  const section=(title,arr)=>{
+    if(!arr.length) return;
+    lines.push('',`// ${title}`);
+    for(const e of arr) lines.push(editorEntityCode(e));
+  };
+  if(editorBoxEntities.length){
+    lines.push('','// BOX_SPOTS');
+    lines.push('BOX_SPOTS=['+editorBoxEntities.map(e=>`[${round2(e.x)},${round2(e.z)}]`).join(',')+'];');
+  }
+  section('perk machines',editorEntities.filter(e=>e.type==='perk'));
+  section('wall buys',editorEntities.filter(e=>e.type==='wall'));
+  section('ammo buys',editorEntities.filter(e=>e.type==='ammo'));
+  section('equip buys',editorEntities.filter(e=>e.type==='equip'));
+  section('Pack-a-Punch',editorEntities.filter(e=>e.type==='pap'));
   editorCopyText(lines.join('\n'));
 }
 function editorPopulateAddSub(){
