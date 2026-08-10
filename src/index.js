@@ -7,6 +7,11 @@ const RATE_LIMIT_WINDOW_MS = 1000;
 const RATE_LIMIT_MAX_MESSAGES = 40;
 const RATE_LIMIT_KICK_MULTIPLIER = 4;
 const RECONNECT_TTL_MS = 2 * 60 * 1000;
+// Kept in sync with the client's MAPS registry in public/index.html - a map
+// added there needs adding here too, or the server silently coerces it to
+// "town" below (both for a player's reported position state and for the
+// host's own "start" request).
+const VALID_MAPS = ["town", "wayside", "blacksire", "laststop", "crossroads", "crossroads_night", "overpass", "overpass_night"];
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -253,7 +258,7 @@ export class GameRoom extends DurableObject {
         downed: Boolean(source.downed),
         reviving: Boolean(source.reviving),
         weapon: String(source.weapon || "").slice(0, 24),
-        map: ["town", "wayside", "blacksire", "laststop", "crossroads", "overpass"].includes(source.map) ? source.map : "town",
+        map: VALID_MAPS.includes(source.map) ? source.map : "town",
         speed: number(source.speed, 0, 12),
         sprint: Boolean(source.sprint),
         ads: Boolean(source.ads),
@@ -402,7 +407,7 @@ export class GameRoom extends DurableObject {
         this.send(ws, { type: "error", message: "Only the host can start the match" });
         return;
       }
-      const map = ["town", "wayside", "blacksire", "laststop", "crossroads", "overpass"].includes(message.map) ? message.map : "town";
+      const map = VALID_MAPS.includes(message.map) ? message.map : "town";
       const rules = cleanRules(message.rules);
       // A new match resets everything about the room *except* its leaderboard -
       // that's meant to track this room's best run across matches, not just one.

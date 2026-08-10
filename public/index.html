@@ -10248,7 +10248,7 @@ function netHandle(msg){
     handleHostGameRequest(m.event,m.playerId);
   } else if(m.type==='game'){
     handleSharedGameEvent(m.event);
-  } else if(m.type==='start'&&(m.map==='town'||m.map==='wayside'||m.map==='blacksire'||m.map==='laststop'||m.map==='crossroads'||m.map==='overpass')){
+  } else if(m.type==='start'&&MAPS[m.map]){
     // A brand new match for the whole room - any loadout snapshot left over
     // from a previous match in this same room code is stale now.
     netClearLoadout(net.code);
