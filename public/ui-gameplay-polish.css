@@ -273,15 +273,17 @@
   position: absolute;
   top: 10px;
   right: 16px;
+  bottom: auto;
+  left: auto;
   width: auto;
   height: auto;
-  inset-inline-start: auto;
   background: none;
   color: #ffc46f;
   font-size: 17px;
   font-weight: 900;
   opacity: .92;
   transform: none;
+  transition: none;
   text-shadow: 0 0 14px rgba(235,175,88,.40);
 }
 
