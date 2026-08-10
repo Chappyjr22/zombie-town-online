@@ -2,7 +2,8 @@ import worker from "./index.js";
 import { applyPerformancePatches } from "./performance-html-patches.js";
 import { applyCollisionPerformancePatches } from "./collision-html-patches.js";
 import { applyUiFeedbackPatches } from "./ui-feedback-html-patches.js";
-export { GameRoom } from "./index.js";
+import { applyNetworkPatches } from "./network-html-patches.js";
+export { GameRoom } from "./game-room.js";
 
 const RELOAD_UI_SCRIPT = "/ui-reload-feedback.js?v=20260810a";
 const FINAL_GAMEPLAY_CSS = "/ui-final-gameplay.css?v=20260810a";
@@ -17,7 +18,7 @@ export default {
 
     // API JSON, static assets, and WebSocket upgrades pass through exactly as
     // the existing worker returned them. This wrapper only adjusts the served
-    // game HTML for presentation helpers and targeted performance fixes.
+    // game HTML for presentation helpers and targeted performance/network fixes.
     if (!contentType.includes("text/html")) return response;
 
     const headers = new Headers(response.headers);
@@ -26,6 +27,7 @@ export default {
     html = applyPerformancePatches(html);
     html = applyCollisionPerformancePatches(html);
     html = applyUiFeedbackPatches(html);
+    html = applyNetworkPatches(html);
 
     const styles = [];
     if (!html.includes("/ui-final-gameplay.css")) styles.push(`<link rel="stylesheet" href="${FINAL_GAMEPLAY_CSS}">`);
