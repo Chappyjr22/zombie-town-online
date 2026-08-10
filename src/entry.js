@@ -7,6 +7,8 @@ export { GameRoom } from "./index.js";
 const RELOAD_UI_SCRIPT = "/ui-reload-feedback.js?v=20260810a";
 const FINAL_GAMEPLAY_CSS = "/ui-final-gameplay.css?v=20260810a";
 const FINAL_GAMEPLAY_SCRIPT = "/ui-final-gameplay.js?v=20260810a";
+const FEEDBACK_CLARITY_CSS = "/ui-feedback-clarity.css?v=20260810b";
+const FEEDBACK_CLARITY_SCRIPT = "/ui-feedback-clarity.js?v=20260810b";
 
 export default {
   async fetch(request, env, ctx) {
@@ -25,13 +27,15 @@ export default {
     html = applyCollisionPerformancePatches(html);
     html = applyUiFeedbackPatches(html);
 
-    if (!html.includes("/ui-final-gameplay.css")) {
-      html = html.replace("</head>", `  <link rel="stylesheet" href="${FINAL_GAMEPLAY_CSS}">\n</head>`);
-    }
+    const styles = [];
+    if (!html.includes("/ui-final-gameplay.css")) styles.push(`<link rel="stylesheet" href="${FINAL_GAMEPLAY_CSS}">`);
+    if (!html.includes("/ui-feedback-clarity.css")) styles.push(`<link rel="stylesheet" href="${FEEDBACK_CLARITY_CSS}">`);
+    if (styles.length) html = html.replace("</head>", `  ${styles.join("\n  ")}\n</head>`);
 
     const scripts = [];
     if (!html.includes("/ui-reload-feedback.js")) scripts.push(`<script src="${RELOAD_UI_SCRIPT}"></script>`);
     if (!html.includes("/ui-final-gameplay.js")) scripts.push(`<script src="${FINAL_GAMEPLAY_SCRIPT}"></script>`);
+    if (!html.includes("/ui-feedback-clarity.js")) scripts.push(`<script src="${FEEDBACK_CLARITY_SCRIPT}"></script>`);
     if (scripts.length) html = html.replace("</body>", `  ${scripts.join("\n  ")}\n</body>`);
 
     return new Response(html, {
