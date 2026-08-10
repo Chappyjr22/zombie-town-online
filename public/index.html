@@ -313,6 +313,9 @@
     border:1px solid rgba(232,224,208,.3);background:rgba(255,255,255,.07);color:var(--bone);cursor:pointer;}
   #editorPanel button:hover{background:rgba(255,255,255,.16);}
   #editorPanel .erow button{margin-top:4px;}
+  #editorCrosshair{position:absolute;left:50%;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;
+    border:1.5px solid rgba(255,255,255,.7);border-radius:50%;pointer-events:none;z-index:25;}
+  #editorCrosshair.gone{display:none;}
 </style>
 </head>
 <body>
@@ -507,11 +510,14 @@
   </div>
 </div>
 
+<div id="editorCrosshair" class="gone"></div>
 <div id="editorPanel" class="gone">
   <h3>Map Editor</h3>
   <div class="ehint">WASD fly &middot; right-drag to look &middot; Shift boost &middot; Space/Ctrl up/down<br>
     left-click a pin to select &middot; drag to move &middot; wheel to raise/lower &middot; Q/E to rotate<br>
-    Del removes selected &middot; F2 or Esc exits</div>
+    Del removes selected &middot; F2 or Esc exits<br>
+    <b>Controller:</b> sticks fly/look &middot; RB/LB up/down &middot; RT select+hold to drag<br>
+    D-pad L/R rotate &middot; X delete &middot; Y add here &middot; Start exits</div>
   <div id="editorCoords">Ground: <span id="editorCoordsVal">-, -</span> <button data-eact="copy-coords">Copy</button></div>
   <div id="editorAdd">
     <select id="editorAddType">
@@ -10578,10 +10584,7 @@ function doAct(a){
     showScreen(menuScreen==='options'?optionsFrom:(menuScreen==='mapsel'?mapBack:'menu'));
   }
   else if(a==='resume') resume();
-  else if(a==='editor'){
-    if(net.connected){ toast("Editor isn't available in multiplayer"); return; }
-    hideScreens(); enterEditor();
-  }
+  else if(a==='editor') enterEditor();
   else if(a==='restart'){
     if(net.connected){if(net.host)netSend({type:'start',map:currentMap,rules:gameRules});else toast('Only the host can restart');}
     else{hideScreens();startGame(currentMap);}
@@ -10839,6 +10842,8 @@ function pollPad(dt){
         ST=padOn(gp,9),L3=padOn(gp,10),R3=padOn(gp,11),SEL=padOn(gp,8),DU=padOn(gp,12);
   const edge=(k,v)=>{const e=v&&!pad.prev[k]; pad.prev[k]=v; return e;};
   if(A||B||X||Y||R3||RT||LT||lx||ly||pad.move.x||pad.move.y) pad.used=true;
+
+  if(editorMode){ pollPadEditor(gp,dt,{A,B,X,Y,LB,RB,LT,RT,ST,DU,lx,ly,edge}); return; }
 
   if(!game.running||menuScreen==='pause'){
     const goA=edge('A',A), goB=edge('B',B), goS=edge('ST',ST);
@@ -11730,9 +11735,61 @@ function updateEditorFly(dt){
   }
 }
 
+// Sticks fly/look same as WASD+mouse; RT is the one "interact" button, mirroring
+// the mouse's left button exactly - press to select whatever the center reticle
+// is over, hold to drag it (dragging here means "move the reticle's ground point",
+// same mechanism the mouse uses, just with editorNDC pinned to screen-center
+// instead of following a cursor). Camera sync happens here too, not just in
+// updateEditorFly, so the raycasts below use this frame's orientation rather
+// than lagging a frame behind.
+function pollPadEditor(gp,dt,btn){
+  const {X,Y,LB,RB,RT,ST,lx,ly,edge}=btn;
+  if(edge('eST',ST)){ exitEditor(); return; }
+  const DL=padOn(gp,14), DR=padOn(gp,15);
+  const active=!!(pad.move.x||pad.move.y||lx||ly||RT||X||Y||LB||RB||DL||DR);
+  if(!active&&!editorDragging) return;
+  const speed=13;
+  const cy=Math.cos(editorCam.yaw), sy=Math.sin(editorCam.yaw);
+  const fx=-sy,fz=-cy, rx=cy,rz=-sy;
+  const ix=pad.move.x, iz=-pad.move.y;
+  editorCam.pos.x+=(fx*iz+rx*ix)*speed*dt;
+  editorCam.pos.z+=(fz*iz+rz*ix)*speed*dt;
+  let vy=0; if(RB) vy+=1; if(LB) vy-=1;
+  editorCam.pos.y=Math.max(0.5,editorCam.pos.y+vy*speed*dt);
+  if(lx) editorCam.yaw-=Math.sign(lx)*lx*lx*pad.sens*1.4*dt;
+  if(ly) editorCam.pitch=clamp(editorCam.pitch-Math.sign(ly)*ly*ly*pad.sens*1.4*dt,-1.5,1.5);
+  camera.position.copy(editorCam.pos);
+  camera.rotation.order='YXZ';
+  camera.rotation.set(editorCam.pitch,editorCam.yaw,0);
+  editorNDC.x=0; editorNDC.y=0;
+  if(!editorDragging){
+    editorHoverPoint=editorGroundPointAt(0);
+    const c=el('editorCoordsVal');
+    if(c) c.textContent=editorHoverPoint?(round2(editorHoverPoint.x)+', '+round2(editorHoverPoint.z)):'-, -';
+  }
+  if(edge('eRT',RT)){
+    editorRay.setFromCamera(editorNDC,camera);
+    const hits=editorPinsGroup?editorRay.intersectObjects(editorPinsGroup.children,true):[];
+    if(hits.length){ let obj=hits[0].object; while(obj&&!obj.userData.entity) obj=obj.parent; if(obj) editorSelectPin(obj.userData.entity); }
+    else editorSelectPin(null);
+  }
+  editorDragging=RT&&!!editorSelected;
+  if(editorDragging){
+    const pt=editorGroundPointAt(editorSelected.y);
+    if(pt){ editorSelected.x=round2(pt.x); editorSelected.z=round2(pt.z); editorApplyDrag(editorSelected); editorRefreshPanel(); }
+  }
+  if(editorSelected&&editorSelected.type!=='box'){
+    let rdir=0; if(DL) rdir-=1; if(DR) rdir+=1;
+    if(rdir){ editorRotateBy(editorSelected,rdir*2.0*dt); editorRefreshPanel(); }
+  }
+  if(edge('eX',X)) editorDeleteSelected();
+  if(edge('eY',Y)) editorAddHere();
+}
+
 function enterEditor(){
   if(net.connected){ toast("Editor isn't available in multiplayer"); return; }
   if(!game.running&&menuScreen!=='pause'){ toast('Start a map first'); return; }
+  hideScreens();
   editorMode=true; game.running=false;
   player.firing=false; player.vel.x=0; player.vel.z=0;
   if(document.pointerLockElement) document.exitPointerLock();
@@ -11740,6 +11797,7 @@ function enterEditor(){
   editorCam.pos.copy(camera.position); editorCam.yaw=player.yaw; editorCam.pitch=player.pitch;
   el('hud').style.display='none';
   el('editorPanel').classList.remove('gone');
+  el('editorCrosshair').classList.remove('gone');
   editorPopulateAddSub();
   buildEditorPins();
   editorSelectPin(null);
@@ -11751,6 +11809,7 @@ function exitEditor(){
   editorSelectPin(null);
   clearEditorPins();
   el('editorPanel').classList.add('gone');
+  el('editorCrosshair').classList.add('gone');
   el('hud').style.display='';
   showScreen('pause');
   el('pauseSub').textContent='They are still out there';
