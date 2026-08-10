@@ -114,6 +114,7 @@ export default {
       "/ui-overhaul.css?v=20260810",
       "/ui-polish.css?v=20260810d",
       "/ui-gameplay-polish.css?v=20260810a",
+      "/ui-hud-contrast.css?v=20260810a",
     ];
     const missingStyleLinks = stylesheets
       .filter((href) => !html.includes(href.split("?")[0]))
