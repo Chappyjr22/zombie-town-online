@@ -109,7 +109,7 @@ export function applyUiFeedbackPatches(html) {
 
   out = replaceOnce(out,
     `hurtPlayer(clamp(+e.amount||0,0,100));`,
-    `hurtPlayer(clamp(+e.amount||0,0,100),+e.sourceX,+e.sourceZ);`,
+    `hurtPlayer(clamp(+e.amount||0,0,100),Number(e.sourceX),Number(e.sourceZ));`,
     'network hit direction receive');
 
   out = replaceOnce(out, `if(!net.connected||targetId===net.id) hurtPlayer(amount);
