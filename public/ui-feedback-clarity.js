@@ -43,14 +43,14 @@
 
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
-    addEventListener('town:player-hit', (event) => {
-      const d = event.detail || {};
+    const showDamageIndicator = (detail = {}) => {
+      const d = detail || {};
       const values = [d.sourceX, d.sourceZ, d.playerX, d.playerZ, d.yaw];
-      if (!values.every(Number.isFinite)) return;
+      if (!values.every(Number.isFinite)) return false;
 
       const dx = d.sourceX - d.playerX;
       const dz = d.sourceZ - d.playerZ;
-      if (Math.hypot(dx, dz) < 0.01) return;
+      if (Math.hypot(dx, dz) < 0.01) return false;
 
       const sy = Math.sin(d.yaw);
       const cy = Math.cos(d.yaw);
@@ -69,7 +69,14 @@
       const cleanup = () => marker.remove();
       marker.addEventListener('animationend', cleanup, { once: true });
       setTimeout(cleanup, 900);
-    });
+      return true;
+    };
+
+    // Direct hook for gameplay damage. This avoids relying on event delivery
+    // for the common zombie-hit path while retaining the event listener as a
+    // compatibility fallback for any older transformed HTML still in cache.
+    window.__townShowDamageIndicator = showDamageIndicator;
+    addEventListener('town:player-hit', (event) => showDamageIndicator(event.detail || {}));
 
     // Safety net for old or unusual deny paths. If a duplicate center toast
     // still says the same thing as an interaction prompt, suppress it and
