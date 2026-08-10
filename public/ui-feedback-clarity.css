@@ -18,6 +18,30 @@
   bottom: 30.5% !important;
   z-index: 15;
   max-width: min(560px, 76vw);
+  line-height: 1.25;
+}
+
+/* The original overhaul used ::before/::after as decorative // marks and
+ * absolutely centered them over the toast. The final gameplay layer reuses
+ * ::before for semantic labels such as PERK ACQUIRED //, so explicitly reset
+ * that old positioning here or the label and toast text occupy the same line. */
+#toast::before {
+  content: attr(data-kicker) !important;
+  position: static !important;
+  inset: auto !important;
+  display: block !important;
+  transform: none !important;
+  margin: 0 0 6px !important;
+  color: var(--toast-accent) !important;
+  font-size: 6.7px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  letter-spacing: .31em !important;
+  white-space: nowrap;
+}
+
+#toast::after {
+  content: none;
 }
 
 #toast.toast-power {
@@ -34,8 +58,21 @@
 }
 
 #toast.toast-power::before {
-  margin-bottom: 4px;
-  font-size: 6.2px;
+  margin-bottom: 5px !important;
+  font-size: 6.2px !important;
+}
+
+#toast.toast-power::after {
+  content: "";
+  position: absolute;
+  left: 24%;
+  right: 24%;
+  top: auto;
+  bottom: -2px;
+  height: 2px;
+  transform: none;
+  background: linear-gradient(90deg, transparent, var(--toast-accent), transparent);
+  box-shadow: 0 0 13px color-mix(in srgb, var(--toast-accent) 44%, transparent);
 }
 
 /* Boss health owns the lane directly beneath the round counter, so power-ups
@@ -93,7 +130,7 @@
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  z-index: 12;
+  z-index: 30;
 }
 
 .damage-indicator {
@@ -104,40 +141,48 @@
   height: 0;
   transform: rotate(var(--hit-angle, 0deg));
   transform-origin: 0 0;
-  opacity: 0;
-  animation: uiDamageIndicator .68s cubic-bezier(.16,.75,.25,1) forwards;
+  opacity: 1;
+  animation: uiDamageIndicator .74s cubic-bezier(.16,.75,.25,1) forwards;
 }
 
 .damage-indicator__chevron {
   position: absolute;
-  left: -45px;
-  top: -34vh;
-  width: 90px;
-  height: 25px;
-  opacity: calc(.48 + (var(--hit-strength, .5) * .45));
+  left: -52px;
+  top: -32vh;
+  width: 104px;
+  height: 30px;
+  opacity: calc(.62 + (var(--hit-strength, .5) * .38));
   background:
-    linear-gradient(180deg, rgba(255,97,72,.94), rgba(184,32,24,.72) 58%, rgba(112,13,10,.12));
-  clip-path: polygon(0 0, 100% 0, 82% 48%, 50% 100%, 18% 48%);
+    linear-gradient(180deg, rgba(255,129,104,.98), rgba(236,61,43,.94) 28%, rgba(161,24,18,.78) 68%, rgba(94,9,7,.12));
+  clip-path: polygon(0 0, 100% 0, 83% 46%, 50% 100%, 17% 46%);
   filter:
-    drop-shadow(0 0 5px rgba(255,74,54,.78))
-    drop-shadow(0 2px 8px rgba(0,0,0,.86));
+    drop-shadow(0 0 7px rgba(255,74,54,.94))
+    drop-shadow(0 2px 10px rgba(0,0,0,.94));
+}
+
+.damage-indicator__chevron::before {
+  content: "";
+  position: absolute;
+  inset: 3px 11px 8px;
+  clip-path: polygon(0 0, 100% 0, 81% 43%, 50% 100%, 19% 43%);
+  background: linear-gradient(180deg, rgba(255,225,214,.42), rgba(255,101,78,.08));
 }
 
 .damage-indicator__chevron::after {
   content: "";
   position: absolute;
-  left: 18px;
-  right: 18px;
+  left: 20px;
+  right: 20px;
   top: 4px;
   height: 2px;
-  background: rgba(255, 204, 188, .68);
-  box-shadow: 0 0 7px rgba(255,112,87,.52);
+  background: rgba(255, 226, 214, .84);
+  box-shadow: 0 0 9px rgba(255,112,87,.82);
 }
 
 @keyframes uiDamageIndicator {
-  0% { opacity: 0; }
-  10% { opacity: 1; }
-  58% { opacity: .88; }
+  0% { opacity: 1; filter: brightness(1.35); }
+  18% { opacity: 1; filter: brightness(1); }
+  66% { opacity: .88; }
   100% { opacity: 0; }
 }
 
@@ -170,10 +215,10 @@
   }
 
   .damage-indicator__chevron {
-    top: -30vh;
-    left: -36px;
-    width: 72px;
-    height: 21px;
+    top: -29vh;
+    left: -42px;
+    width: 84px;
+    height: 24px;
   }
 }
 
@@ -202,16 +247,20 @@ body.touch #toast.toast-power {
   }
 
   .damage-indicator__chevron {
-    top: -31vh;
-    width: 74px;
-    left: -37px;
+    top: -29vh;
+    width: 86px;
+    left: -43px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   #prompt.prompt-deny-flash,
-  #prompt.prompt-deny-flash::after,
-  .damage-indicator {
+  #prompt.prompt-deny-flash::after {
     animation-duration: .01ms !important;
+  }
+
+  .damage-indicator {
+    animation: none !important;
+    opacity: 1 !important;
   }
 }
