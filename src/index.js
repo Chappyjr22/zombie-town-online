@@ -112,12 +112,12 @@ export default {
     const html = await response.text();
     const styleLinks =
       '  <link rel="stylesheet" href="/ui-overhaul.css?v=20260810">\n' +
-      '  <link rel="stylesheet" href="/ui-polish.css?v=20260810b">\n';
+      '  <link rel="stylesheet" href="/ui-polish.css?v=20260810d">\n';
     let themedHtml = html;
     if (!themedHtml.includes("/ui-overhaul.css")) {
       themedHtml = themedHtml.replace("</head>", `${styleLinks}</head>`);
     } else if (!themedHtml.includes("/ui-polish.css")) {
-      themedHtml = themedHtml.replace("</head>", '  <link rel="stylesheet" href="/ui-polish.css?v=20260810b">\n</head>');
+      themedHtml = themedHtml.replace("</head>", '  <link rel="stylesheet" href="/ui-polish.css?v=20260810d">\n</head>');
     }
     return new Response(themedHtml, { status: response.status, statusText: response.statusText, headers });
   },
