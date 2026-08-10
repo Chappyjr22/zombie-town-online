@@ -80,7 +80,8 @@ export function applyUiFeedbackPatches(html) {
 
   // Give the presentation layer enough context to draw a directional hit arc.
   // Damage rules stay exactly the same, only attacker position metadata is
-  // surfaced through a DOM event.
+  // surfaced to the UI. Prefer a direct hook so normal zombie hits cannot be
+  // lost to listener timing; retain the event fallback for stale cached UI JS.
   out = replaceOnce(out, `function hurtPlayer(amount){
   if(!player.alive||player.downed||player.invuln>0) return;
   player.hp-=amount; player.lastHit=game.time;
@@ -91,9 +92,9 @@ export function applyUiFeedbackPatches(html) {
 }`, `function hurtPlayer(amount,sourceX=null,sourceZ=null){
   if(!player.alive||player.downed||player.invuln>0) return;
   if(Number.isFinite(sourceX)&&Number.isFinite(sourceZ)){
-    window.dispatchEvent(new CustomEvent('town:player-hit',{detail:{
-      sourceX,sourceZ,playerX:player.pos.x,playerZ:player.pos.z,yaw:player.yaw,amount
-    }}));
+    const detail={sourceX,sourceZ,playerX:player.pos.x,playerZ:player.pos.z,yaw:player.yaw,amount};
+    if(typeof window.__townShowDamageIndicator==='function') window.__townShowDamageIndicator(detail);
+    else window.dispatchEvent(new CustomEvent('town:player-hit',{detail}));
   }
   player.hp-=amount; player.lastHit=game.time;
   sfxHurt(clamp(.38+amount/120,.38,.56));
