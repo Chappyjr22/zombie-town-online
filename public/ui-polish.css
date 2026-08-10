@@ -669,3 +669,147 @@
     top: 173px;
   }
 }
+
+/* ========================================================================== */
+/* Polish pass 4: tuned against actual 1902x908 and 1393x854 game captures.   */
+/* ========================================================================== */
+
+/* The live capture showed the Town art was still losing too much midtone detail. */
+#menu::before {
+  inset: -3% -1% -3% 24%;
+  opacity: 1;
+  background:
+    linear-gradient(90deg, #05070a 0%, rgba(5,7,10,.84) 7%, rgba(5,7,10,.22) 27%, rgba(5,7,10,.025) 57%, rgba(3,4,6,.11) 100%),
+    radial-gradient(circle at 67% 48%, rgba(229,66,43,.38), transparent 11%),
+    radial-gradient(ellipse at 67% 62%, rgba(231,126,51,.22), transparent 24%),
+    linear-gradient(180deg, rgba(0,0,0,.015), rgba(0,0,0,.19)),
+    url('/images/maps/town.jpg') 56% 50% / cover no-repeat;
+  filter: saturate(.84) contrast(1.13) brightness(.88) blur(.08px);
+}
+
+#menu::after {
+  background:
+    radial-gradient(ellipse at 70% 47%, transparent 0 20%, rgba(0,0,0,.035) 42%, rgba(0,0,0,.15) 70%, rgba(0,0,0,.34) 100%),
+    radial-gradient(ellipse at 66% 78%, rgba(211,49,35,.16), transparent 32%),
+    linear-gradient(90deg, rgba(5,7,10,.98) 0%, rgba(5,7,10,.83) 27%, rgba(5,7,10,.18) 48%, rgba(4,5,7,.01) 76%, rgba(3,4,6,.12) 100%),
+    repeating-linear-gradient(0deg, transparent 0 5px, rgba(255,255,255,.006) 6px);
+  box-shadow: inset 0 0 118px 23px rgba(0,0,0,.38);
+}
+
+@keyframes uiMenuSceneDrift {
+  0% { transform: scale(1.035) translate3d(0, 0, 0); filter: saturate(.80) contrast(1.12) brightness(.84); }
+  48% { transform: scale(1.050) translate3d(-.38%, -.15%, 0); filter: saturate(.88) contrast(1.14) brightness(.91); }
+  52% { transform: scale(1.052) translate3d(-.44%, -.12%, 0); filter: saturate(.93) contrast(1.15) brightness(.95); }
+  100% { transform: scale(1.044) translate3d(.24%, .21%, 0); filter: saturate(.82) contrast(1.13) brightness(.86); }
+}
+
+/* Keep a dark reading lane behind the menu, but stop the panel from feeling boxed in. */
+#menu .card {
+  background:
+    linear-gradient(90deg, rgba(5,7,10,.94) 0%, rgba(5,7,10,.71) 55%, rgba(5,7,10,.14) 86%, transparent 100%);
+}
+
+#menu .mitem {
+  border-top: 1px solid rgba(230,223,208,.015);
+  border-bottom: 1px solid rgba(230,223,208,.025);
+}
+
+#menu .mitem:hover,
+#menu .mitem.sel {
+  border-top-color: rgba(235,175,88,.16);
+  border-right-color: rgba(235,175,88,.11);
+  border-bottom-color: rgba(239,89,68,.28);
+  background:
+    linear-gradient(90deg, rgba(151,31,24,.68), rgba(93,32,23,.29) 54%, rgba(225,165,78,.07) 84%, transparent),
+    linear-gradient(180deg, rgba(255,255,255,.04), transparent);
+  box-shadow:
+    inset 18px 0 32px rgba(201,48,34,.17),
+    inset 0 -1px rgba(239,89,68,.16),
+    0 0 34px rgba(145,25,20,.14);
+}
+
+#menu .mitem:hover::after,
+#menu .mitem.sel::after {
+  color: #ffc46f;
+  text-shadow: 0 0 15px rgba(235,175,88,.45);
+}
+
+/* The map screen is already strong. Keep it dark, but make selection unmistakable. */
+.mapcard {
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, background .18s ease, filter .18s ease;
+}
+
+.mapcard:not(:hover):not(.sel) {
+  filter: brightness(.96);
+}
+
+.mapcard:hover,
+.mapcard.sel {
+  background:
+    linear-gradient(180deg, rgba(26,29,31,.91), rgba(9,10,12,.99));
+  border-color: rgba(244,193,111,.92);
+  border-bottom-color: #f15c46;
+  box-shadow:
+    0 24px 54px rgba(0,0,0,.56),
+    0 0 0 1px rgba(239,89,68,.38),
+    0 0 28px rgba(239,89,68,.17),
+    0 0 46px rgba(231,174,84,.08);
+}
+
+.mapcard:hover::before,
+.mapcard.sel::before {
+  border-left-color: #f25e48;
+  border-bottom-color: #f25e48;
+  box-shadow:
+    inset 0 0 31px rgba(180,39,29,.10),
+    inset 4px 0 15px rgba(239,89,68,.11);
+}
+
+.mapcard:hover .mapart img,
+.mapcard.sel .mapart img {
+  filter: saturate(1.10) contrast(1.09) brightness(1.14);
+}
+
+.mapcard:hover p,
+.mapcard.sel p {
+  color: #ddd4c5;
+  opacity: .96;
+}
+
+.mapcard.sel h4::after {
+  content: "  // SELECTED";
+  color: #f1b45d;
+  font-size: 7px;
+  letter-spacing: .16em;
+  text-shadow: 0 0 10px rgba(217,162,80,.22);
+}
+
+#mapsel .btn:hover,
+#mapsel .btn.sel {
+  background: linear-gradient(90deg, rgba(137,31,24,.62), rgba(86,29,22,.27));
+  border-color: rgba(236,179,93,.56);
+  border-left-color: #ef5944;
+  box-shadow: 0 8px 26px rgba(0,0,0,.32), 0 0 18px rgba(158,32,27,.13);
+}
+
+@media (max-width: 1100px) {
+  #menu::before {
+    inset: -3% -1% -3% 30%;
+  }
+}
+
+@media (max-width: 760px) {
+  #menu::before {
+    inset: 0;
+    opacity: .58;
+    background-position: 57% center;
+    filter: saturate(.72) contrast(1.10) brightness(.66);
+  }
+
+  #menu::after {
+    background:
+      linear-gradient(180deg, rgba(5,7,10,.54), rgba(5,7,10,.78)),
+      radial-gradient(circle at 68% 25%, rgba(175,38,29,.16), transparent 31%);
+    box-shadow: inset 0 0 92px 20px rgba(0,0,0,.42);
+  }
+}
