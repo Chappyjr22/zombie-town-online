@@ -510,7 +510,7 @@
 <div id="editorPanel" class="gone">
   <h3>Map Editor</h3>
   <div class="ehint">WASD fly &middot; right-drag to look &middot; Shift boost &middot; Space/Ctrl up/down<br>
-    left-click a pin to select &middot; drag to move &middot; wheel to raise/lower<br>
+    left-click a pin to select &middot; drag to move &middot; wheel to raise/lower &middot; Q/E to rotate<br>
     Del removes selected &middot; F2 or Esc exits</div>
   <div id="editorCoords">Ground: <span id="editorCoordsVal">-, -</span> <button data-eact="copy-coords">Copy</button></div>
   <div id="editorAdd">
@@ -11558,6 +11558,22 @@ function editorApplyDrag(entity){
   }
   editorMovePinMesh(entity);
 }
+function editorRotateBy(entity,delta){
+  if(!entity||entity.type==='box') return;
+  entity.rot=round2(entity.rot+delta);
+  if(entity.rot>Math.PI) entity.rot-=TAU; else if(entity.rot<-Math.PI) entity.rot+=TAU;
+  entity.obj.rotation.y=entity.rot;
+  if(entity.extraObj){
+    // The wired-on sign for equip buys sits offset in front of the crate
+    // along its own facing, so a rotation has to recompute that offset too.
+    const nx=Math.sin(entity.rot), nz=Math.cos(entity.rot);
+    entity.extraDx=nx*0.23; entity.extraDz=nz*0.23;
+    entity.extraObj.position.set(entity.x+entity.extraDx,entity.y+entity.extraDy,entity.z+entity.extraDz);
+    entity.extraObj.rotation.y=entity.rot;
+  }
+  editorSyncInteractable(entity);
+  editorMovePinMesh(entity);
+}
 
 function editorPinLabelTexture(text,hex){
   return tex(200,44,(c,w,h)=>{
@@ -11577,12 +11593,23 @@ function editorMakePin(entity){
   const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:editorPinLabelTexture(editorEntityLabel(entity).toUpperCase(),hex),depthTest:false}));
   sprite.scale.set(2.0,0.44,1); sprite.position.y=0.9;
   const group=new THREE.Group(); group.add(cone); group.add(sprite);
+  if(entity.type!=='box'){
+    // Facing indicator - most placed objects (perk machines, wall buys, PAP)
+    // treat local -Z as their front, so this arrow shows the rot the code
+    // line will actually carry, not just where the pin sits.
+    const arrow=new THREE.Mesh(new THREE.ConeGeometry(0.13,0.5,6),
+      new THREE.MeshBasicMaterial({color:0xffffff,depthTest:false}));
+    arrow.rotation.x=Math.PI/2; arrow.position.set(0,0.35,-0.62);
+    group.add(arrow);
+  }
   group.renderOrder=999; group.userData.entity=entity;
   entity.pin=group;
   return group;
 }
 function editorMovePinMesh(entity){
-  if(entity.pin) entity.pin.position.set(entity.x,entity.y+0.4,entity.z);
+  if(!entity.pin) return;
+  entity.pin.position.set(entity.x,entity.y+0.4,entity.z);
+  entity.pin.rotation.y=entity.rot||0;
 }
 function buildEditorPins(){
   clearEditorPins();
@@ -11591,6 +11618,7 @@ function buildEditorPins(){
   for(const entity of editorAll()){
     const pin=editorMakePin(entity);
     pin.position.set(entity.x,entity.y+0.4,entity.z);
+    pin.rotation.y=entity.rot||0;
     if(entity===editorSelected) pin.scale.set(1.4,1.4,1.4);
     editorPinsGroup.add(pin);
   }
@@ -11649,7 +11677,7 @@ function editorAddHere(){
   else if(type==='pap'){ addPackAPunch(x,z,0); }
   buildEditorPins();
   editorRefreshPanel();
-  toast('Added - drag to position (rotation edits need the copied code)');
+  toast('Added - drag to position, Q/E to rotate');
 }
 function editorRefreshPanel(){
   const list=el('editorList'); if(!list) return;
@@ -11689,6 +11717,12 @@ function updateEditorFly(dt){
   camera.position.copy(editorCam.pos);
   camera.rotation.order='YXZ';
   camera.rotation.set(editorCam.pitch,editorCam.yaw,0);
+  if(editorSelected&&editorSelected.type!=='box'){
+    let rdir=0;
+    if(keys['KeyQ']) rdir-=1;
+    if(keys['KeyE']) rdir+=1;
+    if(rdir){ editorRotateBy(editorSelected,rdir*2.4*dt); editorRefreshPanel(); }
+  }
   if(!editorDragging){
     editorHoverPoint=editorGroundPointAt(0);
     const c=el('editorCoordsVal');
