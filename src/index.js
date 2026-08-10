@@ -110,15 +110,18 @@ export default {
     headers.set("cache-control", "no-store, max-age=0");
     headers.delete("content-length");
     const html = await response.text();
-    const styleLinks =
-      '  <link rel="stylesheet" href="/ui-overhaul.css?v=20260810">\n' +
-      '  <link rel="stylesheet" href="/ui-polish.css?v=20260810d">\n';
-    let themedHtml = html;
-    if (!themedHtml.includes("/ui-overhaul.css")) {
-      themedHtml = themedHtml.replace("</head>", `${styleLinks}</head>`);
-    } else if (!themedHtml.includes("/ui-polish.css")) {
-      themedHtml = themedHtml.replace("</head>", '  <link rel="stylesheet" href="/ui-polish.css?v=20260810d">\n</head>');
-    }
+    const stylesheets = [
+      "/ui-overhaul.css?v=20260810",
+      "/ui-polish.css?v=20260810d",
+      "/ui-gameplay-polish.css?v=20260810a",
+    ];
+    const missingStyleLinks = stylesheets
+      .filter((href) => !html.includes(href.split("?")[0]))
+      .map((href) => `  <link rel="stylesheet" href="${href}">\n`)
+      .join("");
+    const themedHtml = missingStyleLinks
+      ? html.replace("</head>", `${missingStyleLinks}</head>`)
+      : html;
     return new Response(themedHtml, { status: response.status, statusText: response.statusText, headers });
   },
 };
