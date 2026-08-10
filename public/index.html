@@ -316,6 +316,17 @@
   #editorCrosshair{position:absolute;left:50%;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;
     border:1.5px solid rgba(255,255,255,.7);border-radius:50%;pointer-events:none;z-index:25;}
   #editorCrosshair.gone{display:none;}
+  #editorLock{position:absolute;inset:0;background:rgba(5,6,10,.88);display:flex;
+    align-items:center;justify-content:center;z-index:40;}
+  #editorLock.gone{display:none;}
+  #editorLock .elockCard{background:rgba(14,16,22,.96);border:1px solid rgba(232,224,208,.25);
+    border-radius:10px;padding:22px 26px;text-align:center;min-width:220px;}
+  #editorLock h3{color:var(--amber);font-size:18px;margin-bottom:2px;letter-spacing:.04em;}
+  #editorPinDots{font-size:26px;letter-spacing:10px;margin:14px 0;color:var(--bone);}
+  #editorKeypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+  #editorKeypad button{font-size:18px;padding:12px 0;border-radius:6px;
+    border:1px solid rgba(232,224,208,.3);background:rgba(255,255,255,.06);color:var(--bone);cursor:pointer;}
+  #editorKeypad button:hover{background:rgba(255,255,255,.16);}
 </style>
 </head>
 <body>
@@ -532,6 +543,20 @@
   <div id="editorList"></div>
   <button id="editorCopyAll" data-eact="copy-all" style="width:100%">Copy everything for this map</button>
   <div class="ehint" style="margin:6px 0 0">Paste this in chat when you're done - it's the map's full current layout, ready to hand off.</div>
+</div>
+
+<div id="editorLock" class="gone">
+  <div class="elockCard">
+    <h3>Map Editor</h3>
+    <div class="ehint">Enter passcode</div>
+    <div id="editorPinDots">&#9675; &#9675; &#9675; &#9675;</div>
+    <div id="editorKeypad">
+      <button data-pin="1">1</button><button data-pin="2">2</button><button data-pin="3">3</button>
+      <button data-pin="4">4</button><button data-pin="5">5</button><button data-pin="6">6</button>
+      <button data-pin="7">7</button><button data-pin="8">8</button><button data-pin="9">9</button>
+      <button data-pin="back">&larr;</button><button data-pin="0">0</button><button data-pin="cancel">&times;</button>
+    </div>
+  </div>
 </div>
 
 <div class="screen gone" id="options">
@@ -9399,6 +9424,13 @@ let pointerLocked=false;
 const isTouch=matchMedia('(pointer:coarse)').matches;
 addEventListener('keydown',e=>{
   keys[e.code]=true;
+  if(!el('editorLock').classList.contains('gone')){
+    if(e.code==='Escape'){ editorLockCancel(); return; }
+    if(e.code==='Backspace'){ editorLockBackspace(); return; }
+    const m=/^(?:Digit|Numpad)(\d)$/.exec(e.code);
+    if(m){ editorLockDigit(m[1]); return; }
+    return;
+  }
   if(e.code==='F2'){ e.preventDefault(); toggleEditor(); return; }
   if(editorMode){
     if(e.code==='Escape'){ exitEditor(); return; }
@@ -11830,9 +11862,44 @@ function pollPadEditor(gp,dt,btn){
   if(edge('eY',Y)) editorAddHere();
 }
 
+const EDITOR_PIN='0039';
+let editorPinBuffer='';
+function editorUpdatePinDots(){
+  const d=el('editorPinDots'); if(!d) return;
+  d.innerHTML=Array.from({length:4},(_,i)=>i<editorPinBuffer.length?'&#9679;':'&#9675;').join(' ');
+}
+function editorLockCancel(){
+  editorPinBuffer='';
+  el('editorLock').classList.add('gone');
+}
+function editorLockBackspace(){
+  editorPinBuffer=editorPinBuffer.slice(0,-1);
+  editorUpdatePinDots();
+}
+function editorLockDigit(d){
+  if(editorPinBuffer.length>=4) return;
+  editorPinBuffer+=d;
+  editorUpdatePinDots();
+  if(editorPinBuffer.length<4) return;
+  if(editorPinBuffer===EDITOR_PIN){
+    editorPinBuffer='';
+    el('editorLock').classList.add('gone');
+    enterEditorNow();
+  } else {
+    toast('Incorrect passcode');
+    editorPinBuffer='';
+    editorUpdatePinDots();
+  }
+}
 function enterEditor(){
   if(net.connected){ toast("Editor isn't available in multiplayer"); return; }
   if(!game.running&&menuScreen!=='pause'){ toast('Start a map first'); return; }
+  editorPinBuffer='';
+  editorUpdatePinDots();
+  el('editorLock').classList.remove('gone');
+  if(document.pointerLockElement) document.exitPointerLock();
+}
+function enterEditorNow(){
   hideScreens();
   editorMode=true; game.running=false;
   player.firing=false; player.vel.x=0; player.vel.z=0;
@@ -11921,6 +11988,13 @@ el('editorPanel').addEventListener('click',e=>{
   if(eact==='copy-coords') editorCopyText(el('editorCoordsVal').textContent);
   else if(eact==='copy-all') editorCopyAll();
   else if(eact==='add') editorAddHere();
+});
+el('editorLock').addEventListener('click',e=>{
+  const p=e.target.getAttribute&&e.target.getAttribute('data-pin');
+  if(!p) return;
+  if(p==='back') editorLockBackspace();
+  else if(p==='cancel') editorLockCancel();
+  else editorLockDigit(p);
 });
 
 renderPerks(); updHUD(); loadSettings();
