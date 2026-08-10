@@ -34,28 +34,6 @@ function remoteFireOriginDir(r){
   return {org:_remoteOrg,dir:_remoteDir};
 }`, 'remote projectile camera direction');
 
-  // If the previous multiplayer visual pass already replaced the original
-  // helper before this file version is served, upgrade that implementation too.
-  out = replaceOnce(out, `const _remoteOrg=new THREE.Vector3(), _remoteAimPoint=new THREE.Vector3(), _remoteDir=new THREE.Vector3();
-function remoteFireOriginDir(r){
-  // remoteFire updates r.g.rotation immediately from the shot event, so force
-  // the world matrices current before sampling the visible muzzle transform.
-  r.g.updateMatrixWorld(true);
-  r.flash.getWorldPosition(_remoteOrg);
-  const forwardZ=r.flash.position.z>=0?1:-1;
-  _remoteAimPoint.set(r.flash.position.x,r.flash.position.y,r.flash.position.z+forwardZ);
-  r.weaponHolder.localToWorld(_remoteAimPoint);
-  _remoteDir.copy(_remoteAimPoint).sub(_remoteOrg).normalize();
-  return {org:_remoteOrg,dir:_remoteDir};
-}`, `const _remoteOrg=new THREE.Vector3(), _remoteDir=new THREE.Vector3();
-function remoteFireOriginDir(r){
-  r.g.updateMatrixWorld(true);
-  r.flash.getWorldPosition(_remoteOrg);
-  const cp=Math.cos(r.pitch);
-  _remoteDir.set(-Math.sin(r.yaw)*cp,Math.sin(r.pitch),-Math.cos(r.yaw)*cp).normalize();
-  return {org:_remoteOrg,dir:_remoteDir};
-}`, 'upgrade remote projectile direction');
-
   // The firing hand was still authored too close to the chest centerline.
   // Move the weapon/trigger hand forward and slightly outward so the support
   // hand naturally follows the fore-end away from the torso as well.
