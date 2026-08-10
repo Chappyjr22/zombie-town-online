@@ -9,13 +9,14 @@ function replaceOnce(html, search, replacement, label) {
 export function applyMultiplayerVisualPatches(html) {
   let out = html;
 
-  // Derive replicated projectile direction from the weapon that is actually
-  // being rendered on the remote player. Rebuilding the vector from yaw/pitch
-  // alone can disagree with the composed Soldier/upper-body/weapon-holder
-  // transform and made Ray Gun/Thunder/Wunderwaffe effects fire behind the
-  // player. The muzzle's local Z sign tells us which end of the authored gun
-  // is forward, so this also stays correct for any weapon whose source model
-  // uses the opposite Z convention.
+  // Replicated shot effects must follow the same coordinate convention as the
+  // shooter's camera, not the authored weapon/model axis. In this game yaw=0
+  // looks down world -Z (see player/editor movement: fx=-sin(yaw), fz=-cos(yaw)).
+  // Deriving direction from the remote gun transform can therefore reverse a
+  // perfectly valid muzzle transform when the model hierarchy uses a different
+  // local forward axis. Build the camera forward vector explicitly instead.
+  // This is also shared by remote grenades, keeping all replicated projectiles
+  // on the same forward convention.
   out = replaceOnce(out, `const _remoteAimObj=new THREE.Object3D();
 const _remoteOrg=new THREE.Vector3(), _remoteDir=new THREE.Vector3();
 function remoteFireOriginDir(r){
@@ -24,7 +25,18 @@ function remoteFireOriginDir(r){
   _remoteAimObj.updateMatrixWorld();
   _remoteAimObj.getWorldDirection(_remoteDir);
   return {org:_remoteOrg,dir:_remoteDir};
-}`, `const _remoteOrg=new THREE.Vector3(), _remoteAimPoint=new THREE.Vector3(), _remoteDir=new THREE.Vector3();
+}`, `const _remoteOrg=new THREE.Vector3(), _remoteDir=new THREE.Vector3();
+function remoteFireOriginDir(r){
+  r.g.updateMatrixWorld(true);
+  r.flash.getWorldPosition(_remoteOrg);
+  const cp=Math.cos(r.pitch);
+  _remoteDir.set(-Math.sin(r.yaw)*cp,Math.sin(r.pitch),-Math.cos(r.yaw)*cp).normalize();
+  return {org:_remoteOrg,dir:_remoteDir};
+}`, 'remote projectile camera direction');
+
+  // If the previous multiplayer visual pass already replaced the original
+  // helper before this file version is served, upgrade that implementation too.
+  out = replaceOnce(out, `const _remoteOrg=new THREE.Vector3(), _remoteAimPoint=new THREE.Vector3(), _remoteDir=new THREE.Vector3();
 function remoteFireOriginDir(r){
   // remoteFire updates r.g.rotation immediately from the shot event, so force
   // the world matrices current before sampling the visible muzzle transform.
@@ -35,7 +47,14 @@ function remoteFireOriginDir(r){
   r.weaponHolder.localToWorld(_remoteAimPoint);
   _remoteDir.copy(_remoteAimPoint).sub(_remoteOrg).normalize();
   return {org:_remoteOrg,dir:_remoteDir};
-}`, 'remote wonder-weapon muzzle direction');
+}`, `const _remoteOrg=new THREE.Vector3(), _remoteDir=new THREE.Vector3();
+function remoteFireOriginDir(r){
+  r.g.updateMatrixWorld(true);
+  r.flash.getWorldPosition(_remoteOrg);
+  const cp=Math.cos(r.pitch);
+  _remoteDir.set(-Math.sin(r.yaw)*cp,Math.sin(r.pitch),-Math.cos(r.yaw)*cp).normalize();
+  return {org:_remoteOrg,dir:_remoteDir};
+}`, 'upgrade remote projectile direction');
 
   // The firing hand was still authored too close to the chest centerline.
   // Move the weapon/trigger hand forward and slightly outward so the support
