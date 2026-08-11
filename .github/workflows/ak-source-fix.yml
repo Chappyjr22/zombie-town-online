@@ -1,0 +1,60 @@
+name: One-off AK source fix
+
+on:
+  push:
+    paths:
+      - .github/workflows/ak-source-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bake AK pose into source and remove runtime override
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          index = Path("public/index.html")
+          text = index.read_text()
+          old = """ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[-.003,-.052,-.190],
+            sightX:-.0026,sightY:.046,hipDrop:.034},"""
+          new = """ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[-.003,-.052,-.190],
+            sightX:-.0026,sightY:.046,hip:[.395,-.285,-.545],hipDrop:.034},"""
+          if text.count(old) != 1:
+              raise SystemExit(f"Expected exactly one AK source block, found {text.count(old)}")
+          index.write_text(text.replace(old, new, 1))
+
+          worker = Path("src/index.js")
+          text = worker.read_text()
+          old_worker = """    // Temporary live tuning pass for the AK viewmodel. This changes only the
+              // imported AK's hip-fire root pose, leaving its ADS sight calibration,
+              // model scale and hand anchors untouched while the new framing is tested.
+              const tunedHtml = themedHtml.replace(
+                `ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[-.003,-.052,-.190],
+              sightX:-.0026,sightY:.046,hipDrop:.034},`,
+                `ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[-.003,-.052,-.190],
+              sightX:-.0026,sightY:.046,hip:[.395,-.285,-.545],hipDrop:.034},`,
+              );
+              return new Response(tunedHtml, { status: response.status, statusText: response.statusText, headers });"""
+          new_worker = """    return new Response(themedHtml, { status: response.status, statusText: response.statusText, headers });"""
+          if text.count(old_worker) != 1:
+              raise SystemExit(f"Expected exactly one temporary Worker override, found {text.count(old_worker)}")
+          worker.write_text(text.replace(old_worker, new_worker, 1))
+          PY
+
+      - name: Remove one-off workflow
+        run: rm .github/workflows/ak-source-fix.yml
+
+      - name: Commit source fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/index.html src/index.js .github/workflows/ak-source-fix.yml
+          git commit -m "Bake AK hip-fire pose into source"
+          git push
