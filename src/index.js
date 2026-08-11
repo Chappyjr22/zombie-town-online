@@ -123,16 +123,7 @@ export default {
     const themedHtml = missingStyleLinks
       ? html.replace("</head>", `${missingStyleLinks}</head>`)
       : html;
-    // Temporary live tuning pass for the AK viewmodel. This changes only the
-    // imported AK's hip-fire root pose, leaving its ADS sight calibration,
-    // model scale and hand anchors untouched while the new framing is tested.
-    const tunedHtml = themedHtml.replace(
-      `ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[-.003,-.052,-.190],
-    sightX:-.0026,sightY:.046,hipDrop:.034},`,
-      `ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[-.003,-.052,-.190],
-    sightX:-.0026,sightY:.046,hip:[.395,-.285,-.545],hipDrop:.034},`,
-    );
-    return new Response(tunedHtml, { status: response.status, statusText: response.statusText, headers });
+    return new Response(themedHtml, { status: response.status, statusText: response.statusText, headers });
   },
 };
 
