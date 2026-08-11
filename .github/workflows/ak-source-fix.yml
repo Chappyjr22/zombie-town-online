@@ -19,33 +19,31 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
 
           index = Path("public/index.html")
           text = index.read_text()
-          old = """ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[-.003,-.052,-.190],
-            sightX:-.0026,sightY:.046,hipDrop:.034},"""
-          new = """ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[-.003,-.052,-.190],
-            sightX:-.0026,sightY:.046,hip:[.395,-.285,-.545],hipDrop:.034},"""
-          if text.count(old) != 1:
-              raise SystemExit(f"Expected exactly one AK source block, found {text.count(old)}")
-          index.write_text(text.replace(old, new, 1))
+          ak_pattern = re.compile(
+              r"(ak74u:\{file:'ak47',length:\.95,grip:\[\.002,-\.105,\.305\],support:\[-\.003,-\.052,-\.190\],\s*sightX:-\.0026,sightY:\.046,)(hipDrop:\.034\},)"
+          )
+          text, ak_count = ak_pattern.subn(r"\1hip:[.395,-.285,-.545],\2", text, count=1)
+          if ak_count != 1:
+              raise SystemExit(f"Expected exactly one AK source block, found {ak_count}")
+          index.write_text(text)
 
           worker = Path("src/index.js")
           text = worker.read_text()
-          old_worker = """    // Temporary live tuning pass for the AK viewmodel. This changes only the
-              // imported AK's hip-fire root pose, leaving its ADS sight calibration,
-              // model scale and hand anchors untouched while the new framing is tested.
-              const tunedHtml = themedHtml.replace(
-                `ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[-.003,-.052,-.190],
-              sightX:-.0026,sightY:.046,hipDrop:.034},`,
-                `ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[-.003,-.052,-.190],
-              sightX:-.0026,sightY:.046,hip:[.395,-.285,-.545],hipDrop:.034},`,
-              );
-              return new Response(tunedHtml, { status: response.status, statusText: response.statusText, headers });"""
-          new_worker = """    return new Response(themedHtml, { status: response.status, statusText: response.statusText, headers });"""
-          if text.count(old_worker) != 1:
-              raise SystemExit(f"Expected exactly one temporary Worker override, found {text.count(old_worker)}")
-          worker.write_text(text.replace(old_worker, new_worker, 1))
+          worker_pattern = re.compile(
+              r"    // Temporary live tuning pass for the AK viewmodel\.[\s\S]*?    return new Response\(tunedHtml, \{ status: response\.status, statusText: response\.statusText, headers \}\);"
+          )
+          text, worker_count = worker_pattern.subn(
+              "    return new Response(themedHtml, { status: response.status, statusText: response.statusText, headers });",
+              text,
+              count=1,
+          )
+          if worker_count != 1:
+              raise SystemExit(f"Expected exactly one temporary Worker override, found {worker_count}")
+          worker.write_text(text)
           PY
 
       - name: Remove one-off workflow
