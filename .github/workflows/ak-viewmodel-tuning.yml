@@ -23,25 +23,20 @@ jobs:
           path = Path("public/index.html")
           text = path.read_text()
 
-          old_ak = """  ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[-.003,-.052,-.190],
-    sightX:-.0026,sightY:.046,hip:[.395,-.285,-.545],hipDrop:.034},"""
-          new_ak = """  ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[-.003,-.052,-.190],
-    sightX:-.0026,sightY:.046,hip:[.385,-.295,-.595],hipYaw:.035,hipDrop:.034},"""
+          old_ak = "  ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[-.003,-.052,-.190],\n    sightX:-.0026,sightY:.046,hip:[.395,-.285,-.545],hipDrop:.034},"
+          new_ak = "  ak74u:{file:'ak47',length:.95,grip:[.002,-.105,.305],support:[-.003,-.052,-.190],\n    sightX:-.0026,sightY:.046,hip:[.385,-.295,-.595],hipYaw:.035,hipDrop:.034},"
           if text.count(old_ak) != 1:
               raise SystemExit(f"Expected one AK config block, found {text.count(old_ak)}")
           text = text.replace(old_ak, new_ak, 1)
 
-          old_load = """    d.sourceViewDrop=cfg.hipDrop||0;
-    if(cfg.hip)d.hip.set(cfg.hip[0],cfg.hip[1],cfg.hip[2]);"""
-          new_load = """    d.sourceViewDrop=cfg.hipDrop||0;
-    d.sourceHipYaw=cfg.hipYaw||0;
-    if(cfg.hip)d.hip.set(cfg.hip[0],cfg.hip[1],cfg.hip[2]);"""
+          old_load = "    d.sourceViewDrop=cfg.hipDrop||0;\n    if(cfg.hip)d.hip.set(cfg.hip[0],cfg.hip[1],cfg.hip[2]);"
+          new_load = "    d.sourceViewDrop=cfg.hipDrop||0;\n    d.sourceHipYaw=cfg.hipYaw||0;\n    if(cfg.hip)d.hip.set(cfg.hip[0],cfg.hip[1],cfg.hip[2]);"
           if text.count(old_load) != 1:
               raise SystemExit(f"Expected one sourced weapon load block, found {text.count(old_load)}")
           text = text.replace(old_load, new_load, 1)
 
-          old_rot = """    lerp(-0.07,0,d.adsMix)+d.sprintMix*0.62,"""
-          new_rot = """    lerp(-0.07+(d.sourceHipYaw||0),0,d.adsMix)+d.sprintMix*0.62,"""
+          old_rot = "    lerp(-0.07,0,d.adsMix)+d.sprintMix*0.62,"
+          new_rot = "    lerp(-0.07+(d.sourceHipYaw||0),0,d.adsMix)+d.sprintMix*0.62,"
           if text.count(old_rot) != 1:
               raise SystemExit(f"Expected one viewmodel yaw line, found {text.count(old_rot)}")
           text = text.replace(old_rot, new_rot, 1)
