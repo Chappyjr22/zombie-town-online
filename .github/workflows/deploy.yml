@@ -1,3 +1,5 @@
+# Bot-authored source commits do not chain-trigger this workflow, so a connector
+# commit can intentionally touch this file when the latest main needs deploying.
 name: Deploy
 
 on:
